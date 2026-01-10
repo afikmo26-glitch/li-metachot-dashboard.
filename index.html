@@ -252,14 +252,20 @@
                                 class="text-xs text-red-400 hover:text-red-300 font-bold underline mb-2">
                                 + הוסף קבוצות ידנית (לפי ID)
                             </button>
-                            <div id="manual-groups-area" class="hidden animate-fade-in">
+                            <div id="manual-groups-area" class="hidden animate-fade-in text-right">
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="text-[10px] text-slate-400">רשימת קבוצות שמורות:</span>
+                                    <button onclick="addNewGroup()" class="text-[10px] text-blue-400 hover:text-white">+
+                                        חדש</button>
+                                </div>
+                                <div id="saved-groups-list" class="max-h-32 overflow-y-auto mb-2 pr-1 custom-scrollbar">
+                                </div>
+
                                 <textarea id="manual-group-ids"
                                     class="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs text-white font-mono h-20 focus:ring-1 focus:ring-red-500 outline-none"
-                                    placeholder="הדבק כאן מספרי קבוצות (ID). לדוגמה:
-123456789
-987654321"></textarea>
-                                <div class="text-[10px] text-slate-500 mt-1">* ניתן להכניס מספר קבוצות (כל אחת בשורה
-                                    חדשה)</div>
+                                    placeholder="כאן יופיעו ה-ID של הקבוצות שתוסיף..."></textarea>
+                                <div class="text-[10px] text-slate-500 mt-1">* כדי לפרסם, וודא שיש כאן מספרים (IDs).
+                                </div>
                             </div>
                         </div>
 
@@ -270,11 +276,23 @@
                     </div>
 
                     <div>
-                        <label class="block text-slate-500 text-xs font-black uppercase tracking-widest mb-3">טקסט הפוסט
-                            (Caption)</label>
+                        <div class="flex justify-between items-end mb-3">
+                            <label class="block text-slate-500 text-xs font-black uppercase tracking-widest">טקסט הפוסט
+                                (Caption)</label>
+                            <div class="flex gap-2">
+                                <button onclick="generateOfflineTemplate()"
+                                    class="text-xs bg-slate-800 hover:bg-slate-700 text-orange-400 px-3 py-1 rounded-lg border border-orange-500/20 shadow-lg transition-all flex items-center gap-1">
+                                    <i data-lucide="zap" class="w-3 h-3"></i> חולל טקסט
+                                </button>
+                                <button onclick="showSection('assistant')"
+                                    class="text-xs bg-slate-800 hover:bg-slate-700 text-blue-400 px-3 py-1 rounded-lg border border-blue-500/20 shadow-lg transition-all flex items-center gap-1">
+                                    <i data-lucide="bot" class="w-3 h-3"></i> עוזר AI
+                                </button>
+                            </div>
+                        </div>
                         <textarea id="post-caption"
                             class="w-full bg-black/40 border border-white/5 rounded-2xl p-6 text-white h-48 focus:ring-2 focus:ring-red-600 outline-none transition-all placeholder:text-slate-800"
-                            placeholder="כתוב כאן משהו מרגש..."></textarea>
+                            placeholder="כתוב כאן משהו מרגש... או לחץ על 'חולל טקסט' לעזרה"></textarea>
                     </div>
 
                     <div>
@@ -1149,6 +1167,122 @@
             } catch (e) { alert('שגיאה בתקשורת'); }
         }
 
+        // --- OFFLINE TEMPLATE GENERATOR ---
+        const TEMPLATES = {
+            intros: [
+                "🚧 שימו לב! אנחנו בשטח עובדים במרץ!",
+                "🔨 עוד פרויקט מוצלח של לי מתכות יוצא לדרך.",
+                "♻️ ממחזרים ושומרים על הסביבה – זה אנחנו.",
+                "🏭 מפעלים עוברים דירה? אנחנו כאן לפינוי.",
+                "🏘️ בונים או משפצים? אל תשכחו את פינוי הברזל.",
+                "🛑 עצרו רגע! יש לכם פסולת מתכת ששווה כסף?",
+                "🏗️ עבודות מנוף בכל הגבהים – זמינות מיידית.",
+                "💪 לי מתכות – כוח, מקצועיות ואמינות ללא פשרות.",
+                "📢 הודעה חשובה לכל הקבלנים והשיפוצניקים באזור."
+            ],
+            bodies: [
+                "אנחנו מתמחים בפינוי מפעלים, מחסנים וגרוטאות ברזל מכל סוג.",
+                "קונים את כל סוגי המתכות: ברזל, אלומיניום, נחושת, נירוסטה ומצברים – במחירים הטובים בשוק.",
+                "צריכים פינוי מהיר? המשאית והמנוף שלנו כבר בדרך אליכם.",
+                "מבצעים עבודות חיתוך ופירוק קונסטרוקציות מורכבות בצורה בטיחותית ומקצועית.",
+                "שירותי מנוף והובלה עד 15 טון – מגיעים לכל מקום בארץ.",
+                "אל תזרקו כסף לפח! אנחנו משלמים במזומן/העברה על המקום תמורת הברזל שלכם.",
+                "מייצרים ומתקינים שערים, גדרות ומעקות ברזל בהתאמה אישית מלאה.",
+                "צוות מיומן ומקצועי עם כל הביטוחים והאישורים הנדרשים."
+            ],
+            footers: [
+                "📞 חייגו עכשיו להצעת מחיר: 054-568-7588",
+                "☎️ זמינים לכם בטלפון: 054-568-7588 (אמיר)",
+                "📩 שלחו לנו הודעה בפרטי או בוואטסאפ לתיאום.",
+                "📍 לי מתכות – הכתובת שלכם למחזור ופינוי.",
+                "🚚 מגיעים לכל חלקי הארץ – צרו קשר עוד היום!"
+            ]
+        };
+
+        function generateOfflineTemplate() {
+            const intro = TEMPLATES.intros[Math.floor(Math.random() * TEMPLATES.intros.length)];
+            const body = TEMPLATES.bodies[Math.floor(Math.random() * TEMPLATES.bodies.length)];
+            const footer = TEMPLATES.footers[Math.floor(Math.random() * TEMPLATES.footers.length)];
+
+            const text = `${intro}\n\n${body}\n\n${footer}`;
+            document.getElementById('post-caption').value = text;
+            document.getElementById('post-caption').dispatchEvent(new Event('input'));
+        }
+
+        // --- SAVED GROUPS MANAGEMENT ---
+        // Pre-defined groups from user
+        const DEFAULT_GROUPS = [
+            { name: "גן נר שלי", url: "https://www.facebook.com/share/g/1AJnEwiDHS/" },
+            { name: "אלומיניום ישראל", url: "https://www.facebook.com/share/g/1D1nGQ1BGN/" },
+            { name: "מסגרים ויוצרי מתכת", url: "https://www.facebook.com/groups/71234567" },
+            { name: "קבלני בניין ושיפוצים", url: "https://www.facebook.com/groups/buildisrael" }
+        ];
+
+        let savedGroups = JSON.parse(localStorage.getItem('savedGroups') || JSON.stringify(DEFAULT_GROUPS));
+
+        function renderSavedGroups() {
+            const container = document.getElementById('saved-groups-list');
+            if (!container) return;
+
+            container.innerHTML = savedGroups.map((g, i) => `
+                <div class="flex items-center justify-between bg-white/5 p-2 rounded-lg mb-2">
+                    <div class="flex-1 min-w-0 mr-2">
+                        <div class="font-bold text-xs text-white truncate">${g.name}</div>
+                        <a href="${g.url}" target="_blank" class="text-[10px] text-blue-400 hover:underline truncate block">פתח קבוצה למציאת ID</a>
+                    </div>
+                    <button onclick="addIdToInput(${i})" class="bg-slate-700 hover:bg-slate-600 text-white text-[10px] px-2 py-1 rounded ml-1">
+                        הוסף
+                    </button>
+                    <button onclick="removeSavedGroup(${i})" class="text-slate-500 hover:text-red-400 px-2">
+                        <i data-lucide="x" class="w-3 h-3"></i>
+                    </button>
+                </div>
+            `).join('');
+
+            // Also update manual input placeholder or helper
+        }
+
+        function addIdToInput(index) {
+            const g = savedGroups[index];
+            const current = document.getElementById('manual-group-ids').value;
+            // Try to extract ID from URL if possible (very basic)
+            let id = "";
+            const match = g.url.match(/groups\/(\d+)/);
+            if (match) {
+                id = match[1];
+            } else {
+                id = prompt(`לא נמצא ID בקישור. ${g.name}\n\nאנא הכנס את ה-ID של הקבוצה (מספר):`);
+            }
+
+            if (id) {
+                const newVal = current ? current + "\n" + id : id;
+                document.getElementById('manual-group-ids').value = newVal;
+            }
+        }
+
+        function removeSavedGroup(index) {
+            if (!confirm('להסיר מהרשימה?')) return;
+            savedGroups.splice(index, 1);
+            localStorage.setItem('savedGroups', JSON.stringify(savedGroups));
+            renderSavedGroups();
+        }
+
+        function addNewGroup() {
+            const name = prompt("שם הקבוצה:");
+            if (!name) return;
+            const url = prompt("קישור לקבוצה:");
+            if (!url) return;
+
+            savedGroups.push({ name, url });
+            localStorage.setItem('savedGroups', JSON.stringify(savedGroups));
+            renderSavedGroups();
+        }
+
+        // Init
+        document.addEventListener('DOMContentLoaded', () => {
+            renderSavedGroups();
+        });
+
         // --- NAV ---
         function showSection(id) {
             ['dashboard', 'editor', 'gallery', 'scheduler', 'settings', 'assistant'].forEach(s => {
@@ -1160,6 +1294,7 @@
 
             // Specific Loaders
             if (id === 'gallery') loadCampaigns();
+            if (id === 'editor') renderSavedGroups(); // Refresh groups when opening editor
 
             document.querySelectorAll('.nav-btn').forEach(b => {
                 b.classList.remove('bg-slate-800', 'text-orange-500');
