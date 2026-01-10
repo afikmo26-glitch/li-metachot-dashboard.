@@ -1,7 +1,7 @@
 __pycache__/
 *.pyc
-static/uploads/
-li_data.json
+# static/uploads/
+# li_data.json
 .env
 .DS_Store
 node_modules/
