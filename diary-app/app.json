@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "היומן שלי",
+    "slug": "my-life-diary",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mylifediary.app",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "האפליקציה מקליטה את היומן היומי שלך."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#14102B",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.mylifediary.app"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "האפליקציה מקליטה את היומן היומי שלך."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#8B5CF6"
+        }
+      ],
+      "expo-asset"
+    ],
+    "backgroundColor": "#14102B"
+  }
+}
