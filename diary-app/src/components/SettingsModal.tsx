@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Account, changePassword, saveAccount } from '../lib/account';
 import { pad } from '../lib/dates';
 import { scheduleBedtime, scheduleMorningRecap, sendTestNotification } from '../lib/notifications';
 import { useStore } from '../lib/store';
@@ -8,7 +9,15 @@ import { colors, gradients } from '../lib/theme';
 import type { Settings } from '../lib/types';
 import { Card, GhostButton, GradientButton, Input, Row, SectionTitle, T, tap } from './ui';
 
-export default function SettingsModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+type Props = {
+  visible: boolean;
+  onClose: () => void;
+  account: Account;
+  onAccountChange: (a: Account) => void;
+  onLock: () => void;
+};
+
+export default function SettingsModal({ visible, onClose, account, onAccountChange, onLock }: Props) {
   const { settings, updateSettings, entries, people } = useStore();
   const [draft, setDraft] = useState<Settings>(settings);
 
@@ -32,7 +41,10 @@ export default function SettingsModal({ visible, onClose }: { visible: boolean; 
             </Pressable>
           </Row>
 
-          <SectionTitle>👤 איך לקרוא לך?</SectionTitle>
+          <SectionTitle>👤 החשבון שלי</SectionTitle>
+          <AccountCard account={account} onAccountChange={onAccountChange} onLock={onLock} />
+
+          <SectionTitle>איך לקרוא לך?</SectionTitle>
           <Input value={draft.userName} onChangeText={(userName) => setDraft({ ...draft, userName })} placeholder="השם שלך" />
 
           <SectionTitle>🌙 תזכורת לפני השינה</SectionTitle>
@@ -87,7 +99,77 @@ export default function SettingsModal({ visible, onClose }: { visible: boolean; 
   );
 }
 
-function TimePicker({
+function AccountCard({ account, onAccountChange, onLock }: { account: Account; onAccountChange: (a: Account) => void; onLock: () => void }) {
+  const [changing, setChanging] = useState(false);
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
+
+  const toggleLock = async (lockEnabled: boolean) => {
+    const a = { ...account, lockEnabled };
+    await saveAccount(a);
+    onAccountChange(a);
+  };
+
+  const submit = async () => {
+    const res = await changePassword(account, current, next);
+    if (typeof res === 'string') {
+      setMsg({ text: res, ok: false });
+      return;
+    }
+    onAccountChange(res);
+    setMsg({ text: 'הסיסמה עודכנה ✓', ok: true });
+    setCurrent('');
+    setNext('');
+    setChanging(false);
+  };
+
+  return (
+    <Card>
+      <Row style={{ alignItems: 'center', gap: 12 }}>
+        <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
+          <T bold size={22} style={{ color: '#fff', textAlign: 'center' }}>
+            {account.displayName.slice(0, 1)}
+          </T>
+        </View>
+        <View style={{ flex: 1 }}>
+          <T bold size={17}>
+            {account.displayName}
+          </T>
+          <T dim size={14}>
+            @{account.username}
+          </T>
+        </View>
+      </Row>
+      <Row style={{ justifyContent: 'space-between', alignItems: 'center', marginTop: 14 }}>
+        <T style={{ flex: 1 }}>🔒 בקש סיסמה בכל פתיחה</T>
+        <Switch value={account.lockEnabled} onValueChange={toggleLock} trackColor={{ true: colors.primary, false: colors.border }} />
+      </Row>
+      {changing ? (
+        <View style={{ gap: 8, marginTop: 12 }}>
+          <Input value={current} onChangeText={setCurrent} placeholder="סיסמה נוכחית" secureTextEntry />
+          <Input value={next} onChangeText={setNext} placeholder="סיסמה חדשה" secureTextEntry />
+          <Row style={{ gap: 10 }}>
+            <GradientButton small title="עדכן" colors={gradients.primary} onPress={submit} />
+            <GhostButton title="ביטול" onPress={() => setChanging(false)} />
+          </Row>
+        </View>
+      ) : (
+        <Row style={{ gap: 10, marginTop: 12 }}>
+          <GhostButton title="שינוי סיסמה" onPress={() => setChanging(true)} style={{ flex: 1 }} />
+          {account.lockEnabled && <GhostButton title="נעל עכשיו" onPress={onLock} style={{ flex: 1 }} />}
+        </Row>
+      )}
+      {msg && (
+        <T size={14} style={{ marginTop: 8, color: msg.ok ? colors.green : colors.red }}>
+          {msg.text}
+        </T>
+      )}
+    </Card>
+  );
+}
+
+export function TimePicker({
   hour,
   minute,
   onChange,
@@ -114,13 +196,14 @@ function TimePicker({
   };
   return (
     <Row style={{ justifyContent: 'center', alignItems: 'center', marginTop: 16, gap: 18 }}>
-      <Stepper onUp={() => step(1, 0)} onDown={() => step(-1, 0)} />
+      {/* Row is right-to-left but "22:30" reads left-to-right: minutes arrows go on the right, hours on the left */}
+      {!hourOnly && <Stepper onUp={() => step(0, 15)} onDown={() => step(0, -15)} />}
       <View style={{ backgroundColor: colors.bgDeep, borderRadius: 16, paddingHorizontal: 20, paddingVertical: 10 }}>
         <T bold size={34} style={{ textAlign: 'center', fontVariant: ['tabular-nums'] }}>
           {pad(hour)}:{pad(minute)}
         </T>
       </View>
-      {!hourOnly && <Stepper onUp={() => step(0, 15)} onDown={() => step(0, -15)} />}
+      <Stepper onUp={() => step(1, 0)} onDown={() => step(-1, 0)} />
     </Row>
   );
 }

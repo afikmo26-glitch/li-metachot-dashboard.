@@ -7,10 +7,12 @@ import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-
 import EntryModal from './src/components/EntryModal';
 import SettingsModal from './src/components/SettingsModal';
 import { T, tap } from './src/components/ui';
+import { Account, loadAccount } from './src/lib/account';
 import { scheduleBedtime } from './src/lib/notifications';
 import { StoreProvider, useStore } from './src/lib/store';
 import { colors, gradients } from './src/lib/theme';
 import ArchiveScreen from './src/screens/ArchiveScreen';
+import { Login, Onboarding } from './src/screens/AuthScreens';
 import CalendarScreen from './src/screens/CalendarScreen';
 import GameScreen from './src/screens/GameScreen';
 import PeopleScreen from './src/screens/PeopleScreen';
@@ -31,11 +33,17 @@ const TABS: { key: Tab; label: string; icon: string }[] = [
 ];
 
 function Main() {
-  const { ready, settings } = useStore();
+  const { ready, settings, clearAll } = useStore();
+  const [account, setAccount] = useState<Account | null | undefined>(undefined);
+  const [unlocked, setUnlocked] = useState(false);
   const [tab, setTab] = useState<Tab>('today');
   const [entryId, setEntryId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+    loadAccount().then(setAccount);
+  }, []);
 
   // Make sure the nightly reminder is scheduled once settings are loaded
   useEffect(() => {
@@ -57,11 +65,35 @@ function Main() {
     return () => sub.remove();
   }, []);
 
-  if (!ready) {
+  if (!ready || account === undefined) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg }}>
         <ActivityIndicator color={colors.primary} size="large" />
       </View>
+    );
+  }
+
+  if (!account) {
+    return (
+      <Onboarding
+        onDone={(a) => {
+          setAccount(a);
+          setUnlocked(true);
+        }}
+      />
+    );
+  }
+
+  if (account.lockEnabled && !unlocked) {
+    return (
+      <Login
+        account={account}
+        onUnlock={() => setUnlocked(true)}
+        onReset={() => {
+          clearAll();
+          setAccount(null);
+        }}
+      />
     );
   }
 
@@ -119,7 +151,16 @@ function Main() {
       </View>
 
       <EntryModal entryId={entryId} onClose={() => setEntryId(null)} />
-      <SettingsModal visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SettingsModal
+        visible={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        account={account}
+        onAccountChange={setAccount}
+        onLock={() => {
+          setSettingsOpen(false);
+          setUnlocked(false);
+        }}
+      />
     </LinearGradient>
   );
 }

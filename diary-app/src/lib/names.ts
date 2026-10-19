@@ -64,6 +64,11 @@ export function suggestNewNames(text: string, people: Person[]): string[] {
     new RegExp(`(${WORD}{2,})\\s+(?:אמרה|אמר|סיפרה|סיפר|ביקשה|ביקש|שאלה|שאל|התקשרה|התקשר|צחקה|צחק)(?!${WORD})`, 'g'),
     new RegExp(`(?:פגשתי את|דיברתי עם|נפגשתי עם|ישבתי עם|יצאתי עם|התקשרתי ל|ראיתי את)\\s+(${WORD}{2,})`, 'g'),
   ];
+  // "אכלתי עם גלעד" — but not "עם החברים" (a leading ה is the definite article, not a name)
+  for (const m of text.matchAll(new RegExp(`(?:^|\\s)[וש]?עם\\s+(${WORD}{2,})`, 'g'))) {
+    const w = m[1].length >= 4 && m[1].startsWith('ו') ? m[1].slice(1) : m[1];
+    if (!w.startsWith('ה') && !STOPWORDS.has(w) && w.length <= 12) found.add(w);
+  }
   for (const re of patterns) {
     for (const m of text.matchAll(re)) {
       // "וגלעד סיפר" -> "גלעד" (a leading ו is almost always "and")

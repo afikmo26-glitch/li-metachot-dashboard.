@@ -2,6 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, ScrollView, Text, View } from 'react-native';
 import { Card, GhostButton, GradientButton, notify, Row, T, tap } from '../components/ui';
+import { achievements } from '../lib/achievements';
 import { buildQuestions, demoData, levelInfo, Question, QUESTION_SECONDS, ROUND_SIZE } from '../lib/game';
 import { useStore } from '../lib/store';
 import { colors, gradients } from '../lib/theme';
@@ -143,6 +144,8 @@ export default function GameScreen() {
       )}
       <GhostButton title="🎲 נסה משחק דמו" onPress={() => start(true)} style={{ marginTop: 10 }} />
 
+      <Badges />
+
       <Card style={{ marginTop: 18 }}>
         <T bold style={{ marginBottom: 8 }}>
           איך משחקים?
@@ -153,6 +156,50 @@ export default function GameScreen() {
         </T>
       </Card>
     </ScrollView>
+  );
+}
+
+function Badges() {
+  const { entries, people, game } = useStore();
+  const list = achievements(entries, people, game);
+  const earned = list.filter((a) => a.done).length;
+  return (
+    <Card style={{ marginTop: 18 }}>
+      <Row style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <T bold>🏆 הישגים</T>
+        <T dim size={13}>
+          {earned}/{list.length}
+        </T>
+      </Row>
+      <Row style={{ flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12 }}>
+        {list.map((a) => (
+          <View key={a.id} style={{ width: '23%', alignItems: 'center', opacity: a.done ? 1 : 0.45 }}>
+            <View
+              style={{
+                width: 54,
+                height: 54,
+                borderRadius: 27,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: a.done ? colors.cardHi : colors.bgDeep,
+                borderWidth: 2,
+                borderColor: a.done ? colors.yellow : colors.border,
+              }}
+            >
+              <Text style={{ fontSize: 24 }}>{a.done ? a.emoji : '🔒'}</Text>
+            </View>
+            <T bold size={11} style={{ textAlign: 'center', marginTop: 4 }} numberOfLines={2}>
+              {a.title}
+            </T>
+            {!a.done && (
+              <T dim size={10} style={{ textAlign: 'center' }} numberOfLines={2}>
+                {a.hint}
+              </T>
+            )}
+          </View>
+        ))}
+      </Row>
+    </Card>
   );
 }
 

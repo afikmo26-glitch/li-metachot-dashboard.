@@ -36,6 +36,8 @@ type Store = {
   deleteEvent: (id: string) => void;
   updateSettings: (patch: Partial<Settings>) => void;
   updateGame: (patch: Partial<GameStats>) => void;
+  /** Forget everything in memory (after the storage was wiped) */
+  clearAll: () => void;
 };
 
 const Ctx = createContext<Store | null>(null);
@@ -169,6 +171,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const clearAll = useCallback(() => {
+    setEntries([]);
+    setPeople([]);
+    peopleRef.current = [];
+    setEvents([]);
+    setSettings(DEFAULT_SETTINGS);
+    setGame(DEFAULT_GAME_STATS);
+  }, []);
+
   const value = useMemo<Store>(
     () => ({
       ready,
@@ -186,8 +197,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       deleteEvent,
       updateSettings,
       updateGame,
+      clearAll,
     }),
-    [ready, entries, people, events, settings, game, saveEntry, deleteEntry, addPerson, updatePerson, deletePerson, saveEvent, deleteEvent, updateSettings, updateGame],
+    [ready, entries, people, events, settings, game, saveEntry, deleteEntry, addPerson, updatePerson, deletePerson, saveEvent, deleteEvent, updateSettings, updateGame, clearAll],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

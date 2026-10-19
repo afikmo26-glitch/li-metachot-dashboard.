@@ -13,7 +13,11 @@ export type Entry = {
   mood: number; // 1..5
   people: string[]; // person ids
   quotes: Quote[];
+  /** The conversation with the diary bot, when the entry was made by chatting */
+  chat?: ChatMessage[];
 };
+
+export type ChatMessage = { from: 'bot' | 'me'; text: string };
 
 export type Person = {
   id: string;

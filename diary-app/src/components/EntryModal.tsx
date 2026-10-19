@@ -14,6 +14,7 @@ export default function EntryModal({ entryId, onClose }: { entryId: string | nul
   const entry = entries.find((e) => e.id === entryId);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
+  const [showChat, setShowChat] = useState(false);
 
   useEffect(() => {
     setEditing(false);
@@ -86,6 +87,26 @@ export default function EntryModal({ entryId, onClose }: { entryId: string | nul
               </Pressable>
             )}
           </Card>
+
+          {entry.chat && entry.chat.length > 0 && (
+            <>
+              <Pressable onPress={() => setShowChat((v) => !v)} style={{ marginTop: 14 }}>
+                <T bold style={{ color: colors.primaryHi }}>
+                  💬 {showChat ? 'הסתר' : 'הצג'} את השיחה עם יומי ({entry.chat.length} הודעות)
+                </T>
+              </Pressable>
+              {showChat &&
+                entry.chat.map((m, i) => (
+                  <View key={i} style={{ flexDirection: 'row', justifyContent: m.from === 'me' ? 'flex-start' : 'flex-end', marginTop: 8 }}>
+                    <View style={{ maxWidth: '85%', backgroundColor: m.from === 'me' ? colors.primary : colors.cardHi, borderRadius: 16, padding: 10 }}>
+                      <T size={14} style={{ color: '#fff' }}>
+                        {m.text}
+                      </T>
+                    </View>
+                  </View>
+                ))}
+            </>
+          )}
 
           {entry.people.length > 0 && (
             <>

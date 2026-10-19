@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { Alert, Keyboard, Pressable, ScrollView, Text, View } from 'react-native';
+import ChatModal, { BotAvatar, BOT_NAME, PendingRecording } from '../components/ChatModal';
 import Recorder from '../components/Recorder';
 import { Card, Chip, GradientButton, Input, notify, Row, SectionTitle, T, tap } from '../components/ui';
 import { persistRecording } from '../lib/audio';
-import { computeStreak, dayKey, formatLongDate, formatShortDate, formatTimeSeconds, greeting, parseDayKey } from '../lib/dates';
+import { computeStreak, dayKey, HEB_DAYS_SHORT, formatLongDate, formatShortDate, formatTimeSeconds, greeting, parseDayKey } from '../lib/dates';
 import { extractQuotes, findKnownPeople, suggestNewNames } from '../lib/names';
 import { scheduleMorningRecap } from '../lib/notifications';
 import { newId, personName, useStore } from '../lib/store';
@@ -16,7 +17,8 @@ export default function TodayScreen({ onOpenSettings, onOpenEntry }: Props) {
   const { entries, people, events, settings, saveEntry, addPerson } = useStore();
   const [text, setText] = useState('');
   const [mood, setMood] = useState(3);
-  const [recording, setRecording] = useState<{ uri: string; durationMs: number; startedAt: Date } | null>(null);
+  const [recording, setRecording] = useState<PendingRecording | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const [manual, setManual] = useState<string[]>([]);
   const [newName, setNewName] = useState('');
@@ -131,6 +133,27 @@ export default function TodayScreen({ onOpenSettings, onOpenEntry }: Props) {
         <Stat emoji="👥" value={people.length} label="אנשים" />
       </Row>
 
+      <WeekStrip />
+
+      <Pressable onPress={() => setChatOpen(true)} style={({ pressed }) => ({ marginTop: 14, opacity: pressed ? 0.85 : 1 })}>
+        <Card style={{ borderColor: colors.primary }}>
+          <Row style={{ alignItems: 'center', gap: 12 }}>
+            <BotAvatar size={46} />
+            <View style={{ flex: 1 }}>
+              <T bold size={17}>
+                דבר עם {BOT_NAME} על היום
+              </T>
+              <T dim size={13}>
+                אשאל אותך כמה שאלות ואכתוב את היומן בשבילך
+              </T>
+            </View>
+            <T dim size={20}>
+              ‹
+            </T>
+          </Row>
+        </Card>
+      </Pressable>
+
       {todayEvents.length > 0 && (
         <Card style={{ marginTop: 14, borderColor: colors.orange }}>
           {todayEvents.map((ev) => (
@@ -145,7 +168,13 @@ export default function TodayScreen({ onOpenSettings, onOpenEntry }: Props) {
         <T bold size={20} style={{ textAlign: 'center' }}>
           איך היה היום שלך?
         </T>
-        <Recorder hasRecording={!!recording} onRecorded={(uri, durationMs, startedAt) => setRecording({ uri, durationMs, startedAt })} />
+        <Recorder
+          hasRecording={!!recording}
+          onRecorded={(uri, durationMs, startedAt) => {
+            setRecording({ uri, durationMs, startedAt });
+            setChatOpen(true);
+          }}
+        />
 
         <Input
           multiline
@@ -250,7 +279,63 @@ export default function TodayScreen({ onOpenSettings, onOpenEntry }: Props) {
           </Pressable>
         </>
       )}
+      <ChatModal
+        visible={chatOpen}
+        recording={recording}
+        onClose={() => setChatOpen(false)}
+        onSaved={(entry) => {
+          setChatOpen(false);
+          setRecording(null);
+          Alert.alert('נשמר בארכיון ✨', `${formatLongDate(entry.createdAt)}\nבשעה ${formatTimeSeconds(entry.createdAt)}`);
+        }}
+      />
     </ScrollView>
+  );
+}
+
+/** Mood of each of the last 7 days, today on the left (RTL: oldest on the right). */
+function WeekStrip() {
+  const { entries } = useStore();
+  const days = useMemo(() => {
+    const out: { key: string; label: string; mood: number | null; today: boolean }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const k = dayKey(d);
+      const es = entries.filter((e) => dayKey(e.createdAt) === k);
+      out.push({
+        key: k,
+        label: HEB_DAYS_SHORT[d.getDay()],
+        mood: es.length ? Math.round(es.reduce((a, e) => a + e.mood, 0) / es.length) : null,
+        today: i === 0,
+      });
+    }
+    return out;
+  }, [entries]);
+  return (
+    <Card style={{ marginTop: 14, paddingVertical: 12 }}>
+      <T bold size={15} style={{ marginBottom: 10 }}>
+        השבוע שלך
+      </T>
+      <Row style={{ justifyContent: 'space-between', alignItems: 'flex-end' }}>
+        {days.map((d) => (
+          <View key={d.key} style={{ alignItems: 'center', flex: 1 }}>
+            <View
+              style={{
+                width: 18,
+                height: d.mood ? 14 + d.mood * 9 : 6,
+                borderRadius: 9,
+                backgroundColor: d.mood ? [colors.red, colors.orange, colors.yellow, colors.green, colors.primaryHi][d.mood - 1] : colors.border,
+              }}
+            />
+            <Text style={{ fontSize: 16, marginTop: 6 }}>{d.mood ? MOODS[d.mood - 1] : '·'}</Text>
+            <T dim={!d.today} bold={d.today} size={11} style={{ textAlign: 'center' }}>
+              {d.label}
+            </T>
+          </View>
+        ))}
+      </Row>
+    </Card>
   );
 }
 

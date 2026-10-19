@@ -7,7 +7,7 @@ import type { CalendarEvent, Entry, Person, Settings } from './types';
 const CHANNEL = 'diary';
 const IDS_KEY = 'diary.notifIds.v1';
 
-type ScheduledIds = { bedtime?: string; recap?: string };
+type ScheduledIds = { bedtime?: string; recap?: string; todo?: string };
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -112,6 +112,24 @@ export async function scheduleMorningRecap(settings: Settings, entry: Entry | un
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: when, channelId: CHANNEL },
       });
     }
+  }
+  await setIds(ids);
+}
+
+/** "Remind me tomorrow" from the chat — fires next morning at the recap hour. */
+export async function scheduleTomorrowReminder(settings: Settings, note: string) {
+  if (Platform.OS === 'web') return;
+  const ids = await getIds();
+  await cancel(ids.todo);
+  ids.todo = undefined;
+  if (await ensurePermissions()) {
+    const when = new Date();
+    when.setDate(when.getDate() + 1);
+    when.setHours(settings.morningHour, 5, 0, 0);
+    ids.todo = await Notifications.scheduleNotificationAsync({
+      content: { title: '📝 ביקשת שאזכיר לך', body: note, data: { screen: 'today' } },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: when, channelId: CHANNEL },
+    });
   }
   await setIds(ids);
 }
