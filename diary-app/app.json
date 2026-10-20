@@ -21,7 +21,8 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.mylifediary.app"
+      "package": "com.mylifediary.app",
+      "allowBackup": false
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -39,7 +40,8 @@
           "color": "#8B5CF6"
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      "expo-secure-store"
     ],
     "backgroundColor": "#14102B"
   }

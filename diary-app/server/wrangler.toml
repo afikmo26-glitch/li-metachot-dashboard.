@@ -1,0 +1,8 @@
+name = "diary-ai"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Secrets (set in the Cloudflare dashboard → Settings → Variables and Secrets):
+#   ANTHROPIC_API_KEY  – from console.anthropic.com
+#   APP_KEY            – any long random password; type the same one in the app settings

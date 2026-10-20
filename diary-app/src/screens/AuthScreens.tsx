@@ -245,18 +245,40 @@ function ReminderStep({ onDone }: { onDone: () => void }) {
 }
 
 /** Shown on app open when the account has "ask for password" on. */
-export function Login({ account, onUnlock, onReset }: { account: Account; onUnlock: () => void; onReset: () => void }) {
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_SECONDS = 30;
+
+export function Login({ account, onUnlock, onReset }: { account: Account; onUnlock: (a: Account) => void; onReset: () => void }) {
   const [username, setUsername] = useState(account.username);
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [forgot, setForgot] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [fails, setFails] = useState(0);
+  const [lockedUntil, setLockedUntil] = useState(0);
 
   const login = async () => {
-    if (await checkLogin(account, username, password)) {
-      onUnlock();
+    if (busy) return;
+    const wait = Math.ceil((lockedUntil - Date.now()) / 1000);
+    if (wait > 0) {
+      setError(`יותר מדי ניסיונות. נסה שוב בעוד ${wait} שניות`);
+      return;
+    }
+    setBusy(true);
+    const ok = await checkLogin(account, username, password);
+    setBusy(false);
+    if (ok) {
+      onUnlock(ok);
+      return;
+    }
+    const n = fails + 1;
+    setFails(n);
+    setPassword('');
+    if (n % MAX_ATTEMPTS === 0) {
+      setLockedUntil(Date.now() + LOCKOUT_SECONDS * 1000);
+      setError(`${MAX_ATTEMPTS} ניסיונות שגויים. הכניסה נחסמה ל-${LOCKOUT_SECONDS} שניות`);
     } else {
       setError('שם משתמש או סיסמה שגויים');
-      setPassword('');
     }
   };
 
@@ -283,7 +305,7 @@ export function Login({ account, onUnlock, onReset }: { account: Account; onUnlo
         <Input value={password} onChangeText={setPassword} placeholder="סיסמה" secureTextEntry onSubmitEditing={login} autoFocus />
       </View>
       {error && <Notice text={error} color={colors.red} />}
-      <GradientButton title="כניסה" colors={gradients.primary} onPress={login} style={{ marginTop: 18 }} />
+      <GradientButton title={busy ? 'בודק…' : 'כניסה'} colors={gradients.primary} onPress={login} disabled={busy} style={{ marginTop: 18 }} />
 
       {!forgot ? (
         <GhostButton title="שכחתי סיסמה" onPress={() => setForgot(true)} style={{ marginTop: 10, borderWidth: 0 }} />

@@ -17,18 +17,20 @@ import CalendarScreen from './src/screens/CalendarScreen';
 import GameScreen from './src/screens/GameScreen';
 import PeopleScreen from './src/screens/PeopleScreen';
 import TodayScreen from './src/screens/TodayScreen';
+import VentScreen from './src/screens/VentScreen';
 
 // Layout is pinned LTR and every screen lays itself out right-to-left explicitly,
 // so it looks the same whatever the phone's language is.
 I18nManager.allowRTL(false);
 I18nManager.forceRTL(false);
 
-type Tab = 'today' | 'archive' | 'calendar' | 'people' | 'game';
+type Tab = 'today' | 'archive' | 'calendar' | 'people' | 'vent' | 'game';
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'today', label: 'היום', icon: '🎙️' },
   { key: 'archive', label: 'ארכיון', icon: '📚' },
   { key: 'calendar', label: 'לוח שנה', icon: '🗓️' },
   { key: 'people', label: 'אנשים', icon: '👥' },
+  { key: 'vent', label: 'לפרוק', icon: '🔐' },
   { key: 'game', label: 'משחק', icon: '🎮' },
 ];
 
@@ -88,7 +90,10 @@ function Main() {
     return (
       <Login
         account={account}
-        onUnlock={() => setUnlocked(true)}
+        onUnlock={(a) => {
+          setAccount(a);
+          setUnlocked(true);
+        }}
         onReset={() => {
           clearAll();
           setAccount(null);
@@ -107,6 +112,7 @@ function Main() {
           {tab === 'archive' && <ArchiveScreen onOpenEntry={open} />}
           {tab === 'calendar' && <CalendarScreen onOpenEntry={open} />}
           {tab === 'people' && <PeopleScreen onOpenEntry={open} />}
+          {tab === 'vent' && <VentScreen />}
           {tab === 'game' && <GameScreen />}
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -134,7 +140,7 @@ function Main() {
             >
               <View
                 style={{
-                  paddingHorizontal: 14,
+                  paddingHorizontal: 12,
                   paddingVertical: 4,
                   borderRadius: 999,
                   backgroundColor: active ? colors.cardHi : 'transparent',

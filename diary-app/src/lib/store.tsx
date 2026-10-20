@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { decryptFromStorage, encryptForStorage } from './crypto';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CalendarEvent,
@@ -45,14 +46,17 @@ const Ctx = createContext<Store | null>(null);
 async function load<T>(key: string, fallback: T): Promise<T> {
   try {
     const raw = await AsyncStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
+    return raw ? (JSON.parse(await decryptFromStorage(raw)) as T) : fallback;
   } catch {
     return fallback;
   }
 }
 
+/** Writes are encrypted (AES-GCM) with the device key; old plain values are re-encrypted on their next write. */
 function persist(key: string, value: unknown) {
-  AsyncStorage.setItem(key, JSON.stringify(value)).catch(() => {});
+  encryptForStorage(JSON.stringify(value))
+    .then((v) => AsyncStorage.setItem(key, v))
+    .catch(() => {});
 }
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {

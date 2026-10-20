@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
+import { b64, decryptFromStorage, deleteDataKey, deriveKey, encryptForStorage, randomBytes } from './crypto';
 
 const KEY = 'diary.account.v1';
 
@@ -13,26 +14,40 @@ export type Account = {
   salt: string;
   lockEnabled: boolean;
   createdAt: string;
+  /** 'pbkdf2' (current) or missing for accounts made before it (single SHA-256) */
+  kdf?: 'pbkdf2';
 };
 
 export const USERNAME_RE = /^[a-zA-Z0-9_.]{3,20}$/;
 export const MIN_PASSWORD = 6;
 
-async function hash(password: string, salt: string) {
+async function legacyHash(password: string, salt: string) {
   return Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, `${salt}:${password}`);
+}
+
+async function hash(password: string, salt: string) {
+  return b64.encode(await deriveKey(password, b64.decode(salt)));
+}
+
+const newSalt = () => b64.encode(randomBytes(16));
+
+async function verify(account: Account, password: string) {
+  return account.kdf === 'pbkdf2'
+    ? (await hash(password, account.salt)) === account.passwordHash
+    : (await legacyHash(password, account.salt)) === account.passwordHash;
 }
 
 export async function loadAccount(): Promise<Account | null> {
   try {
     const raw = await AsyncStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as Account) : null;
+    return raw ? (JSON.parse(await decryptFromStorage(raw)) as Account) : null;
   } catch {
     return null;
   }
 }
 
 export async function saveAccount(a: Account) {
-  await AsyncStorage.setItem(KEY, JSON.stringify(a));
+  await AsyncStorage.setItem(KEY, await encryptForStorage(JSON.stringify(a)));
 }
 
 /** Returns an error message, or null when the details are valid. */
@@ -45,7 +60,7 @@ export function validateSignup(displayName: string, username: string, password: 
 }
 
 export async function createLocalAccount(displayName: string, username: string, password: string): Promise<Account> {
-  const salt = Crypto.randomUUID();
+  const salt = newSalt();
   const account: Account = {
     displayName: displayName.trim(),
     username: username.trim().toLowerCase(),
@@ -54,21 +69,29 @@ export async function createLocalAccount(displayName: string, username: string, 
     salt,
     lockEnabled: true,
     createdAt: new Date().toISOString(),
+    kdf: 'pbkdf2',
   };
   await saveAccount(account);
   return account;
 }
 
-export async function checkLogin(account: Account, username: string, password: string): Promise<boolean> {
-  if (username.trim().toLowerCase() !== account.username) return false;
-  return (await hash(password, account.salt)) === account.passwordHash;
+/** Checks the password; returns the (possibly upgraded) account on success, null on failure. */
+export async function checkLogin(account: Account, username: string, password: string): Promise<Account | null> {
+  if (username.trim().toLowerCase() !== account.username) return null;
+  if (!(await verify(account, password))) return null;
+  if (account.kdf === 'pbkdf2') return account;
+  // Upgrade accounts made with the old single SHA-256 hash
+  const salt = newSalt();
+  const upgraded: Account = { ...account, salt, passwordHash: await hash(password, salt), kdf: 'pbkdf2' };
+  await saveAccount(upgraded);
+  return upgraded;
 }
 
 export async function changePassword(account: Account, current: string, next: string): Promise<Account | string> {
-  if ((await hash(current, account.salt)) !== account.passwordHash) return 'הסיסמה הנוכחית שגויה';
+  if (!(await verify(account, current))) return 'הסיסמה הנוכחית שגויה';
   if (next.length < MIN_PASSWORD) return `הסיסמה החדשה צריכה לפחות ${MIN_PASSWORD} תווים`;
-  const salt = Crypto.randomUUID();
-  const updated = { ...account, salt, passwordHash: await hash(next, salt) };
+  const salt = newSalt();
+  const updated: Account = { ...account, salt, passwordHash: await hash(next, salt), kdf: 'pbkdf2' };
   await saveAccount(updated);
   return updated;
 }
@@ -77,4 +100,5 @@ export async function changePassword(account: Account, current: string, next: st
 export async function wipeAllData() {
   const keys = (await AsyncStorage.getAllKeys()).filter((k) => k.startsWith('diary.'));
   await AsyncStorage.multiRemove(keys);
+  await deleteDataKey();
 }

@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Account, changePassword, saveAccount } from '../lib/account';
+import { AiConfig, aiTest, EMPTY_AI, loadAiConfig, saveAiConfig } from '../lib/ai';
 import { pad } from '../lib/dates';
 import { scheduleBedtime, scheduleMorningRecap, sendTestNotification } from '../lib/notifications';
 import { useStore } from '../lib/store';
@@ -43,6 +44,21 @@ export default function SettingsModal({ visible, onClose, account, onAccountChan
 
           <SectionTitle>👤 החשבון שלי</SectionTitle>
           <AccountCard account={account} onAccountChange={onAccountChange} onLock={onLock} />
+
+          <SectionTitle>✨ צ'אט חכם (AI)</SectionTitle>
+          <AiCard />
+
+          <SectionTitle>🛡️ אבטחה ופרטיות</SectionTitle>
+          <Card style={{ gap: 6 }}>
+            <T size={14}>🔐 כל היומן מוצפן על הטלפון (AES-256), והמפתח שמור בכספת המאובטחת של המכשיר</T>
+            <T size={14}>🔑 הסיסמה נשמרת כ-hash חזק (PBKDF2) ולא כטקסט</T>
+            <T size={14}>⛔ 5 ניסיונות כניסה שגויים חוסמים ל-30 שניות</T>
+            <T size={14}>🫂 "המקום לפרוק" מוצפן בסיסמה נפרדת, ננעל ביציאה ואי אפשר לצלם בו מסך</T>
+            <T size={14}>📵 אין גיבוי אוטומטי של היומן לענן של גוגל, כדי שלא ייצא מהטלפון</T>
+            <T dim size={12} style={{ marginTop: 4, lineHeight: 18 }}>
+              כשה-AI מופעל, ההודעות שלך בצ'אט נשלחות לשרת שלך ול-Claude כדי לקבל תשובה. בלי AI שום דבר לא יוצא מהטלפון.
+            </T>
+          </Card>
 
           <SectionTitle>איך לקרוא לך?</SectionTitle>
           <Input value={draft.userName} onChangeText={(userName) => setDraft({ ...draft, userName })} placeholder="השם שלך" />
@@ -96,6 +112,73 @@ export default function SettingsModal({ visible, onClose, account, onAccountChan
         </ScrollView>
       </SafeAreaView>
     </Modal>
+  );
+}
+
+function AiCard() {
+  const [cfg, setCfg] = useState<AiConfig>(EMPTY_AI);
+  const [status, setStatus] = useState<{ text: string; ok: boolean } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    loadAiConfig().then(setCfg);
+  }, []);
+
+  const update = (patch: Partial<AiConfig>) => {
+    const next = { ...cfg, ...patch };
+    setCfg(next);
+    saveAiConfig(next).catch(() => {});
+  };
+
+  const test = async () => {
+    setBusy(true);
+    setStatus(null);
+    try {
+      const reply = await aiTest(cfg);
+      setStatus({ text: `מחובר ✓ (${reply.slice(0, 40)})`, ok: true });
+    } catch (e) {
+      setStatus({ text: `לא הצלחתי להתחבר: ${(e as Error).message}`, ok: false });
+    }
+    setBusy(false);
+  };
+
+  return (
+    <Card>
+      <T dim size={13} style={{ lineHeight: 19, marginBottom: 10 }}>
+        עם AI, יומי והמקום לפרוק עונים לך כמו בן אדם אמיתי. צריך שרת קטן (הוראות ב-README של הפרויקט). בלי שרת הם עובדים במצב רגיל.
+      </T>
+      <Input
+        value={cfg.url}
+        onChangeText={(url) => update({ url: url.trim() })}
+        placeholder="כתובת השרת, למשל https://diary-ai.xxx.workers.dev"
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="url"
+        style={{ textAlign: 'left', writingDirection: 'ltr' }}
+      />
+      <Input
+        value={cfg.appKey}
+        onChangeText={(appKey) => update({ appKey: appKey.trim() })}
+        placeholder="מפתח האפליקציה (APP_KEY)"
+        secureTextEntry
+        autoCapitalize="none"
+        style={{ marginTop: 8, textAlign: 'left', writingDirection: 'ltr' }}
+      />
+      <Row style={{ justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
+        <T style={{ flex: 1 }}>💜 AI בשיחה עם יומי</T>
+        <Switch value={cfg.diary} onValueChange={(diary) => update({ diary })} trackColor={{ true: colors.primary, false: colors.border }} />
+      </Row>
+      <Row style={{ justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+        <T style={{ flex: 1 }}>🫂 AI במקום לפרוק</T>
+        <Switch value={cfg.vent} onValueChange={(vent) => update({ vent })} trackColor={{ true: colors.primary, false: colors.border }} />
+      </Row>
+      <GhostButton title={busy ? 'בודק…' : '🔌 בדוק חיבור'} onPress={test} style={{ marginTop: 12 }} />
+      {status && (
+        <T size={13} style={{ marginTop: 8, color: status.ok ? colors.green : colors.red }}>
+          {status.text}
+        </T>
+      )}
+    </Card>
   );
 }
 

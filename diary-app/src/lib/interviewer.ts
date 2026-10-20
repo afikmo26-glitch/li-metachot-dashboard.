@@ -11,6 +11,7 @@ export type QuestionKind =
   | 'who' // who is a new person
   | 'said' // what did someone say
   | 'topic'
+  | 'wellbeing'
   | 'mood'
   | 'best'
   | 'tomorrow';
@@ -29,6 +30,18 @@ export type Answer = { question: BotQuestion; text: string };
 
 const MAX_FOLLOWUPS = 4;
 
+/** The question asked when the user mentions new friends without names. */
+export const NAMES_QUESTION: BotQuestion = { kind: 'topic', topic: 'names', text: 'איזה כיף להכיר אנשים חדשים! 😊 איך קוראים להם?' };
+
+/** "נועם וגלעד" / "דנה, יוסי" -> ['נועם', 'גלעד'] (answer to "what are their names?") */
+export function namesFromList(text: string): string[] {
+  return text
+    .split(/[,،\s]+/)
+    .map((w) => w.replace(/[^\u0590-\u05FFA-Za-z'׳]/g, ''))
+    .map((w) => (w.length >= 3 && w.startsWith('ו') ? w.slice(1) : w))
+    .filter((w) => w.length >= 2 && w.length <= 12 && !/^(ו|גם|עם|את|של|הם|הן|קוראים|להם|לה|לו)$/.test(w));
+}
+
 const TOPICS: { key: string; words: RegExp; question: string }[] = [
   { key: 'work', words: /עבודה|משרד|בוס|מנהל|פגישה|לקוח|פרויקט|משמרת/, question: 'ואיך היה בעבודה? קרה שם משהו שכדאי לזכור?' },
   { key: 'hard', words: /עייף|עייפה|לחוץ|לחוצה|קשה|עצוב|עצובה|כועס|כועסת|מתוסכל|דאגה|מבאס/, question: 'נשמע שהיה לא פשוט. מה הכי הכביד עליך היום?' },
@@ -36,6 +49,13 @@ const TOPICS: { key: string; words: RegExp; question: string }[] = [
   { key: 'family', words: /אמא|אבא|אחי|אחותי|סבתא|סבא|משפחה|ילדים|הבן|הבת/, question: 'מה שלום המשפחה? דיברתם על משהו מיוחד?' },
   { key: 'food', words: /אכלתי|ארוחה|מסעדה|בישלתי|קפה/, question: 'מה אכלת? היה טעים?' },
   { key: 'sport', words: /ספורט|אימון|ריצה|חדר כושר|כדורגל|הליכה|שחייה/, question: 'איך היה האימון? הרגשת טוב אחריו?' },
+];
+
+const WELLBEING = [
+  { key: 'move', question: 'הספקת להזיז קצת את הגוף היום? אפילו הליכה קצרה נחשבת 🚶', chips: ['כן!', 'לא הספקתי'] },
+  { key: 'breath', question: 'עצרת היום לרגע אחד רק לנשום? 🌬️', chips: ['כן', 'לא ממש'] },
+  { key: 'water', question: 'שתית מספיק מים היום? 💧', chips: ['כן', 'פחות מדי'] },
+  { key: 'grateful', question: 'על מה אתה מרגיש תודה היום, אפילו משהו קטן? 🙏' },
 ];
 
 const MOOD_CHIPS = ['😞 קשה', '😕 לא משהו', '😐 רגיל', '🙂 טוב', '🤩 מדהים'];
@@ -73,7 +93,10 @@ export function nextQuestion(answers: Answer[], people: Person[]): BotQuestion |
   if (followups < MAX_FOLLOWUPS && !asked.some((q) => q.kind === 'mood')) {
     // 1. New names → "who is X?"
     const askedWho = new Set(asked.filter((q) => q.kind === 'who').map((q) => q.name));
-    const newName = suggestNewNames(allText, people).find((n) => !askedWho.has(n));
+    const listed = answers.filter((a) => a.question.topic === 'names').flatMap((a) => namesFromList(a.text));
+    const known = new Set(people.map((p) => p.name));
+    const candidates = [...new Set([...suggestNewNames(allText, people), ...listed])].filter((n) => !known.has(n));
+    const newName = candidates.find((n) => !askedWho.has(n));
     if (newName) {
       return {
         kind: 'who',
@@ -100,6 +123,12 @@ export function nextQuestion(answers: Answer[], people: Person[]): BotQuestion |
     if (topic) return { kind: 'topic', topic: topic.key, text: topic.question };
   }
 
+  if (!asked.some((q) => q.kind === 'wellbeing')) {
+    const moved = /התאמנתי|אימון|ריצה|רצתי|חדר כושר|הליכה|הלכתי|שחייה|יוגה|כדורגל/.test(allText);
+    const options = WELLBEING.filter((w) => !(moved && w.key === 'move'));
+    const w = options[answers.length % options.length];
+    return { kind: 'wellbeing', topic: w.key, text: w.question, chips: w.chips };
+  }
   if (!asked.some((q) => q.kind === 'mood')) {
     return { kind: 'mood', text: 'ואיך אתה מרגיש בסך הכל עם היום הזה?', chips: MOOD_CHIPS };
   }
@@ -128,7 +157,7 @@ export function composeEntryText(answers: Answer[]): string {
     switch (question.kind) {
       case 'opening':
       case 'topic':
-        parts.push(t);
+        parts.push(question.topic === 'names' ? `הכרתי את ${t}` : t);
         break;
       case 'said':
         parts.push(`💬 ${question.name}: "${t}"`);
@@ -138,6 +167,9 @@ export function composeEntryText(answers: Answer[]): string {
         break;
       case 'tomorrow':
         parts.push(`📝 למחר: ${t}`);
+        break;
+      case 'wellbeing':
+        if (question.topic === 'grateful') parts.push(`🙏 תודה על: ${t}`);
         break;
       default:
         break;
@@ -163,4 +195,51 @@ export function saidQuotes(answers: Answer[]): { name: string; text: string }[] 
   return answers
     .filter((a) => a.question.kind === 'said' && a.question.name && !isSkip(a.text))
     .map((a) => ({ name: a.question.name!, text: a.text.trim() }));
+}
+
+const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
+
+/**
+ * A short, human reaction to what the user just wrote, said before the next question
+ * (offline mode). Returns undefined when nothing specific fits.
+ */
+export function reactTo(text: string, question: BotQuestion, newNames: string[]): string | undefined {
+  const t = text.trim();
+  if (question.kind === 'who' && question.name) return isSkip(t) ? 'בסדר גמור 🙂' : `רשמתי: ${question.name} — ${t} 👍`;
+  if (question.kind === 'wellbeing') {
+    const no = /^לא|פחות|לא ממש|לא הספקתי/.test(t);
+    switch (question.topic) {
+      case 'move':
+        return no ? 'זה בסדר, מחר הזדמנות חדשה. אפילו 10 דקות הליכה עושות הבדל 💪' : 'כל הכבוד! הגוף שלך מודה לך 💪';
+      case 'breath':
+        return no
+          ? 'בוא ננסה עכשיו, רק פעם אחת: שאיפה 4 שניות, עצירה 4, נשיפה 6. 🌬️ איך זה מרגיש?'
+          : 'מעולה. רגע אחד של נשימה יכול לשנות יום שלם 🌿';
+      case 'water':
+        return no ? 'אז כוס מים לפני השינה? 💧 הגוף יגיד תודה מחר' : 'יופי! ממשיכים ככה 💧';
+      default:
+        return isSkip(t) ? undefined : 'איזה דבר יפה להודות עליו 🙏';
+    }
+  }
+  if (question.kind === 'mood' || question.kind === 'tomorrow') return undefined;
+  if (question.kind === 'best') return isSkip(t) ? 'גם ימים רגילים הם חלק מהסיפור 🙂' : pick(['איזה כיף! 🎉', 'זה באמת שווה לזכור ✨', 'אני שמח שזה קרה לך 😊']);
+  if (question.kind === 'said') return isSkip(t) ? undefined : pick(['שמרתי את זה 💬', 'טוב שרשמנו, ככה לא תשכח 💬']);
+
+  const parts: string[] = [];
+  if (question.topic === 'names') {
+    const names = namesFromList(t);
+    return names.length ? `נעים להכיר את ${names.join(' ו')}! 😊` : undefined;
+  }
+  if (/עצוב|עצובה|בכיתי|קשה לי|מבואס|מבואסת|בודד|בודדה|מאוכזב/.test(t)) parts.push('אני מצטער שזה היה ככה 💜 טוב שאתה משתף.');
+  else if (/עייף|עייפה|מותש|לחוץ|לחוצה|לחץ|סטרס|עמוס/.test(t)) parts.push('נשמע יום עמוס. מגיע לך לנוח הערב 🛋️');
+  else if (/שמח|שמחה|מעולה|מדהים|כיף|מושלם|הצלחתי|התרגשתי/.test(t)) parts.push(pick(['איזה כיף לשמוע! 🎉', 'וואו, נשמע יום טוב! 😄']));
+  if (/התאמנתי|אימון|רצתי|ריצה|חדר כושר|שחייה|יוגה/.test(t)) parts.push('וגם התאמנת, כל הכבוד 💪');
+  if (newNames.length) parts.push(`${newNames.join(' ו')}, אני רושם 📝`);
+  if (!parts.length && t.length > 25) parts.push(pick(['תודה ששיתפת 🙏', 'הבנתי 🙂', 'מעניין!']));
+  return parts.length ? parts.join(' ') : undefined;
+}
+
+/** True when the user mentioned new friends without naming them, so the bot should ask for names. */
+export function shouldAskNames(text: string, newNames: string[], asked: BotQuestion[]) {
+  return /הכרתי|חברים חדשים|חבר חדש|חברה חדשה|אנשים חדשים/.test(text) && !newNames.length && !asked.some((q) => q.topic === 'names');
 }

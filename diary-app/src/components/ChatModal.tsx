@@ -1,19 +1,23 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, ScrollViewInstance, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AiConfig, aiChat, aiReady, aiSummarize, buildProfile, EMPTY_AI, loadAiConfig } from '../lib/ai';
 import { persistRecording } from '../lib/audio';
 import {
   Answer,
   BotQuestion,
   composeEntryText,
   moodFromAnswer,
+  NAMES_QUESTION,
   nextQuestion,
   openingQuestion,
   personNotes,
+  reactTo,
   saidQuotes,
+  shouldAskNames,
   tomorrowNote,
 } from '../lib/interviewer';
-import { extractQuotes, findKnownPeople } from '../lib/names';
+import { extractQuotes, findKnownPeople, suggestNewNames } from '../lib/names';
 import { scheduleMorningRecap, scheduleTomorrowReminder } from '../lib/notifications';
 import { newId, useStore } from '../lib/store';
 import { colors, gradients, MOODS, rtl } from '../lib/theme';
@@ -29,30 +33,45 @@ type Props = {
   onSaved: (entry: Entry) => void;
 };
 
+/** What will be saved, whichever mode wrote it. */
+type Draft = {
+  text: string;
+  mood: number;
+  notes: { name: string; note?: string }[];
+  said: { name: string; text: string }[];
+  tomorrow?: string;
+};
+
 export const BOT_NAME = 'יומי';
 
 export default function ChatModal({ visible, recording, onClose, onSaved }: Props) {
-  const { people, settings, addPerson, updatePerson, saveEntry } = useStore();
+  const { people, entries, settings, addPerson, updatePerson, saveEntry } = useStore();
+  const [ai, setAi] = useState<AiConfig>(EMPTY_AI);
+  const [useAi, setUseAi] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [question, setQuestion] = useState<BotQuestion | null>(null);
   const [typing, setTyping] = useState(false);
-  const [done, setDone] = useState(false);
+  const [draft, setDraft] = useState<Draft | null>(null);
   const [input, setInput] = useState('');
   const scroll = useRef<ScrollViewInstance>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const ask = (q: BotQuestion | null, extra?: string) => {
+  const profile = () => buildProfile(settings.userName, people, entries);
+  const say = (text: string) => setMessages((m) => [...m, { from: 'bot', text }]);
+
+  /** Offline mode: say an optional reaction, then the next scripted question (or finish). */
+  const ask = (q: BotQuestion | null, reaction?: string, sofar: Answer[] = answers) => {
     setTyping(true);
     timer.current = setTimeout(() => {
       setTyping(false);
+      if (reaction) say(reaction);
       if (q) {
-        setMessages((m) => [...m, ...(extra ? [{ from: 'bot' as const, text: extra }] : []), { from: 'bot', text: q.text }]);
+        say(q.text);
         setQuestion(q);
       } else {
-        setMessages((m) => [...m, { from: 'bot', text: 'תודה ששיתפת 💜 הנה מה שרשמתי ביומן:' }]);
         setQuestion(null);
-        setDone(true);
+        setDraft(offlineDraft(sofar));
       }
     }, 700);
   };
@@ -60,11 +79,22 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
   // Fresh conversation every time the chat opens
   useEffect(() => {
     if (!visible) return;
-    setMessages(recording ? [{ from: 'bot', text: '🎙️ ההקלטה שלך נשמרה. בוא נוסיף כמה פרטים כדי שאזכור הכל.' }] : []);
+    setMessages(recording ? [{ from: 'bot', text: '🎙️ ההקלטה שלך נשמרה. בוא נדבר עליה קצת.' }] : []);
     setAnswers([]);
-    setDone(false);
+    setDraft(null);
     setInput('');
-    ask(openingQuestion(settings.userName || undefined));
+    setQuestion(null);
+    loadAiConfig().then((c) => {
+      setAi(c);
+      const on = aiReady(c, 'diary');
+      setUseAi(on);
+      const first = openingQuestion(settings.userName || undefined);
+      if (on) {
+        say(first.text);
+      } else {
+        ask(first, undefined, []);
+      }
+    });
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
@@ -73,52 +103,106 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
 
   useEffect(() => {
     setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 50);
-  }, [messages, typing, done]);
+  }, [messages, typing, draft]);
+
+  const knownWith = (extra: { name: string }[]): Person[] => [
+    ...people,
+    ...extra.filter((n) => !people.some((p) => p.name === n.name)).map((n) => ({ id: `new:${n.name}`, name: n.name, firstSeen: '' })),
+  ];
+
+  const sendAi = async (t: string, history: ChatMessage[]) => {
+    setTyping(true);
+    try {
+      say(await aiChat(ai, 'diary', history, profile()));
+    } catch (e) {
+      // Fall back to the offline interviewer, treating everything said so far as the opening answer
+      say(`⚠️ אין חיבור לשרת ה-AI (${(e as Error).message}). ממשיך במצב רגיל.`);
+      setUseAi(false);
+      const opening: Answer = {
+        question: openingQuestion(),
+        text: history.filter((m) => m.from === 'me').map((m) => m.text).join('\n'),
+      };
+      setAnswers([opening]);
+      ask(nextQuestion([opening], people), undefined, [opening]);
+      return;
+    } finally {
+      setTyping(false);
+    }
+  };
 
   const send = (text: string) => {
     const t = text.trim();
-    if (!t || !question || typing) return;
+    if (!t || typing || draft) return;
     tap();
+    setInput('');
+    const history = [...messages, { from: 'me' as const, text: t }];
+    setMessages(history);
+
+    if (useAi) {
+      sendAi(t, history);
+      return;
+    }
+    if (!question) return;
     const nextAnswers = [...answers, { question, text: t }];
     setAnswers(nextAnswers);
-    setMessages((m) => [...m, { from: 'me', text: t }]);
-    setInput('');
     setQuestion(null);
-    const reaction = question.kind === 'who' ? `רשמתי: ${question.name} — ${t} 👍` : undefined;
     // People named in "who is X?" answers count as known from here on
-    const known: Person[] = [
-      ...people,
-      ...personNotes(nextAnswers)
-        .filter((n) => !people.some((p) => p.name === n.name))
-        .map((n) => ({ id: `new:${n.name}`, name: n.name, firstSeen: '' })),
-    ];
-    ask(nextQuestion(nextAnswers, known), reaction);
+    const known = knownWith(personNotes(nextAnswers));
+    const newNames = question.kind === 'opening' || question.kind === 'topic' ? suggestNewNames(t, people) : [];
+    if (shouldAskNames(t, newNames, nextAnswers.map((a) => a.question))) {
+      ask(NAMES_QUESTION, undefined, nextAnswers);
+      return;
+    }
+    ask(nextQuestion(nextAnswers, known), reactTo(t, question, newNames), nextAnswers);
   };
 
-  const draft = useMemo(() => {
-    if (!done) return null;
-    const notes = personNotes(answers);
-    const said = saidQuotes(answers);
-    const text = composeEntryText(answers);
-    // Preview people list: existing + names the user confirmed during the chat
-    const preview: Person[] = [
-      ...people,
-      ...notes.filter((n) => !people.some((p) => p.name === n.name)).map((n) => ({ id: `new:${n.name}`, name: n.name, firstSeen: '' })),
+  const finishAi = async () => {
+    if (typing) return;
+    tap();
+    setTyping(true);
+    say('רגע, אני כותב את היומן… ✍️');
+    try {
+      const s = await aiSummarize(ai, messages, profile());
+      setDraft({
+        text: s.entry,
+        mood: Math.min(5, Math.max(1, Math.round(s.mood) || 3)),
+        notes: s.people.map((p) => ({ name: p.name, note: p.note || undefined })),
+        said: s.quotes,
+        tomorrow: s.tomorrow || undefined,
+      });
+    } catch {
+      const text = messages.filter((m) => m.from === 'me').map((m) => m.text).join('\n');
+      setDraft({ text, mood: 3, notes: suggestNewNames(text, people).map((name) => ({ name })), said: [] });
+    } finally {
+      setTyping(false);
+    }
+  };
+
+  const preview = useMemo(() => {
+    if (!draft) return null;
+    const list = knownWith([...draft.notes, ...draft.said]);
+    const ids = [
+      ...new Set([
+        ...findKnownPeople(draft.text, list),
+        ...[...draft.notes, ...draft.said].map((n) => list.find((p) => p.name === n.name)!.id),
+      ]),
     ];
-    const ids = [...new Set([...findKnownPeople(text, preview), ...notes.map((n) => preview.find((p) => p.name === n.name)!.id)])];
-    return { text, notes, said, ids, preview, mood: moodFromAnswer(answers.find((a) => a.question.kind === 'mood')?.text ?? '') };
-  }, [done, answers, people]);
+    return { list, ids };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft, people]);
 
   const save = async () => {
-    if (!draft) return;
+    if (!draft || !preview) return;
     // Create people met during the chat, with their notes
     const all = [...people];
-    for (const n of draft.notes) {
+    for (const n of [...draft.notes, ...draft.said.map((q) => ({ name: q.name, note: undefined }))]) {
+      if (!n.name.trim()) continue;
       const p = addPerson(n.name);
-      if (n.note) updatePerson({ ...p, note: n.note });
+      if (n.note && !p.note) updatePerson({ ...p, note: n.note });
       if (!all.some((x) => x.id === p.id)) all.push(p);
     }
-    const ids = draft.ids.map((id) => (id.startsWith('new:') ? all.find((p) => p.name === id.slice(4))!.id : id));
+    const realId = (id: string) => (id.startsWith('new:') ? all.find((p) => p.name === id.slice(4))?.id : id);
+    const ids = preview.ids.map(realId).filter((x): x is string => !!x);
     const quotes = [
       ...draft.said.map((q) => ({ personId: all.find((p) => p.name === q.name)?.id ?? '', text: q.text })).filter((q) => q.personId),
       ...extractQuotes(draft.text, all, ids),
@@ -137,11 +221,12 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
     };
     saveEntry(entry);
     scheduleMorningRecap(settings, entry, all).catch(() => {});
-    const note = tomorrowNote(answers);
-    if (note) scheduleTomorrowReminder(settings, note).catch(() => {});
+    if (draft.tomorrow) scheduleTomorrowReminder(settings, draft.tomorrow).catch(() => {});
     notify('success');
     onSaved(entry);
   };
+
+  const userTurns = messages.filter((m) => m.from === 'me').length;
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -155,7 +240,7 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
                   {BOT_NAME}
                 </T>
                 <T dim size={12}>
-                  {typing ? 'מקליד…' : 'החבר שזוכר הכל'}
+                  {typing ? 'מקליד…' : useAi ? '✨ AI · החבר שזוכר הכל' : 'החבר שזוכר הכל'}
                 </T>
               </View>
             </Row>
@@ -170,33 +255,43 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
             ))}
             {typing && <Bubble msg={{ from: 'bot', text: '• • •' }} />}
 
-            {done && draft && (
+            {draft && preview && (
               <View style={{ backgroundColor: colors.card, borderRadius: 18, padding: 14, borderWidth: 1, borderColor: colors.primary, marginTop: 4 }}>
                 <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                   <T bold>📖 הרשומה של היום</T>
                   <Text style={{ fontSize: 24 }}>{MOODS[draft.mood - 1]}</Text>
                 </Row>
                 <T style={{ marginTop: 8, lineHeight: 22 }}>{draft.text || (recording ? '🎙️ הקלטה קולית' : '—')}</T>
-                {draft.ids.length > 0 && (
+                {preview.ids.length > 0 && (
                   <Row style={{ flexWrap: 'wrap', marginTop: 10 }}>
-                    {draft.ids.map((id) => (
-                      <Chip key={id} active label={draft.preview.find((p) => p.id === id)?.name ?? ''} />
+                    {preview.ids.map((id) => (
+                      <Chip key={id} active label={preview.list.find((p) => p.id === id)?.name ?? ''} />
                     ))}
                   </Row>
                 )}
+                {draft.tomorrow && (
+                  <T dim size={13} style={{ marginTop: 6 }}>
+                    🔔 אזכיר לך מחר בבוקר: {draft.tomorrow}
+                  </T>
+                )}
                 <GradientButton title="שמור ביומן" icon="💾" colors={gradients.primary} onPress={save} style={{ marginTop: 12 }} />
-                <GhostButton title="ביטול" onPress={onClose} style={{ marginTop: 8 }} />
+                <GhostButton title={useAi ? 'המשך לדבר' : 'ביטול'} onPress={() => (useAi ? setDraft(null) : onClose())} style={{ marginTop: 8 }} />
               </View>
             )}
           </ScrollView>
 
-          {!done && (
+          {!draft && (
             <View style={{ borderTopWidth: 1, borderTopColor: colors.border, padding: 10, backgroundColor: colors.bgDeep }}>
-              {question?.chips && !typing && (
+              {!useAi && question?.chips && !typing && (
                 <Row style={{ flexWrap: 'wrap', marginBottom: 6 }}>
                   {question.chips.map((c) => (
                     <Chip key={c} label={c} onPress={() => send(c)} />
                   ))}
+                </Row>
+              )}
+              {useAi && userTurns >= 2 && !typing && (
+                <Row style={{ marginBottom: 8 }}>
+                  <Chip label="✅ סיים וכתוב את היומן" color={colors.green} onPress={finishAi} />
                 </Row>
               )}
               <Row style={{ alignItems: 'flex-end', gap: 8 }}>
@@ -242,15 +337,25 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
   );
 }
 
-export function BotAvatar({ size = 40 }: { size?: number }) {
+function offlineDraft(answers: Answer[]): Draft {
+  return {
+    text: composeEntryText(answers),
+    mood: moodFromAnswer(answers.find((a) => a.question.kind === 'mood')?.text ?? ''),
+    notes: personNotes(answers),
+    said: saidQuotes(answers),
+    tomorrow: tomorrowNote(answers),
+  };
+}
+
+export function BotAvatar({ size = 40, emoji = '💜' }: { size?: number; emoji?: string }) {
   return (
     <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ fontSize: size * 0.5 }}>💜</Text>
+      <Text style={{ fontSize: size * 0.5 }}>{emoji}</Text>
     </View>
   );
 }
 
-function Bubble({ msg }: { msg: ChatMessage }) {
+export function Bubble({ msg }: { msg: ChatMessage }) {
   const mine = msg.from === 'me';
   return (
     <View style={{ flexDirection: 'row', justifyContent: mine ? 'flex-start' : 'flex-end' }}>
