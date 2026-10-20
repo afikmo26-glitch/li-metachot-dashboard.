@@ -41,7 +41,12 @@
         }
       ],
       "expo-asset",
-      "expo-secure-store"
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": false
+        }
+      ]
     ],
     "backgroundColor": "#14102B"
   }
