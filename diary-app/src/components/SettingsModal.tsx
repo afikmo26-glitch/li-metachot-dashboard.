@@ -145,7 +145,25 @@ function AiCard() {
   return (
     <Card>
       <T dim size={13} style={{ lineHeight: 19, marginBottom: 10 }}>
-        עם AI, יומי והמקום לפרוק עונים לך כמו בן אדם אמיתי. צריך שרת קטן (הוראות ב-README של הפרויקט). בלי שרת הם עובדים במצב רגיל.
+        עם AI, יומי והמקום לפרוק עונים לך כמו בן אדם אמיתי (Claude). הדרך הכי פשוטה: מפתח Claude אישי מ-console.anthropic.com. בלי AI הם עובדים במצב רגיל.
+      </T>
+      <T bold size={14} style={{ marginBottom: 6 }}>
+        🔑 מפתח Claude אישי
+      </T>
+      <Input
+        value={cfg.claudeKey}
+        onChangeText={(claudeKey) => update({ claudeKey: claudeKey.trim() })}
+        placeholder="sk-ant-..."
+        secureTextEntry
+        autoCapitalize="none"
+        autoCorrect={false}
+        style={{ textAlign: 'left', writingDirection: 'ltr' }}
+      />
+      <T dim size={12} style={{ marginTop: 6, marginBottom: 12, lineHeight: 17 }}>
+        המפתח נשמר מוצפן רק בטלפון הזה. כל הודעה עולה בערך 1–3 סנט מהקרדיט שלך.
+      </T>
+      <T bold size={14} style={{ marginBottom: 6 }}>
+        🌐 או: שרת משלך (לשיתוף עם חברים)
       </T>
       <Input
         value={cfg.url}

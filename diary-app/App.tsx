@@ -1,8 +1,9 @@
+import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, I18nManager, KeyboardAvoidingView, Platform, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, I18nManager, KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import EntryModal from './src/components/EntryModal';
 import SettingsModal from './src/components/SettingsModal';
@@ -25,13 +26,14 @@ I18nManager.allowRTL(false);
 I18nManager.forceRTL(false);
 
 type Tab = 'today' | 'archive' | 'calendar' | 'people' | 'vent' | 'game';
-const TABS: { key: Tab; label: string; icon: string }[] = [
-  { key: 'today', label: 'היום', icon: '🎙️' },
-  { key: 'archive', label: 'ארכיון', icon: '📚' },
-  { key: 'calendar', label: 'לוח שנה', icon: '🗓️' },
-  { key: 'people', label: 'אנשים', icon: '👥' },
-  { key: 'vent', label: 'לפרוק', icon: '🔐' },
-  { key: 'game', label: 'משחק', icon: '🎮' },
+type IconName = keyof typeof Ionicons.glyphMap;
+const TABS: { key: Tab; label: string; icon: IconName; active: IconName }[] = [
+  { key: 'today', label: 'היום', icon: 'mic-outline', active: 'mic' },
+  { key: 'archive', label: 'ארכיון', icon: 'library-outline', active: 'library' },
+  { key: 'calendar', label: 'לוח שנה', icon: 'calendar-outline', active: 'calendar' },
+  { key: 'people', label: 'אנשים', icon: 'people-outline', active: 'people' },
+  { key: 'vent', label: 'לפרוק', icon: 'lock-closed-outline', active: 'lock-closed' },
+  { key: 'game', label: 'משחק', icon: 'game-controller-outline', active: 'game-controller' },
 ];
 
 function Main() {
@@ -146,7 +148,7 @@ function Main() {
                   backgroundColor: active ? colors.cardHi : 'transparent',
                 }}
               >
-                <Text style={{ fontSize: active ? 24 : 21, opacity: active ? 1 : 0.6 }}>{t.icon}</Text>
+                <Ionicons name={active ? t.active : t.icon} size={24} color={active ? colors.primaryHi : colors.textMute} />
               </View>
               <T size={11} bold={active} style={{ textAlign: 'center', marginTop: 2, color: active ? colors.text : colors.textMute }}>
                 {t.label}

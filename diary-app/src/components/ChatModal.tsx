@@ -1,6 +1,9 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, ScrollViewInstance, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { detectCrisis } from '../lib/vent';
+import CrisisCard from './CrisisCard';
 import { AiConfig, aiChat, aiReady, aiSummarize, buildProfile, EMPTY_AI, loadAiConfig } from '../lib/ai';
 import { persistRecording } from '../lib/audio';
 import {
@@ -54,6 +57,7 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
   const [typing, setTyping] = useState(false);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [input, setInput] = useState('');
+  const [crisis, setCrisis] = useState(false);
   const scroll = useRef<ScrollViewInstance>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -84,6 +88,7 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
     setDraft(null);
     setInput('');
     setQuestion(null);
+    setCrisis(false);
     loadAiConfig().then((c) => {
       setAi(c);
       const on = aiReady(c, 'diary');
@@ -137,12 +142,23 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
     setInput('');
     const history = [...messages, { from: 'me' as const, text: t }];
     setMessages(history);
+    const danger = detectCrisis(t);
+    if (danger) setCrisis(true);
 
     if (useAi) {
       sendAi(t, history);
       return;
     }
     if (!question) return;
+    if (danger) {
+      // Pause the diary questions: take it seriously and point to real people
+      setTyping(true);
+      timer.current = setTimeout(() => {
+        setTyping(false);
+        say('אני ממש שמח שסיפרת לי, ואני לוקח את זה ברצינות 💗 כשעולות מחשבות כאלה מגיע לך שמישהו אמיתי יהיה איתך עכשיו. ער"ן זמינים 24/7 ב-1201. אתה בטוח כרגע? אני כאן, אפשר להמשיך לכתוב לי.');
+      }, 700);
+      return;
+    }
     const nextAnswers = [...answers, { question, text: t }];
     setAnswers(nextAnswers);
     setQuestion(null);
@@ -254,6 +270,7 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
               <Bubble key={i} msg={m} />
             ))}
             {typing && <Bubble msg={{ from: 'bot', text: '• • •' }} />}
+            {crisis && <CrisisCard />}
 
             {draft && preview && (
               <View style={{ backgroundColor: colors.card, borderRadius: 18, padding: 14, borderWidth: 1, borderColor: colors.primary, marginTop: 4 }}>
@@ -315,6 +332,7 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
                   }}
                 />
                 <Pressable
+                  accessibilityLabel="שלח"
                   onPress={() => send(input)}
                   disabled={!input.trim() || typing}
                   style={{
@@ -326,7 +344,7 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
                     justifyContent: 'center',
                   }}
                 >
-                  <Text style={{ fontSize: 20, color: '#fff' }}>➤</Text>
+                  <Ionicons name="send" size={19} color="#fff" style={{ transform: [{ scaleX: -1 }] }} />
                 </Pressable>
               </Row>
             </View>

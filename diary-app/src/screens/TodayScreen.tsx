@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo, useState } from 'react';
 import { Alert, Keyboard, Pressable, ScrollView, Text, View } from 'react-native';
 import ChatModal, { BotAvatar, BOT_NAME, PendingRecording } from '../components/ChatModal';
@@ -122,8 +123,8 @@ export default function TodayScreen({ onOpenSettings, onOpenEntry }: Props) {
             {settings.userName ? `, ${settings.userName}` : ''} 👋
           </T>
         </View>
-        <Pressable onPress={onOpenSettings} hitSlop={12} style={{ padding: 6 }}>
-          <Text style={{ fontSize: 26 }}>⚙️</Text>
+        <Pressable onPress={onOpenSettings} hitSlop={12} style={{ padding: 6 }} accessibilityLabel="הגדרות">
+          <Ionicons name="settings-outline" size={26} color={colors.textDim} />
         </Pressable>
       </Row>
 

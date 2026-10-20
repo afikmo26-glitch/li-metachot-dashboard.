@@ -71,8 +71,15 @@ export async function wipeVent() {
 
 // ---------- Offline listener ----------
 
-const CRISIS_RE =
-  /להתאבד|התאבדות|לשים קץ|לא רוצה לחיות|לא רוצה להיות פה|אין טעם לחיות|לפגוע בעצמי|לחתוך את עצמי|למות|רוצה למות|בא לי למות|kill myself|suicide|end my life/i;
+const CRISIS_RE = new RegExp(
+  [
+    'להתאבד', 'אתאבד', 'מתאבד', 'התאבדות', 'לשים קץ', 'לשים סוף', 'לגמור עם (זה|הכל|החיים)', 'לסיים את החיים',
+    'לא רוצה לחיות', 'לא רוצה להיות פה', 'לא רוצה להמשיך', 'אין טעם לחיות', 'אין לי בשביל מה לחיות', 'נמאס לי לחיות',
+    'עדיף שאמות', 'עדיף שלא הייתי', 'רוצה להיעלם', 'למות', 'לפגוע בעצמי', 'פוגע בעצמי', 'לחתוך את עצמי', 'לקפוץ מ',
+    'kill myself', 'suicid', 'end my life', 'want to die',
+  ].join('|'),
+  'i',
+);
 
 /** True when the message suggests the person may be in danger. */
 export const detectCrisis = (text: string) => CRISIS_RE.test(text);
@@ -114,7 +121,15 @@ const TOPICS: { re: RegExp; ask: string[] }[] = [
   { re: /לימודים|מבחן|בחינה|ציון/, ask: ['מה הכי מלחיץ אותך במבחן הזה?'] },
 ];
 
-const VALIDATE = ['תודה שאתה משתף אותי.', 'מה שאתה מרגיש הגיוני.', 'אני מקשיב.', 'זה באמת לא פשוט.'];
+const VALIDATE = ['תודה שאתה משתף אותי.', 'אני מקשיב.', 'זה נשמע באמת לא פשוט.', 'אני כאן איתך.'];
+
+/** Replies when someone talks about suicide or self-harm: take it seriously, never agree, point to real people. */
+const CRISIS_REPLIES = [
+  'אני ממש שמח שסיפרת לי, ואני לוקח את זה ברצינות 💗 כשעולות מחשבות על התאבדות זה סימן שהכאב גדול מדי לשאת לבד, ומגיע לך שמישהו יהיה איתך עכשיו. ער"ן זמינים 24/7 בטלפון 1201. אתה בטוח ברגע זה?',
+  'אני כאן איתך. יש מישהו קרוב, חבר או בן משפחה, שאתה יכול להתקשר אליו או להיות לידו עכשיו? אתה לא צריך לעבור את זה לבד.',
+  'הכאב שאתה מרגיש אמיתי, אבל מחשבות כאלה יכולות להשתנות, ויש אנשים שיודעים לעזור בדיוק ברגעים האלה. שיחה אחת עם ער"ן (1201) או בצ\'אט של סה"ר יכולה להקל. תסכים לנסות עכשיו?',
+  'אם אתה בסכנה מיידית, חייג 101 או לך למקום שיש בו אנשים. אני נשאר כאן, ואתה יכול להמשיך לכתוב לי. מה הכי כואב לך עכשיו?',
+];
 const OPEN_QS = ['ספר לי עוד, מה עוד יושב עליך?', 'מה הכי קשה בזה בשבילך?', 'מה היית צריך עכשיו, ברגע הזה?', 'ואיך אתה מרגיש עם זה עכשיו, אחרי שכתבת?'];
 const MOTIVATE = [
   'זכור: כבר עברת ימים קשים לפני, והנה אתה פה. יש בך יותר כוח ממה שאתה מרגיש עכשיו 💪',
@@ -124,8 +139,14 @@ const MOTIVATE = [
   'זה שאתה עוצר לכתוב ולהבין מה אתה מרגיש זה כבר צעד אמיץ.',
 ];
 
-/** A warm, varied reply without AI: reflect the feeling, validate, then ask or encourage. */
-export function offlineVentReply(text: string, turn: number): string {
+/**
+ * A warm, varied reply without AI: reflect the feeling, validate, then ask or encourage.
+ * `crisisCount` is how many earlier messages in this conversation suggested danger.
+ */
+export function offlineVentReply(text: string, turn: number, crisisCount = 0): string {
+  if (detectCrisis(text)) return CRISIS_REPLIES[Math.min(crisisCount, CRISIS_REPLIES.length - 1)];
+  // After someone mentioned suicide, stay gentle and keep the door to real help open
+  if (crisisCount > 0) return `${pick(VALIDATE)} ${pick(['אתה עדיין כאן ומדבר איתי, וזה חשוב.', 'זוכר? ער"ן ב-1201 זמינים גם עכשיו.', 'מה יכול לעזור לך לעבור את הלילה הזה בשלום?'])}`;
   const parts: string[] = [];
   const feeling = FEELINGS.find((f) => f.re.test(text));
   parts.push(feeling ? pick(feeling.reflect) : pick(VALIDATE));

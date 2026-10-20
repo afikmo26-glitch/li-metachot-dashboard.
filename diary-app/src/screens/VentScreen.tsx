@@ -1,8 +1,10 @@
+import { Ionicons } from '@expo/vector-icons';
 import * as ScreenCapture from 'expo-screen-capture';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
 import { AppState, Platform, Pressable, ScrollView, ScrollViewInstance, Text, TextInput, View } from 'react-native';
 import { BotAvatar, Bubble } from '../components/ChatModal';
+import CrisisCard from '../components/CrisisCard';
 import { GhostButton, GradientButton, Input, Row, T, tap } from '../components/ui';
 import { aiChat, aiReady, loadAiConfig } from '../lib/ai';
 import { formatShortDate, formatTime } from '../lib/dates';
@@ -252,17 +254,19 @@ function Room({ ventKey, onLock, onWiped }: { ventKey: Uint8Array; onLock: () =>
     persist(withMe);
     setTyping(true);
     let reply: string;
-    const turns = withMe.messages.filter((m) => m.from === 'me').length - 1;
+    const mine = withMe.messages.filter((m) => m.from === 'me');
+    const turns = mine.length - 1;
+    const crisisCount = mine.slice(0, -1).filter((m) => detectCrisis(m.text)).length;
     if (useAi && aiRef.current) {
       try {
         reply = await aiChat(aiRef.current, 'vent', withMe.messages, { name: settings.userName || undefined });
       } catch {
         setUseAi(false);
-        reply = offlineVentReply(t, turns);
+        reply = offlineVentReply(t, turns, crisisCount);
       }
     } else {
       await new Promise((r) => setTimeout(r, 900));
-      reply = offlineVentReply(t, turns);
+      reply = offlineVentReply(t, turns, crisisCount);
     }
     setTyping(false);
     const withBot: VentSession = { ...withMe, messages: [...withMe.messages, { from: 'bot', text: reply } as ChatMessage] };
@@ -287,14 +291,14 @@ function Room({ ventKey, onLock, onWiped }: { ventKey: Uint8Array; onLock: () =>
           </View>
         </Row>
         <Row style={{ gap: 14, alignItems: 'center' }}>
-          <Pressable onPress={() => setShowHistory((v) => !v)} hitSlop={10}>
-            <Text style={{ fontSize: 20 }}>🗂️</Text>
+          <Pressable onPress={() => setShowHistory((v) => !v)} hitSlop={10} accessibilityLabel="שיחות קודמות">
+            <Ionicons name="folder-open-outline" size={23} color={colors.textDim} />
           </Pressable>
-          <Pressable onPress={() => startSession(data)} hitSlop={10}>
-            <Text style={{ fontSize: 20 }}>✏️</Text>
+          <Pressable onPress={() => startSession(data)} hitSlop={10} accessibilityLabel="שיחה חדשה">
+            <Ionicons name="create-outline" size={23} color={colors.textDim} />
           </Pressable>
-          <Pressable onPress={onLock} hitSlop={10}>
-            <Text style={{ fontSize: 20 }}>🔒</Text>
+          <Pressable onPress={onLock} hitSlop={10} accessibilityLabel="נעל">
+            <Ionicons name="lock-closed-outline" size={23} color={colors.textDim} />
           </Pressable>
         </Row>
       </Row>
@@ -311,6 +315,7 @@ function Room({ ventKey, onLock, onWiped }: { ventKey: Uint8Array; onLock: () =>
                 key={s.id}
                 onPress={() => {
                   setSession(s);
+                  setCrisis(s.messages.some((m) => m.from === 'me' && detectCrisis(m.text)));
                   setShowHistory(false);
                 }}
                 style={{ paddingVertical: 8, borderTopWidth: 1, borderTopColor: colors.border }}
@@ -347,21 +352,7 @@ function Room({ ventKey, onLock, onWiped }: { ventKey: Uint8Array; onLock: () =>
         ))}
         {typing && <Bubble msg={{ from: 'bot', text: '• • •' }} />}
 
-        {crisis && (
-          <View style={{ backgroundColor: '#3B0D1F', borderRadius: 18, padding: 16, borderWidth: 1.5, borderColor: colors.pink }}>
-            <T bold size={16}>
-              💗 אתה לא לבד. יש מי שרוצה לעזור, עכשיו
-            </T>
-            <T size={15} style={{ marginTop: 8, lineHeight: 24 }}>
-              ער"ן, עזרה נפשית ראשונה, 24/7: <T bold>1201</T>
-              {'\n'}סה"ר, צ'אט תמיכה: <T bold>sahar.org.il</T>
-              {'\n'}במצב חירום: מד"א <T bold>101</T> · משטרה <T bold>100</T>
-            </T>
-            <T dim size={13} style={{ marginTop: 8, lineHeight: 19 }}>
-              אני תוכנה ולא תחליף לאדם. אם אתה בסכנה, דבר עם מישהו עכשיו.
-            </T>
-          </View>
-        )}
+        {crisis && <CrisisCard />}
       </ScrollView>
 
       <View style={{ borderTopWidth: 1, borderTopColor: colors.border, padding: 10, backgroundColor: colors.bgDeep }}>
@@ -386,6 +377,7 @@ function Room({ ventKey, onLock, onWiped }: { ventKey: Uint8Array; onLock: () =>
             }}
           />
           <Pressable
+                  accessibilityLabel="שלח"
             onPress={send}
             disabled={!input.trim() || typing}
             style={{
@@ -397,7 +389,7 @@ function Room({ ventKey, onLock, onWiped }: { ventKey: Uint8Array; onLock: () =>
               justifyContent: 'center',
             }}
           >
-            <Text style={{ fontSize: 20, color: '#fff' }}>➤</Text>
+            <Ionicons name="send" size={19} color="#fff" style={{ transform: [{ scaleX: -1 }] }} />
           </Pressable>
         </Row>
       </View>
