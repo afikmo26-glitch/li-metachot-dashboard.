@@ -9,7 +9,7 @@ import { GhostButton, GradientButton, Input, Row, T, tap } from '../components/u
 import { aiChat, aiReady, loadAiConfig } from '../lib/ai';
 import { formatShortDate, formatTime } from '../lib/dates';
 import { newId, useStore } from '../lib/store';
-import { colors, rtl } from '../lib/theme';
+import { colors, gradients, layout, rtl } from '../lib/theme';
 import type { ChatMessage } from '../lib/types';
 import {
   detectCrisis,
@@ -25,6 +25,7 @@ import {
   VentSession,
   wipeVent,
 } from '../lib/vent';
+import { langName, t } from '../i18n';
 
 const VENT_GRADIENT = ['#2A1B4E', '#1A1033', '#0C0920'] as const;
 
@@ -53,7 +54,7 @@ export default function VentScreen() {
   };
 
   return (
-    <LinearGradient colors={VENT_GRADIENT} style={{ flex: 1 }}>
+    <LinearGradient colors={colors.statusBar === 'dark' ? gradients.app : VENT_GRADIENT} style={{ flex: 1 }}>
       {phase === 'setup' && <Setup onDone={unlocked} />}
       {phase === 'locked' && <Unlock onUnlock={unlocked} onWiped={() => setPhase('setup')} />}
       {phase === 'open' && key && (
@@ -78,7 +79,7 @@ function Header({ subtitle }: { subtitle: string }) {
     <View style={{ alignItems: 'center', marginBottom: 22 }}>
       <Text style={{ fontSize: 60 }}>🔐</Text>
       <T bold size={28} style={{ textAlign: 'center', marginTop: 10 }}>
-        המקום לפרוק
+        {t('המקום לפרוק')}
       </T>
       <T dim size={15} style={{ textAlign: 'center', marginTop: 6, lineHeight: 22, maxWidth: 340 }}>
         {subtitle}
@@ -94,23 +95,23 @@ function Setup({ onDone }: { onDone: (k: Uint8Array) => void }) {
   const [busy, setBusy] = useState(false);
 
   const create = async () => {
-    if (pw.length < MIN_VENT_PASSWORD) return setError(`לפחות ${MIN_VENT_PASSWORD} תווים`);
-    if (pw !== confirm) return setError('הסיסמאות לא תואמות');
+    if (pw.length < MIN_VENT_PASSWORD) return setError(t('לפחות {n} תווים', { n: MIN_VENT_PASSWORD }));
+    if (pw !== confirm) return setError(t('הסיסמאות לא תואמות'));
     setBusy(true);
     onDone(await setupVent(pw));
   };
 
   return (
     <ScrollView contentContainerStyle={{ padding: 22, paddingTop: 40, paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
-      <Header subtitle="מקום אינטימי וסודי רק שלך. אפשר לשחרר כאן הכל, ומישהו יקשיב, יחזיר לך תשובה ויעזור לך להרים את הראש." />
+      <Header subtitle={t('מקום אינטימי וסודי רק שלך. אפשר לשחרר כאן הכל, ומישהו יקשיב, יחזיר לך תשובה ויעזור לך להרים את הראש.')} />
       <View style={{ backgroundColor: colors.card, borderRadius: 18, padding: 14, borderWidth: 1, borderColor: colors.border, gap: 6 }}>
-        <T size={14}>🔒 השיחות מוצפנות בסיסמה נפרדת שרק אתה יודע</T>
-        <T size={14}>🚫 אי אפשר לצלם את המסך כאן</T>
-        <T size={14}>⏱️ ננעל אוטומטית כשיוצאים</T>
+        <T size={14}>{t('🔒 השיחות מוצפנות בסיסמה נפרדת שרק אתה יודע')}</T>
+        <T size={14}>{t('🚫 אי אפשר לצלם את המסך כאן')}</T>
+        <T size={14}>{t('⏱️ ננעל אוטומטית כשיוצאים')}</T>
       </View>
       <View style={{ gap: 10, marginTop: 18 }}>
-        <Input value={pw} onChangeText={setPw} placeholder="בחר סיסמה למקום הזה" secureTextEntry />
-        <Input value={confirm} onChangeText={setConfirm} placeholder="שוב את אותה סיסמה" secureTextEntry onSubmitEditing={create} />
+        <Input value={pw} onChangeText={setPw} placeholder={t('בחר סיסמה למקום הזה')} secureTextEntry />
+        <Input value={confirm} onChangeText={setConfirm} placeholder={t('שוב את אותה סיסמה')} secureTextEntry onSubmitEditing={create} />
       </View>
       {error && (
         <T size={14} style={{ color: colors.red, marginTop: 10 }}>
@@ -118,9 +119,9 @@ function Setup({ onDone }: { onDone: (k: Uint8Array) => void }) {
         </T>
       )}
       <T dim size={12} style={{ marginTop: 10, lineHeight: 18 }}>
-        חשוב: אם תשכח את הסיסמה הזו, אי אפשר לשחזר את מה שנכתב כאן.
+        {t('חשוב: אם תשכח את הסיסמה הזו, אי אפשר לשחזר את מה שנכתב כאן.')}
       </T>
-      <GradientButton title={busy ? 'מכין…' : 'צור את המקום שלי'} colors={['#7C3AED', '#DB2777']} onPress={create} disabled={busy} style={{ marginTop: 16 }} />
+      <GradientButton title={busy ? t('מכין…') : t('צור את המקום שלי')} colors={['#7C3AED', '#DB2777']} onPress={create} disabled={busy} style={{ marginTop: 16 }} />
     </ScrollView>
   );
 }
@@ -135,7 +136,7 @@ function Unlock({ onUnlock, onWiped }: { onUnlock: (k: Uint8Array) => void; onWi
 
   const go = async () => {
     const wait = Math.ceil((lockedUntil - Date.now()) / 1000);
-    if (wait > 0) return setError(`נסה שוב בעוד ${wait} שניות`);
+    if (wait > 0) return setError(t('נסה שוב בעוד {n} שניות', { n: wait }));
     if (busy || !pw) return;
     setBusy(true);
     const k = await unlockVent(pw);
@@ -146,33 +147,33 @@ function Unlock({ onUnlock, onWiped }: { onUnlock: (k: Uint8Array) => void; onWi
     setPw('');
     if (n % 5 === 0) {
       setLockedUntil(Date.now() + 30_000);
-      setError('יותר מדי ניסיונות. נחסם ל-30 שניות');
+      setError(t('יותר מדי ניסיונות. נחסם ל-30 שניות'));
     } else {
-      setError('סיסמה שגויה');
+      setError(t('סיסמה שגויה'));
     }
   };
 
   return (
     <ScrollView contentContainerStyle={{ padding: 22, paddingTop: 60, paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
-      <Header subtitle="הכנס את הסיסמה של המקום הסודי שלך" />
-      <Input value={pw} onChangeText={setPw} placeholder="סיסמה" secureTextEntry onSubmitEditing={go} />
+      <Header subtitle={t('הכנס את הסיסמה של המקום הסודי שלך')} />
+      <Input value={pw} onChangeText={setPw} placeholder={t('סיסמה')} secureTextEntry onSubmitEditing={go} />
       {error && (
         <T size={14} style={{ color: colors.red, marginTop: 10 }}>
           {error}
         </T>
       )}
-      <GradientButton title={busy ? 'פותח…' : 'פתח'} colors={['#7C3AED', '#DB2777']} onPress={go} disabled={busy} style={{ marginTop: 16 }} />
+      <GradientButton title={busy ? t('פותח…') : t('פתח')} colors={['#7C3AED', '#DB2777']} onPress={go} disabled={busy} style={{ marginTop: 16 }} />
       {!forgot ? (
-        <GhostButton title="שכחתי את הסיסמה" onPress={() => setForgot(true)} style={{ marginTop: 10, borderWidth: 0 }} />
+        <GhostButton title={t('שכחתי את הסיסמה')} onPress={() => setForgot(true)} style={{ marginTop: 10, borderWidth: 0 }} />
       ) : (
         <View style={{ marginTop: 16, backgroundColor: colors.card, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: colors.red }}>
           <T dim size={14} style={{ lineHeight: 20 }}>
-            השיחות כאן מוצפנות בסיסמה הזו בלבד. אפשר למחוק אותן ולהתחיל מחדש עם סיסמה חדשה. היומן הרגיל לא יימחק.
+            {t('השיחות כאן מוצפנות בסיסמה הזו בלבד. אפשר למחוק אותן ולהתחיל מחדש עם סיסמה חדשה. היומן הרגיל לא יימחק.')}
           </T>
           <Row style={{ gap: 10, marginTop: 12 }}>
-            <GhostButton title="ביטול" onPress={() => setForgot(false)} style={{ flex: 1 }} />
+            <GhostButton title={t('ביטול')} onPress={() => setForgot(false)} style={{ flex: 1 }} />
             <GhostButton
-              title="מחק והתחל מחדש"
+              title={t('מחק והתחל מחדש')}
               color={colors.red}
               style={{ flex: 1, borderColor: colors.red }}
               onPress={async () => {
@@ -228,7 +229,7 @@ function Room({ ventKey, onLock, onWiped }: { ventKey: Uint8Array; onLock: () =>
   }, [session, typing, crisis]);
 
   const startSession = (d: VentData) => {
-    const greeting = VENT_GREETINGS[Math.floor(Math.random() * VENT_GREETINGS.length)];
+    const greeting = t(VENT_GREETINGS[Math.floor(Math.random() * VENT_GREETINGS.length)]);
     const name = settings.userName ? `${settings.userName}, ` : '';
     setSession({ id: newId(), startedAt: new Date().toISOString(), messages: [{ from: 'bot', text: name + greeting }] });
     setCrisis(false);
@@ -244,12 +245,12 @@ function Room({ ventKey, onLock, onWiped }: { ventKey: Uint8Array; onLock: () =>
   };
 
   const send = async () => {
-    const t = input.trim();
-    if (!t || !session || typing) return;
+    const msg = input.trim();
+    if (!msg || !session || typing) return;
     tap();
     setInput('');
-    if (detectCrisis(t)) setCrisis(true);
-    const withMe: VentSession = { ...session, messages: [...session.messages, { from: 'me', text: t }] };
+    if (detectCrisis(msg)) setCrisis(true);
+    const withMe: VentSession = { ...session, messages: [...session.messages, { from: 'me', text: msg }] };
     setSession(withMe);
     persist(withMe);
     setTyping(true);
@@ -259,14 +260,14 @@ function Room({ ventKey, onLock, onWiped }: { ventKey: Uint8Array; onLock: () =>
     const crisisCount = mine.slice(0, -1).filter((m) => detectCrisis(m.text)).length;
     if (useAi && aiRef.current) {
       try {
-        reply = await aiChat(aiRef.current, 'vent', withMe.messages, { name: settings.userName || undefined });
+        reply = await aiChat(aiRef.current, 'vent', withMe.messages, { name: settings.userName || undefined, lang: langName() });
       } catch {
         setUseAi(false);
-        reply = offlineVentReply(t, turns, crisisCount);
+        reply = offlineVentReply(msg, turns, crisisCount);
       }
     } else {
       await new Promise((r) => setTimeout(r, 900));
-      reply = offlineVentReply(t, turns, crisisCount);
+      reply = offlineVentReply(msg, turns, crisisCount);
     }
     setTyping(false);
     const withBot: VentSession = { ...withMe, messages: [...withMe.messages, { from: 'bot', text: reply } as ChatMessage] };
@@ -283,21 +284,21 @@ function Room({ ventKey, onLock, onWiped }: { ventKey: Uint8Array; onLock: () =>
           <BotAvatar emoji="🫂" />
           <View>
             <T bold size={17}>
-              המקום לפרוק
+              {t('המקום לפרוק')}
             </T>
             <T dim size={12}>
-              {typing ? 'כותב…' : useAi ? '✨ AI · מוצפן ופרטי' : 'מוצפן ופרטי'}
+              {typing ? t('כותב…') : useAi ? t('✨ AI · מוצפן ופרטי') : t('מוצפן ופרטי')}
             </T>
           </View>
         </Row>
         <Row style={{ gap: 14, alignItems: 'center' }}>
-          <Pressable onPress={() => setShowHistory((v) => !v)} hitSlop={10} accessibilityLabel="שיחות קודמות">
+          <Pressable onPress={() => setShowHistory((v) => !v)} hitSlop={10} accessibilityLabel={t('שיחות קודמות')}>
             <Ionicons name="folder-open-outline" size={23} color={colors.textDim} />
           </Pressable>
-          <Pressable onPress={() => startSession(data)} hitSlop={10} accessibilityLabel="שיחה חדשה">
+          <Pressable onPress={() => startSession(data)} hitSlop={10} accessibilityLabel={t('שיחה חדשה')}>
             <Ionicons name="create-outline" size={23} color={colors.textDim} />
           </Pressable>
-          <Pressable onPress={onLock} hitSlop={10} accessibilityLabel="נעל">
+          <Pressable onPress={onLock} hitSlop={10} accessibilityLabel={t('נעל')}>
             <Ionicons name="lock-closed-outline" size={23} color={colors.textDim} />
           </Pressable>
         </Row>
@@ -307,9 +308,9 @@ function Room({ ventKey, onLock, onWiped }: { ventKey: Uint8Array; onLock: () =>
         {showHistory && (
           <View style={{ backgroundColor: colors.card, borderRadius: 16, padding: 12, borderWidth: 1, borderColor: colors.border, marginBottom: 6 }}>
             <T bold style={{ marginBottom: 8 }}>
-              שיחות קודמות
+              {t('שיחות קודמות')}
             </T>
-            {past.length === 0 && <T dim size={14}>עוד אין שיחות קודמות</T>}
+            {past.length === 0 && <T dim size={14}>{t('עוד אין שיחות קודמות')}</T>}
             {past.map((s) => (
               <Pressable
                 key={s.id}
@@ -329,12 +330,12 @@ function Room({ ventKey, onLock, onWiped }: { ventKey: Uint8Array; onLock: () =>
               </Pressable>
             ))}
             {!confirmWipe ? (
-              <GhostButton title="🗑️ מחק את כל השיחות" color={colors.red} onPress={() => setConfirmWipe(true)} style={{ marginTop: 10, borderColor: colors.red }} />
+              <GhostButton title={t('🗑️ מחק את כל השיחות')} color={colors.red} onPress={() => setConfirmWipe(true)} style={{ marginTop: 10, borderColor: colors.red }} />
             ) : (
               <Row style={{ gap: 8, marginTop: 10 }}>
-                <GhostButton title="ביטול" onPress={() => setConfirmWipe(false)} style={{ flex: 1 }} />
+                <GhostButton title={t('ביטול')} onPress={() => setConfirmWipe(false)} style={{ flex: 1 }} />
                 <GhostButton
-                  title="כן, למחוק הכל"
+                  title={t('כן, למחוק הכל')}
                   color={colors.red}
                   style={{ flex: 1, borderColor: colors.red }}
                   onPress={async () => {
@@ -360,7 +361,7 @@ function Room({ ventKey, onLock, onWiped }: { ventKey: Uint8Array; onLock: () =>
           <TextInput
             value={input}
             onChangeText={setInput}
-            placeholder="כתוב כל מה שעל הלב…"
+            placeholder={t('כתוב כל מה שעל הלב…')}
             placeholderTextColor={colors.textMute}
             multiline
             style={{
@@ -377,7 +378,7 @@ function Room({ ventKey, onLock, onWiped }: { ventKey: Uint8Array; onLock: () =>
             }}
           />
           <Pressable
-                  accessibilityLabel="שלח"
+                  accessibilityLabel={t('שלח')}
             onPress={send}
             disabled={!input.trim() || typing}
             style={{
@@ -389,7 +390,7 @@ function Room({ ventKey, onLock, onWiped }: { ventKey: Uint8Array; onLock: () =>
               justifyContent: 'center',
             }}
           >
-            <Ionicons name="send" size={19} color="#fff" style={{ transform: [{ scaleX: -1 }] }} />
+            <Ionicons name="send" size={19} color="#fff" style={{ transform: [{ scaleX: layout.flip }] }} />
           </Pressable>
         </Row>
       </View>

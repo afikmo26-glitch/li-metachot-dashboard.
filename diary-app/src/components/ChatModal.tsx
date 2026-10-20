@@ -11,7 +11,7 @@ import {
   BotQuestion,
   composeEntryText,
   moodFromAnswer,
-  NAMES_QUESTION,
+  namesQuestion,
   nextQuestion,
   openingQuestion,
   personNotes,
@@ -23,9 +23,10 @@ import {
 import { extractQuotes, findKnownPeople, suggestNewNames } from '../lib/names';
 import { scheduleMorningRecap, scheduleTomorrowReminder } from '../lib/notifications';
 import { newId, useStore } from '../lib/store';
-import { colors, gradients, MOODS, rtl } from '../lib/theme';
+import { colors, gradients, layout, MOODS, rtl } from '../lib/theme';
 import type { ChatMessage, Entry, Person } from '../lib/types';
 import { Chip, GhostButton, GradientButton, notify, Row, T, tap } from './ui';
+import { t } from '../i18n';
 
 export type PendingRecording = { uri: string; durationMs: number; startedAt: Date };
 
@@ -45,10 +46,10 @@ type Draft = {
   tomorrow?: string;
 };
 
-export const BOT_NAME = 'יומי';
+export const BOT_NAME = t('יומי');
 
 export default function ChatModal({ visible, recording, onClose, onSaved }: Props) {
-  const { people, entries, settings, addPerson, updatePerson, saveEntry } = useStore();
+  const { people, entries, settings, profile: me, addPerson, updatePerson, saveEntry } = useStore();
   const [ai, setAi] = useState<AiConfig>(EMPTY_AI);
   const [useAi, setUseAi] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -61,7 +62,7 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
   const scroll = useRef<ScrollViewInstance>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const profile = () => buildProfile(settings.userName, people, entries);
+  const profile = () => buildProfile(settings.userName, people, entries, me);
   const say = (text: string) => setMessages((m) => [...m, { from: 'bot', text }]);
 
   /** Offline mode: say an optional reaction, then the next scripted question (or finish). */
@@ -83,7 +84,7 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
   // Fresh conversation every time the chat opens
   useEffect(() => {
     if (!visible) return;
-    setMessages(recording ? [{ from: 'bot', text: '🎙️ ההקלטה שלך נשמרה. בוא נדבר עליה קצת.' }] : []);
+    setMessages(recording ? [{ from: 'bot', text: t('🎙️ ההקלטה שלך נשמרה. בוא נדבר עליה קצת.') }] : []);
     setAnswers([]);
     setDraft(null);
     setInput('');
@@ -115,13 +116,13 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
     ...extra.filter((n) => !people.some((p) => p.name === n.name)).map((n) => ({ id: `new:${n.name}`, name: n.name, firstSeen: '' })),
   ];
 
-  const sendAi = async (t: string, history: ChatMessage[]) => {
+  const sendAi = async (history: ChatMessage[]) => {
     setTyping(true);
     try {
       say(await aiChat(ai, 'diary', history, profile()));
     } catch (e) {
       // Fall back to the offline interviewer, treating everything said so far as the opening answer
-      say(`⚠️ אין חיבור לשרת ה-AI (${(e as Error).message}). ממשיך במצב רגיל.`);
+      say(t('⚠️ אין חיבור ל-AI ({err}). ממשיך במצב רגיל.', { err: (e as Error).message }));
       setUseAi(false);
       const opening: Answer = {
         question: openingQuestion(),
@@ -136,17 +137,17 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
   };
 
   const send = (text: string) => {
-    const t = text.trim();
-    if (!t || typing || draft) return;
+    const msg = text.trim();
+    if (!msg || typing || draft) return;
     tap();
     setInput('');
-    const history = [...messages, { from: 'me' as const, text: t }];
+    const history = [...messages, { from: 'me' as const, text: msg }];
     setMessages(history);
-    const danger = detectCrisis(t);
+    const danger = detectCrisis(msg);
     if (danger) setCrisis(true);
 
     if (useAi) {
-      sendAi(t, history);
+      sendAi(history);
       return;
     }
     if (!question) return;
@@ -155,28 +156,28 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
       setTyping(true);
       timer.current = setTimeout(() => {
         setTyping(false);
-        say('אני ממש שמח שסיפרת לי, ואני לוקח את זה ברצינות 💗 כשעולות מחשבות כאלה מגיע לך שמישהו אמיתי יהיה איתך עכשיו. ער"ן זמינים 24/7 ב-1201. אתה בטוח כרגע? אני כאן, אפשר להמשיך לכתוב לי.');
+        say(t('אני ממש שמח שסיפרת לי, ואני לוקח את זה ברצינות 💗 כשעולות מחשבות כאלה מגיע לך שמישהו אמיתי יהיה איתך עכשיו. ער"ן זמינים 24/7 ב-1201. אתה בטוח כרגע? אני כאן, אפשר להמשיך לכתוב לי.'));
       }, 700);
       return;
     }
-    const nextAnswers = [...answers, { question, text: t }];
+    const nextAnswers = [...answers, { question, text: msg }];
     setAnswers(nextAnswers);
     setQuestion(null);
     // People named in "who is X?" answers count as known from here on
     const known = knownWith(personNotes(nextAnswers));
-    const newNames = question.kind === 'opening' || question.kind === 'topic' ? suggestNewNames(t, people) : [];
-    if (shouldAskNames(t, newNames, nextAnswers.map((a) => a.question))) {
-      ask(NAMES_QUESTION, undefined, nextAnswers);
+    const newNames = question.kind === 'opening' || question.kind === 'topic' ? suggestNewNames(msg, people) : [];
+    if (shouldAskNames(msg, newNames, nextAnswers.map((a) => a.question))) {
+      ask(namesQuestion(), undefined, nextAnswers);
       return;
     }
-    ask(nextQuestion(nextAnswers, known), reactTo(t, question, newNames), nextAnswers);
+    ask(nextQuestion(nextAnswers, known), reactTo(msg, question, newNames), nextAnswers);
   };
 
   const finishAi = async () => {
     if (typing) return;
     tap();
     setTyping(true);
-    say('רגע, אני כותב את היומן… ✍️');
+    say(t('רגע, אני כותב את היומן… ✍️'));
     try {
       const s = await aiSummarize(ai, messages, profile());
       setDraft({
@@ -256,12 +257,12 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
                   {BOT_NAME}
                 </T>
                 <T dim size={12}>
-                  {typing ? 'מקליד…' : useAi ? '✨ AI · החבר שזוכר הכל' : 'החבר שזוכר הכל'}
+                  {typing ? t('מקליד…') : useAi ? t('✨ AI · החבר שזוכר הכל') : t('החבר שזוכר הכל')}
                 </T>
               </View>
             </Row>
             <Pressable onPress={onClose} hitSlop={12}>
-              <T bold style={{ color: colors.primaryHi }}>סגור ✕</T>
+              <T bold style={{ color: colors.primaryHi }}>{t('סגור ✕')}</T>
             </Pressable>
           </Row>
 
@@ -275,10 +276,10 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
             {draft && preview && (
               <View style={{ backgroundColor: colors.card, borderRadius: 18, padding: 14, borderWidth: 1, borderColor: colors.primary, marginTop: 4 }}>
                 <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                  <T bold>📖 הרשומה של היום</T>
+                  <T bold>{t('📖 הרשומה של היום')}</T>
                   <Text style={{ fontSize: 24 }}>{MOODS[draft.mood - 1]}</Text>
                 </Row>
-                <T style={{ marginTop: 8, lineHeight: 22 }}>{draft.text || (recording ? '🎙️ הקלטה קולית' : '—')}</T>
+                <T style={{ marginTop: 8, lineHeight: 22 }}>{draft.text || (recording ? t('🎙️ הקלטה קולית') : '—')}</T>
                 {preview.ids.length > 0 && (
                   <Row style={{ flexWrap: 'wrap', marginTop: 10 }}>
                     {preview.ids.map((id) => (
@@ -288,11 +289,11 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
                 )}
                 {draft.tomorrow && (
                   <T dim size={13} style={{ marginTop: 6 }}>
-                    🔔 אזכיר לך מחר בבוקר: {draft.tomorrow}
+                    {t('🔔 אזכיר לך מחר בבוקר: {note}', { note: draft.tomorrow })}
                   </T>
                 )}
-                <GradientButton title="שמור ביומן" icon="💾" colors={gradients.primary} onPress={save} style={{ marginTop: 12 }} />
-                <GhostButton title={useAi ? 'המשך לדבר' : 'ביטול'} onPress={() => (useAi ? setDraft(null) : onClose())} style={{ marginTop: 8 }} />
+                <GradientButton title={t('שמור ביומן')} icon="💾" colors={gradients.primary} onPress={save} style={{ marginTop: 12 }} />
+                <GhostButton title={useAi ? t('המשך לדבר') : t('ביטול')} onPress={() => (useAi ? setDraft(null) : onClose())} style={{ marginTop: 8 }} />
               </View>
             )}
           </ScrollView>
@@ -308,14 +309,14 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
               )}
               {useAi && userTurns >= 2 && !typing && (
                 <Row style={{ marginBottom: 8 }}>
-                  <Chip label="✅ סיים וכתוב את היומן" color={colors.green} onPress={finishAi} />
+                  <Chip label={t('✅ סיים וכתוב את היומן')} color={colors.green} onPress={finishAi} />
                 </Row>
               )}
               <Row style={{ alignItems: 'flex-end', gap: 8 }}>
                 <TextInput
                   value={input}
                   onChangeText={setInput}
-                  placeholder="כתוב או הכתב בקול עם 🎤 במקלדת…"
+                  placeholder={t('כתוב או הכתב בקול עם 🎤 במקלדת…')}
                   placeholderTextColor={colors.textMute}
                   multiline
                   style={{
@@ -332,7 +333,7 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
                   }}
                 />
                 <Pressable
-                  accessibilityLabel="שלח"
+                  accessibilityLabel={t('שלח')}
                   onPress={() => send(input)}
                   disabled={!input.trim() || typing}
                   style={{
@@ -344,7 +345,7 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
                     justifyContent: 'center',
                   }}
                 >
-                  <Ionicons name="send" size={19} color="#fff" style={{ transform: [{ scaleX: -1 }] }} />
+                  <Ionicons name="send" size={19} color="#fff" style={{ transform: [{ scaleX: layout.flip }] }} />
                 </Pressable>
               </Row>
             </View>
@@ -375,20 +376,22 @@ export function BotAvatar({ size = 40, emoji = '💜' }: { size?: number; emoji?
 
 export function Bubble({ msg }: { msg: ChatMessage }) {
   const mine = msg.from === 'me';
+  // My messages sit at the reading end of the line: left in Hebrew/Arabic, right in English
+  const left = mine === layout.isRTL;
   return (
-    <View style={{ flexDirection: 'row', justifyContent: mine ? 'flex-start' : 'flex-end' }}>
+    <View style={{ flexDirection: 'row', justifyContent: left ? 'flex-start' : 'flex-end' }}>
       <View
         style={{
           maxWidth: '82%',
           backgroundColor: mine ? colors.primary : colors.cardHi,
           borderRadius: 18,
-          borderTopRightRadius: mine ? 18 : 4,
-          borderTopLeftRadius: mine ? 4 : 18,
+          borderTopRightRadius: left ? 18 : 4,
+          borderTopLeftRadius: left ? 4 : 18,
           paddingHorizontal: 14,
           paddingVertical: 10,
         }}
       >
-        <T style={{ lineHeight: 22, color: '#fff' }}>{msg.text}</T>
+        <T style={{ lineHeight: 22, color: mine ? colors.onPrimary : colors.text }}>{msg.text}</T>
       </View>
     </View>
   );

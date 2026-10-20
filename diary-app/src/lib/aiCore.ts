@@ -10,7 +10,7 @@ const MAX_MESSAGES = 40;
 const MAX_CHARS = 4000;
 
 export type ApiMessage = { role: 'user' | 'assistant'; content: string };
-export type Profile = { name?: string; people?: string[]; recent?: string[] };
+export type Profile = { name?: string; lang?: string; people?: string[]; recent?: string[]; about?: string };
 
 export type Summary = {
   entry: string;
@@ -51,7 +51,7 @@ How to reply:
 ${CRISIS}`;
 
 const SUMMARY_SYSTEM = `You turn a chat between a user and their diary companion into a diary entry.
-Write the entry in Hebrew, first person, as the user would write it in their diary: what happened, who they met, what people said, how they felt. Keep their words and details; do not invent anything. 2 to 8 sentences.
+Write the entry in the language the profile asks for (Hebrew if none), first person, as the user would write it in their diary: what happened, who they met, what people said, how they felt. Keep their words and details; do not invent anything. 2 to 8 sentences.
 Also extract: mood (1 = very bad, 5 = amazing), the people mentioned (first names as written, with a short note like "חבר מהעבודה" when the chat says who they are, else empty), notable things people said to the user (quotes), and anything the user asked to be reminded of tomorrow (else empty).`;
 
 const SUMMARY_SCHEMA = {
@@ -84,12 +84,19 @@ const SUMMARY_SCHEMA = {
 };
 
 /** Shown if Claude declines to answer, so the person is never left without a reply. */
-export const REFUSAL_REPLY = 'אני כאן איתך 💜 אם קשה לך עכשיו, ער"ן זמינים 24/7 ב-1201. ספר לי עוד, במילים שלך.';
+const REFUSAL_REPLIES: Record<string, string> = {
+  Hebrew: 'אני כאן איתך 💜 אם קשה לך עכשיו, ער"ן זמינים 24/7 ב-1201. ספר לי עוד, במילים שלך.',
+  English: "I'm here with you 💜 If things feel hard right now, ERAN is available 24/7 at 1201, or your local emergency number. Tell me more, in your own words.",
+  Arabic: 'أنا هنا معك 💜 إذا كان الأمر صعبًا الآن، يمكنك الاتصال بـ ERAN على 1201 على مدار الساعة. أخبرني المزيد بكلماتك.',
+};
+export const refusalReply = (lang?: string) => REFUSAL_REPLIES[lang ?? 'Hebrew'] ?? REFUSAL_REPLIES.Hebrew;
 
 function profileText(p: Profile | undefined) {
   if (!p) return '';
   const lines: string[] = [];
+  if (p.lang) lines.push(`Always reply in ${p.lang}.`);
   if (p.name) lines.push(`User's name: ${p.name}`);
+  if (p.about) lines.push(`About the user (from their intro): ${p.about.slice(0, 1200)}`);
   if (p.people?.length) lines.push(`People they've mentioned before: ${p.people.slice(0, 60).join(', ')}`);
   if (p.recent?.length) lines.push(`Recent diary entries:\n${p.recent.slice(0, 5).map((r) => `- ${r.slice(0, 400)}`).join('\n')}`);
   return lines.length ? `\n\n<profile>\n${lines.join('\n')}\n</profile>` : '';
@@ -124,8 +131,8 @@ export async function chatWithClaude(client: Anthropic, mode: 'diary' | 'vent', 
     system: (mode === 'vent' ? VENT_SYSTEM : DIARY_SYSTEM) + profileText(profile),
     messages: cleanMessages(messages),
   });
-  if (res.stop_reason === 'refusal') return REFUSAL_REPLY;
-  return textOf(res.content) || REFUSAL_REPLY;
+  if (res.stop_reason === 'refusal') return refusalReply(profile?.lang);
+  return textOf(res.content) || refusalReply(profile?.lang);
 }
 
 export async function summarizeWithClaude(client: Anthropic, messages: ApiMessage[], profile?: Profile): Promise<Summary> {

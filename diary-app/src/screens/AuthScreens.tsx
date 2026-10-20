@@ -6,8 +6,11 @@ import { TimePicker } from '../components/SettingsModal';
 import { GhostButton, GradientButton, Input, Row, T, tap } from '../components/ui';
 import { Account, AuthProvider, checkLogin, createLocalAccount, validateSignup, wipeAllData } from '../lib/account';
 import { scheduleBedtime } from '../lib/notifications';
+import { usePrefs } from '../lib/prefs';
 import { useStore } from '../lib/store';
-import { colors, gradients } from '../lib/theme';
+import IntroScreen from './IntroScreen';
+import { colors, gradients, layout } from '../lib/theme';
+import { LANGS, t } from '../i18n';
 
 const SLIDES = [
   {
@@ -66,7 +69,7 @@ function Dots({ count, index }: { count: number; index: number }) {
 
 /** First run: tutorial → create account → pick reminder time. */
 export function Onboarding({ onDone }: { onDone: (a: Account) => void }) {
-  const [step, setStep] = useState<'slides' | 'signup' | 'reminder'>('slides');
+  const [step, setStep] = useState<'slides' | 'signup' | 'intro' | 'reminder'>('slides');
   const [slide, setSlide] = useState(0);
   const [account, setAccount] = useState<Account | null>(null);
 
@@ -75,10 +78,11 @@ export function Onboarding({ onDone }: { onDone: (a: Account) => void }) {
     const last = slide === SLIDES.length - 1;
     return (
       <Screen>
-        <Row style={{ justifyContent: 'flex-start' }}>
+        <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
           <Pressable onPress={() => setStep('signup')} hitSlop={12}>
-            <T dim>דלג</T>
+            <T dim>{t('דלג')}</T>
           </Pressable>
+          <LanguagePicker />
         </Row>
         <View style={{ alignItems: 'center', marginTop: 30 }}>
           <View
@@ -96,19 +100,19 @@ export function Onboarding({ onDone }: { onDone: (a: Account) => void }) {
             <Text style={{ fontSize: 70 }}>{s.emoji}</Text>
           </View>
           <T bold size={28} style={{ textAlign: 'center', marginTop: 28 }}>
-            {s.title}
+            {t(s.title)}
           </T>
           <T dim size={17} style={{ textAlign: 'center', marginTop: 12, lineHeight: 26, maxWidth: 360 }}>
-            {s.text}
+            {t(s.text)}
           </T>
         </View>
         <Dots count={SLIDES.length} index={slide} />
         <GradientButton
-          title={last ? 'בוא נתחיל' : 'הבא'}
+          title={last ? t('בוא נתחיל') : t('הבא')}
           colors={gradients.primary}
           onPress={() => (last ? setStep('signup') : setSlide(slide + 1))}
         />
-        {slide > 0 && <GhostButton title="הקודם" onPress={() => setSlide(slide - 1)} style={{ marginTop: 10, borderWidth: 0 }} />}
+        {slide > 0 && <GhostButton title={t('הקודם')} onPress={() => setSlide(slide - 1)} style={{ marginTop: 10, borderWidth: 0 }} />}
       </Screen>
     );
   }
@@ -118,11 +122,13 @@ export function Onboarding({ onDone }: { onDone: (a: Account) => void }) {
       <Signup
         onCreated={(a) => {
           setAccount(a);
-          setStep('reminder');
+          setStep('intro');
         }}
       />
     );
   }
+
+  if (step === 'intro') return <IntroScreen onDone={() => setStep('reminder')} />;
 
   return <ReminderStep onDone={() => onDone(account)} />;
 }
@@ -141,7 +147,7 @@ function Signup({ onCreated }: { onCreated: (a: Account) => void }) {
     tap();
     setError(null);
     setInfo(
-      `התחברות עם ${p === 'google' ? 'Google' : 'Apple'} תופעל בגרסה הבאה. בינתיים צור חשבון עם שם משתמש וסיסמה, ואפשר יהיה לחבר אותו אחר כך.`,
+      t('התחברות עם {provider} תופעל בגרסה הבאה. בינתיים צור חשבון עם שם משתמש וסיסמה, ואפשר יהיה לחבר אותו אחר כך.', { provider: p === 'google' ? 'Google' : 'Apple' }),
     );
   };
 
@@ -160,42 +166,42 @@ function Signup({ onCreated }: { onCreated: (a: Account) => void }) {
   return (
     <Screen>
       <T bold size={28} style={{ textAlign: 'center' }}>
-        יצירת חשבון
+        {t('יצירת חשבון')}
       </T>
       <T dim style={{ textAlign: 'center', marginTop: 6, marginBottom: 22 }}>
-        היומן שלך מוגן בסיסמה ונשמר רק על הטלפון
+        {t('היומן שלך מוגן בסיסמה ונשמר רק על הטלפון')}
       </T>
 
-      <SocialButton label="המשך עם Google" icon="G" bg="#FFFFFF" fg="#1F1F1F" onPress={() => social('google')} />
-      <SocialButton label="המשך עם Apple" icon={Platform.OS === 'ios' ? '\uF8FF' : ''} bg="#000000" fg="#FFFFFF" onPress={() => social('apple')} />
+      <SocialButton label={t('המשך עם Google')} icon="G" bg="#FFFFFF" fg="#1F1F1F" onPress={() => social('google')} />
+      <SocialButton label={t('המשך עם Apple')} icon={Platform.OS === 'ios' ? '\uF8FF' : ''} bg="#000000" fg="#FFFFFF" onPress={() => social('apple')} />
 
       <Row style={{ alignItems: 'center', gap: 10, marginVertical: 18 }}>
         <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
         <T dim size={13}>
-          או עם שם משתמש
+          {t('או עם שם משתמש')}
         </T>
         <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
       </Row>
 
       <View style={{ gap: 10 }}>
-        <Input value={displayName} onChangeText={setDisplayName} placeholder="השם שלך (איך לקרוא לך)" autoComplete="name" />
+        <Input value={displayName} onChangeText={setDisplayName} placeholder={t('השם שלך (איך לקרוא לך)')} autoComplete="name" />
         <Input
           value={username}
           onChangeText={setUsername}
-          placeholder="שם משתמש (באנגלית)"
+          placeholder={t('שם משתמש (באנגלית)')}
           autoCapitalize="none"
           autoCorrect={false}
           autoComplete="username-new"
           style={{ textAlign: 'left', writingDirection: 'ltr' }}
         />
-        <Input value={password} onChangeText={setPassword} placeholder="סיסמה (לפחות 6 תווים)" secureTextEntry autoComplete="new-password" />
-        <Input value={confirm} onChangeText={setConfirm} placeholder="אימות סיסמה" secureTextEntry autoComplete="new-password" onSubmitEditing={create} />
+        <Input value={password} onChangeText={setPassword} placeholder={t('סיסמה (לפחות 6 תווים)')} secureTextEntry autoComplete="new-password" />
+        <Input value={confirm} onChangeText={setConfirm} placeholder={t('אימות סיסמה')} secureTextEntry autoComplete="new-password" onSubmitEditing={create} />
       </View>
 
       {error && <Notice text={error} color={colors.red} />}
       {info && <Notice text={info} color={colors.yellow} />}
 
-      <GradientButton title={busy ? 'יוצר…' : 'צור חשבון'} colors={gradients.primary} onPress={create} disabled={busy} style={{ marginTop: 18 }} />
+      <GradientButton title={busy ? t('יוצר…') : t('צור חשבון')} colors={gradients.primary} onPress={create} disabled={busy} style={{ marginTop: 18 }} />
     </Screen>
   );
 }
@@ -217,10 +223,10 @@ function ReminderStep({ onDone }: { onDone: () => void }) {
       <View style={{ alignItems: 'center' }}>
         <Text style={{ fontSize: 70 }}>🌙</Text>
         <T bold size={26} style={{ textAlign: 'center', marginTop: 16 }}>
-          מתי אתה הולך לישון?
+          {t('מתי אתה הולך לישון?')}
         </T>
         <T dim size={16} style={{ textAlign: 'center', marginTop: 8, lineHeight: 24 }}>
-          בשעה הזו אשלח לך כל ערב "איך היה היום?". אפשר לשנות בהגדרות.
+          {t('בשעה הזו אשלח לך כל ערב "איך היה היום?". אפשר לשנות בהגדרות.')}
         </T>
       </View>
       <TimePicker
@@ -231,9 +237,9 @@ function ReminderStep({ onDone }: { onDone: () => void }) {
           setMinute(m);
         }}
       />
-      <GradientButton title="אשר התראות וסיים" icon="🔔" colors={gradients.primary} onPress={finish} style={{ marginTop: 30 }} />
+      <GradientButton title={t('אשר התראות וסיים')} icon="🔔" colors={gradients.primary} onPress={finish} style={{ marginTop: 30 }} />
       <GhostButton
-        title="אולי אחר כך"
+        title={t('אולי אחר כך')}
         style={{ marginTop: 10, borderWidth: 0 }}
         onPress={() => {
           updateSettings({ bedtimeEnabled: false });
@@ -261,7 +267,7 @@ export function Login({ account, onUnlock, onReset }: { account: Account; onUnlo
     if (busy) return;
     const wait = Math.ceil((lockedUntil - Date.now()) / 1000);
     if (wait > 0) {
-      setError(`יותר מדי ניסיונות. נסה שוב בעוד ${wait} שניות`);
+      setError(t('יותר מדי ניסיונות. נסה שוב בעוד {n} שניות', { n: wait }));
       return;
     }
     setBusy(true);
@@ -276,9 +282,9 @@ export function Login({ account, onUnlock, onReset }: { account: Account; onUnlo
     setPassword('');
     if (n % MAX_ATTEMPTS === 0) {
       setLockedUntil(Date.now() + LOCKOUT_SECONDS * 1000);
-      setError(`${MAX_ATTEMPTS} ניסיונות שגויים. הכניסה נחסמה ל-${LOCKOUT_SECONDS} שניות`);
+      setError(t('{n} ניסיונות שגויים. הכניסה נחסמה ל-{s} שניות', { n: MAX_ATTEMPTS, s: LOCKOUT_SECONDS }));
     } else {
-      setError('שם משתמש או סיסמה שגויים');
+      setError(t('שם משתמש או סיסמה שגויים'));
     }
   };
 
@@ -287,38 +293,38 @@ export function Login({ account, onUnlock, onReset }: { account: Account; onUnlo
       <View style={{ alignItems: 'center' }}>
         <Text style={{ fontSize: 64 }}>🔒</Text>
         <T bold size={26} style={{ textAlign: 'center', marginTop: 14 }}>
-          שלום {account.displayName}
+          {t('שלום {name}', { name: account.displayName })}
         </T>
         <T dim style={{ textAlign: 'center', marginTop: 4, marginBottom: 22 }}>
-          הכנס סיסמה כדי לפתוח את היומן
+          {t('הכנס סיסמה כדי לפתוח את היומן')}
         </T>
       </View>
       <View style={{ gap: 10 }}>
         <Input
           value={username}
           onChangeText={setUsername}
-          placeholder="שם משתמש"
+          placeholder={t('שם משתמש')}
           autoCapitalize="none"
           autoCorrect={false}
           style={{ textAlign: 'left', writingDirection: 'ltr' }}
         />
-        <Input value={password} onChangeText={setPassword} placeholder="סיסמה" secureTextEntry onSubmitEditing={login} autoFocus />
+        <Input value={password} onChangeText={setPassword} placeholder={t('סיסמה')} secureTextEntry onSubmitEditing={login} autoFocus />
       </View>
       {error && <Notice text={error} color={colors.red} />}
-      <GradientButton title={busy ? 'בודק…' : 'כניסה'} colors={gradients.primary} onPress={login} disabled={busy} style={{ marginTop: 18 }} />
+      <GradientButton title={busy ? t('בודק…') : t('כניסה')} colors={gradients.primary} onPress={login} disabled={busy} style={{ marginTop: 18 }} />
 
       {!forgot ? (
-        <GhostButton title="שכחתי סיסמה" onPress={() => setForgot(true)} style={{ marginTop: 10, borderWidth: 0 }} />
+        <GhostButton title={t('שכחתי סיסמה')} onPress={() => setForgot(true)} style={{ marginTop: 10, borderWidth: 0 }} />
       ) : (
         <View style={{ marginTop: 18, backgroundColor: colors.card, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: colors.red }}>
-          <T bold>אין דרך לשחזר את הסיסמה</T>
+          <T bold>{t('אין דרך לשחזר את הסיסמה')}</T>
           <T dim size={14} style={{ marginTop: 6, lineHeight: 20 }}>
-            היומן נשמר רק על הטלפון ואין שרת ששומר את הסיסמה. אפשר להתחיל מחדש, אבל כל היומן, האנשים והאירועים יימחקו לתמיד.
+            {t('היומן נשמר רק על הטלפון ואין שרת ששומר את הסיסמה. אפשר להתחיל מחדש, אבל כל היומן, האנשים והאירועים יימחקו לתמיד.')}
           </T>
           <Row style={{ gap: 10, marginTop: 12 }}>
-            <GhostButton title="ביטול" onPress={() => setForgot(false)} style={{ flex: 1 }} />
+            <GhostButton title={t('ביטול')} onPress={() => setForgot(false)} style={{ flex: 1 }} />
             <GhostButton
-              title="מחק הכל והתחל מחדש"
+              title={t('מחק הכל והתחל מחדש')}
               color={colors.red}
               style={{ flex: 1, borderColor: colors.red }}
               onPress={async () => {
@@ -333,6 +339,33 @@ export function Login({ account, onUnlock, onReset }: { account: Account; onUnlo
   );
 }
 
+/** Compact language switch for the first screens, before there is a settings screen. */
+function LanguagePicker() {
+  const { prefs, setPrefs } = usePrefs();
+  return (
+    <Row style={{ gap: 6 }}>
+      {LANGS.map((l) => (
+        <Pressable
+          key={l.code}
+          onPress={() => setPrefs({ lang: l.code })}
+          style={{
+            paddingHorizontal: 10,
+            paddingVertical: 5,
+            borderRadius: 999,
+            borderWidth: 1,
+            borderColor: prefs.lang === l.code ? colors.primary : colors.border,
+            backgroundColor: prefs.lang === l.code ? colors.primary : 'transparent',
+          }}
+        >
+          <T size={12} bold style={{ color: prefs.lang === l.code ? '#fff' : colors.textDim }}>
+            {l.label}
+          </T>
+        </Pressable>
+      ))}
+    </Row>
+  );
+}
+
 function SocialButton({ label, icon, bg, fg, onPress }: { label: string; icon: string; bg: string; fg: string; onPress: () => void }) {
   return (
     <Pressable
@@ -342,7 +375,7 @@ function SocialButton({ label, icon, bg, fg, onPress }: { label: string; icon: s
         borderRadius: 16,
         paddingVertical: 14,
         marginBottom: 10,
-        flexDirection: 'row-reverse',
+        flexDirection: layout.row,
         alignItems: 'center',
         justifyContent: 'center',
         gap: 10,

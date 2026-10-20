@@ -4,9 +4,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Empty, GhostButton, GradientButton, Input, Row, ScreenTitle, SectionTitle, T } from '../components/ui';
 import { formatShortDate, relativeDay } from '../lib/dates';
 import { useStore } from '../lib/store';
-import { colors, gradients, MOODS } from '../lib/theme';
+import { colors, gradients, layout, MOODS } from '../lib/theme';
 import type { Entry, Person } from '../lib/types';
 import { MiniEntry } from './TodayScreen';
+import { t } from '../i18n';
 
 const AVATAR_COLORS = [colors.primary, colors.pink, colors.orange, colors.green, colors.blue, colors.yellow];
 export const avatarColor = (name: string) => AVATAR_COLORS[[...name].reduce((a, c) => a + c.charCodeAt(0), 0) % AVATAR_COLORS.length];
@@ -66,26 +67,26 @@ export default function PeopleScreen({ onOpenEntry }: { onOpenEntry: (id: string
 
   return (
     <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
-      <ScreenTitle title="👥 האנשים שלי" subtitle="כל מי שהזכרת — ומה הם אמרו לך" />
+      <ScreenTitle title={t('👥 האנשים שלי')} subtitle={t('כל מי שהזכרת — ומה הם אמרו לך')} />
 
       {insights && (
         <Card style={{ borderColor: colors.primary }}>
           <T bold size={17} style={{ marginBottom: 8 }}>
-            🧠 מה אני כבר יודע עליך
+            {t('🧠 מה אני כבר יודע עליך')}
           </T>
-          {insights.top && <Insight text={`הכי הרבה אתה מזכיר את ${insights.top.person.name} (${insights.top.entries.length} פעמים)`} />}
-          {insights.happiest && <Insight text={`בימים עם ${insights.happiest.person.name} מצב הרוח שלך הכי טוב ${MOODS[Math.round(insights.happiest.avgMood) - 1]}`} />}
-          <Insight text={`מצב הרוח הממוצע שלך: ${MOODS[Math.round(insights.avg) - 1]}`} />
-          <Insight text={`בדרך כלל אתה מתעד בסביבות ${String(insights.avgHour).padStart(2, '0')}:00`} />
-          {insights.totalQuotes > 0 && <Insight text={`שמרתי ${insights.totalQuotes} משפטים שאנשים אמרו לך`} />}
+          {insights.top && <Insight text={t('הכי הרבה אתה מזכיר את {name} ({n} פעמים)', { name: insights.top.person.name, n: insights.top.entries.length })} />}
+          {insights.happiest && <Insight text={t('בימים עם {name} מצב הרוח שלך הכי טוב {mood}', { name: insights.happiest.person.name, mood: MOODS[Math.round(insights.happiest.avgMood) - 1] })} />}
+          <Insight text={t('מצב הרוח הממוצע שלך: {mood}', { mood: MOODS[Math.round(insights.avg) - 1] })} />
+          <Insight text={t('בדרך כלל אתה מתעד בסביבות {time}', { time: `${String(insights.avgHour).padStart(2, '0')}:00` })} />
+          {insights.totalQuotes > 0 && <Insight text={t('שמרתי {n} משפטים שאנשים אמרו לך', { n: insights.totalQuotes })} />}
         </Card>
       )}
 
       <Row style={{ gap: 8, alignItems: 'center', marginTop: 14 }}>
-        <Input value={newName} onChangeText={setNewName} placeholder="הוסף אדם חדש…" style={{ flex: 1, minWidth: 0 }} />
+        <Input value={newName} onChangeText={setNewName} placeholder={t('הוסף אדם חדש…')} style={{ flex: 1, minWidth: 0 }} />
         <GradientButton
           small
-          title="הוסף"
+          title={t('הוסף')}
           colors={gradients.calm}
           onPress={() => {
             if (newName.trim()) addPerson(newName);
@@ -95,10 +96,10 @@ export default function PeopleScreen({ onOpenEntry }: { onOpenEntry: (id: string
       </Row>
 
       {stats.length === 0 ? (
-        <Empty emoji="🫂" title="עוד אין אנשים" text="כשתספר על היום שלך ותזכיר שמות — הם יופיעו כאן עם כל ההיסטוריה שלהם." />
+        <Empty emoji="🫂" title={t('עוד אין אנשים')} text={t('כשתספר על היום שלך ותזכיר שמות — הם יופיעו כאן עם כל ההיסטוריה שלהם.')} />
       ) : (
         <>
-          <SectionTitle>{stats.length} אנשים</SectionTitle>
+          <SectionTitle>{t('{n} אנשים', { n: stats.length })}</SectionTitle>
           {stats.map((s) => (
             <Pressable key={s.person.id} onPress={() => setOpenId(s.person.id)} style={{ marginBottom: 10 }}>
               <Card style={{ padding: 12 }}>
@@ -109,7 +110,8 @@ export default function PeopleScreen({ onOpenEntry }: { onOpenEntry: (id: string
                       {s.person.name}
                     </T>
                     <T dim size={13}>
-                      {s.entries.length ? `${s.entries.length} אזכורים · לאחרונה ${relativeDay(s.entries[0].createdAt)}` : 'עוד לא הוזכר ביומן'}
+                      {s.person.note ? `${s.person.note} · ` : ''}
+                      {s.entries.length ? t('{n} אזכורים · לאחרונה {when}', { n: s.entries.length, when: relativeDay(s.entries[0].createdAt) }) : t('עוד לא הוזכר ביומן')}
                     </T>
                     {s.quotes[0] && (
                       <T size={13} numberOfLines={1} style={{ color: colors.pink, marginTop: 2 }}>
@@ -118,7 +120,7 @@ export default function PeopleScreen({ onOpenEntry }: { onOpenEntry: (id: string
                     )}
                   </View>
                   <T dim size={20}>
-                    ‹
+                    {layout.isRTL ? '‹' : '›'}
                   </T>
                 </Row>
               </Card>
@@ -156,7 +158,7 @@ function PersonModal({ stats, onClose, onOpenEntry }: { stats: PersonStats; onCl
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
         <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
           <Pressable onPress={save} hitSlop={12}>
-            <T bold style={{ color: colors.primaryHi }}>סגור ✕</T>
+            <T bold style={{ color: colors.primaryHi }}>{t('סגור ✕')}</T>
           </Pressable>
           <View style={{ alignItems: 'center', marginTop: 10 }}>
             <Avatar name={person.name} size={84} />
@@ -164,17 +166,17 @@ function PersonModal({ stats, onClose, onOpenEntry }: { stats: PersonStats; onCl
               {person.name}
             </T>
             <T dim style={{ textAlign: 'center' }}>
-              מכיר מאז {formatShortDate(person.firstSeen)} · {entries.length} אזכורים
+              {t('מכיר מאז {date} · {n} אזכורים', { date: formatShortDate(person.firstSeen), n: entries.length })}
             </T>
           </View>
 
-          <SectionTitle>📝 פרטים</SectionTitle>
-          <Input value={name} onChangeText={setName} placeholder="שם" />
-          <Input value={note} onChangeText={setNote} placeholder="מי זה? (חבר מהעבודה, בן דוד…)" style={{ marginTop: 8 }} multiline />
+          <SectionTitle>{t('📝 פרטים')}</SectionTitle>
+          <Input value={name} onChangeText={setName} placeholder={t('שם')} />
+          <Input value={note} onChangeText={setNote} placeholder={t('מי זה? (חבר מהעבודה, בן דוד…)')} style={{ marginTop: 8 }} multiline />
 
           {quotes.length > 0 && (
             <>
-              <SectionTitle>💬 מה {person.name} אמר/ה לך</SectionTitle>
+              <SectionTitle>{t('💬 מה {name} אמר/ה לך', { name: person.name })}</SectionTitle>
               {quotes.map((q, i) => (
                 <Card key={i} style={{ marginBottom: 8, padding: 12 }}>
                   <T>"{q}"</T>
@@ -185,7 +187,7 @@ function PersonModal({ stats, onClose, onOpenEntry }: { stats: PersonStats; onCl
 
           {entries.length > 0 && (
             <>
-              <SectionTitle>📅 ציר זמן</SectionTitle>
+              <SectionTitle>{t('📅 ציר זמן')}</SectionTitle>
               {entries.map((e) => (
                 <View key={e.id}>
                   <T dim size={13} style={{ marginBottom: 4 }}>
@@ -204,14 +206,14 @@ function PersonModal({ stats, onClose, onOpenEntry }: { stats: PersonStats; onCl
           )}
 
           <GhostButton
-            title="🗑️ מחק את האדם"
+            title={t('🗑️ מחק את האדם')}
             color={colors.red}
             style={{ marginTop: 20, borderColor: colors.red }}
             onPress={() =>
-              Alert.alert(`למחוק את ${person.name}?`, 'השם יוסר מכל הרשומות.', [
-                { text: 'ביטול', style: 'cancel' },
+              Alert.alert(t('למחוק את {name}?', { name: person.name }), t('השם יוסר מכל הרשומות.'), [
+                { text: t('ביטול'), style: 'cancel' },
                 {
-                  text: 'מחק',
+                  text: t('מחק'),
                   style: 'destructive',
                   onPress: () => {
                     deletePerson(person.id);

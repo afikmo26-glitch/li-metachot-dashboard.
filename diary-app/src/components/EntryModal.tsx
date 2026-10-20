@@ -6,8 +6,9 @@ import { deleteRecording } from '../lib/audio';
 import { formatDuration, formatLongDate, formatTimeSeconds } from '../lib/dates';
 import { extractQuotes, findKnownPeople } from '../lib/names';
 import { personName, useStore } from '../lib/store';
-import { colors, gradients, MOOD_LABELS, MOODS } from '../lib/theme';
+import { colors, gradients, layout, MOOD_LABELS, MOODS } from '../lib/theme';
 import { Card, Chip, GhostButton, GradientButton, Input, Row, T } from './ui';
+import { t } from '../i18n';
 
 export default function EntryModal({ entryId, onClose }: { entryId: string | null; onClose: () => void }) {
   const { entries, people, saveEntry, deleteEntry } = useStore();
@@ -23,10 +24,10 @@ export default function EntryModal({ entryId, onClose }: { entryId: string | nul
   if (!entry) return null;
 
   const remove = () =>
-    Alert.alert('למחוק את הרשומה?', 'אי אפשר לשחזר אחרי מחיקה.', [
-      { text: 'ביטול', style: 'cancel' },
+    Alert.alert(t('למחוק את הרשומה?'), t('אי אפשר לשחזר אחרי מחיקה.'), [
+      { text: t('ביטול'), style: 'cancel' },
       {
-        text: 'מחק',
+        text: t('מחק'),
         style: 'destructive',
         onPress: () => {
           deleteRecording(entry.audioUri);
@@ -49,7 +50,7 @@ export default function EntryModal({ entryId, onClose }: { entryId: string | nul
           <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
             <Pressable onPress={onClose} hitSlop={12}>
               <T bold size={16} style={{ color: colors.primaryHi }}>
-                סגור ✕
+                {t('סגור ✕')}
               </T>
             </Pressable>
             <Text style={{ fontSize: 34 }}>{MOODS[entry.mood - 1]}</Text>
@@ -59,7 +60,7 @@ export default function EntryModal({ entryId, onClose }: { entryId: string | nul
             {formatLongDate(entry.createdAt)}
           </T>
           <T dim style={{ marginTop: 2 }}>
-            🕐 בשעה {formatTimeSeconds(entry.createdAt)} · {MOOD_LABELS[entry.mood - 1]}
+            🕐 {t('בשעה {time}', { time: formatTimeSeconds(entry.createdAt) })} · {t(MOOD_LABELS[entry.mood - 1])}
           </T>
 
           {entry.audioUri ? <AudioPlayerCard uri={entry.audioUri} durationMs={entry.durationMs} /> : null}
@@ -69,8 +70,8 @@ export default function EntryModal({ entryId, onClose }: { entryId: string | nul
               <>
                 <Input multiline value={draft} onChangeText={setDraft} style={{ minHeight: 140, textAlignVertical: 'top', lineHeight: 22 }} />
                 <Row style={{ gap: 10, marginTop: 10 }}>
-                  <GradientButton small title="שמור" colors={gradients.primary} onPress={saveEdit} />
-                  <GhostButton title="ביטול" onPress={() => setEditing(false)} />
+                  <GradientButton small title={t('שמור')} colors={gradients.primary} onPress={saveEdit} />
+                  <GhostButton title={t('ביטול')} onPress={() => setEditing(false)} />
                 </Row>
               </>
             ) : (
@@ -80,9 +81,9 @@ export default function EntryModal({ entryId, onClose }: { entryId: string | nul
                   setEditing(true);
                 }}
               >
-                <T style={{ lineHeight: 24 }}>{entry.text || 'אין טקסט — רק הקלטה קולית 🎙️'}</T>
+                <T style={{ lineHeight: 24 }}>{entry.text || t('אין טקסט — רק הקלטה קולית 🎙️')}</T>
                 <T dim size={12} style={{ marginTop: 8 }}>
-                  לחיצה ארוכה לעריכה
+                  {t('לחיצה ארוכה לעריכה')}
                 </T>
               </Pressable>
             )}
@@ -92,14 +93,14 @@ export default function EntryModal({ entryId, onClose }: { entryId: string | nul
             <>
               <Pressable onPress={() => setShowChat((v) => !v)} style={{ marginTop: 14 }}>
                 <T bold style={{ color: colors.primaryHi }}>
-                  💬 {showChat ? 'הסתר' : 'הצג'} את השיחה עם יומי ({entry.chat.length} הודעות)
+                  {showChat ? t('💬 הסתר את השיחה עם יומי') : t('💬 הצג את השיחה עם יומי ({n} הודעות)', { n: entry.chat.length })}
                 </T>
               </Pressable>
               {showChat &&
                 entry.chat.map((m, i) => (
-                  <View key={i} style={{ flexDirection: 'row', justifyContent: m.from === 'me' ? 'flex-start' : 'flex-end', marginTop: 8 }}>
+                  <View key={i} style={{ flexDirection: 'row', justifyContent: (m.from === 'me') === layout.isRTL ? 'flex-start' : 'flex-end', marginTop: 8 }}>
                     <View style={{ maxWidth: '85%', backgroundColor: m.from === 'me' ? colors.primary : colors.cardHi, borderRadius: 16, padding: 10 }}>
-                      <T size={14} style={{ color: '#fff' }}>
+                      <T size={14} style={{ color: m.from === 'me' ? colors.onPrimary : colors.text }}>
                         {m.text}
                       </T>
                     </View>
@@ -111,7 +112,7 @@ export default function EntryModal({ entryId, onClose }: { entryId: string | nul
           {entry.people.length > 0 && (
             <>
               <T bold style={{ marginTop: 16, marginBottom: 8 }}>
-                👥 אנשים
+                {t('👥 אנשים')}
               </T>
               <Row style={{ flexWrap: 'wrap' }}>
                 {entry.people.map((id) => (
@@ -124,7 +125,7 @@ export default function EntryModal({ entryId, onClose }: { entryId: string | nul
           {entry.quotes.length > 0 && (
             <>
               <T bold style={{ marginTop: 12, marginBottom: 8 }}>
-                💬 מה אמרו
+                {t('💬 מה אמרו')}
               </T>
               {entry.quotes.map((q, i) => (
                 <Card key={i} style={{ marginBottom: 8, padding: 12 }}>
@@ -137,7 +138,7 @@ export default function EntryModal({ entryId, onClose }: { entryId: string | nul
             </>
           )}
 
-          <GhostButton title="🗑️ מחק רשומה" color={colors.red} onPress={remove} style={{ marginTop: 24, borderColor: colors.red }} />
+          <GhostButton title={t('🗑️ מחק רשומה')} color={colors.red} onPress={remove} style={{ marginTop: 24, borderColor: colors.red }} />
         </ScrollView>
       </SafeAreaView>
     </Modal>
@@ -168,7 +169,7 @@ function AudioPlayerCard({ uri, durationMs }: { uri: string; durationMs?: number
           </View>
         </Pressable>
         <View style={{ flex: 1 }}>
-          <View style={{ height: 6, borderRadius: 3, backgroundColor: colors.bgDeep, overflow: 'hidden', transform: [{ scaleX: -1 }] }}>
+          <View style={{ height: 6, borderRadius: 3, backgroundColor: colors.bgDeep, overflow: 'hidden', transform: [{ scaleX: layout.flip }] }}>
             <View style={{ width: `${progress * 100}%`, height: '100%', backgroundColor: colors.pink }} />
           </View>
           <T dim size={13} style={{ marginTop: 6 }}>

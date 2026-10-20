@@ -2,7 +2,8 @@ import type Anthropic from '@anthropic-ai/sdk';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiMessage, chatWithClaude, Profile, Summary, summarizeWithClaude } from './aiCore';
 import { decryptFromStorage, encryptForStorage } from './crypto';
-import type { ChatMessage, Entry, Person } from './types';
+import type { ChatMessage, Entry, Person, UserProfile } from './types';
+import { langName, t } from '../i18n';
 
 /**
  * Two ways to reach Claude:
@@ -35,9 +36,25 @@ export async function saveAiConfig(c: AiConfig) {
 const hasServer = (c: AiConfig) => !!c.url && !!c.appKey;
 export const aiReady = (c: AiConfig, mode: 'diary' | 'vent') => (!!c.claudeKey || hasServer(c)) && c[mode];
 
-export function buildProfile(userName: string, people: Person[], entries: Entry[]): AiProfile {
+/** A one-line description of the user for Yomi, built from the intro answers. */
+export function profileSummary(p: UserProfile): string {
+  return [
+    p.age && `age ${p.age}`,
+    p.city && `lives in ${p.city}`,
+    p.job && `works as / is: ${p.job}${p.workplace ? ` at ${p.workplace}` : ''}`,
+    p.familyName && `family name ${p.familyName}`,
+    p.hobbies && `enjoys ${p.hobbies}`,
+    p.goals.length > 0 && `wants the diary to help with: ${p.goals.join(', ')}`,
+  ]
+    .filter(Boolean)
+    .join('; ');
+}
+
+export function buildProfile(userName: string, people: Person[], entries: Entry[], profile?: UserProfile): AiProfile {
   return {
+    about: profile ? profileSummary(profile) || undefined : undefined,
     name: userName || undefined,
+    lang: langName(),
     people: people.map((p) => (p.note ? `${p.name} (${p.note})` : p.name)),
     recent: entries.slice(0, 5).map((e) => `${e.createdAt.slice(0, 10)}: ${e.text}`),
   };
@@ -62,13 +79,13 @@ async function claude(c: AiConfig) {
 
 function friendlyError(e: unknown): Error {
   const Anthropic = sdk;
-  if (!Anthropic) return e instanceof Error ? e : new Error('שגיאה');
-  if (e instanceof Anthropic.AuthenticationError) return new Error('מפתח Claude לא תקין');
-  if (e instanceof Anthropic.PermissionDeniedError) return new Error('למפתח אין הרשאה. בדוק את החשבון ב-console.anthropic.com');
-  if (e instanceof Anthropic.RateLimitError) return new Error('יותר מדי בקשות או שנגמר הקרדיט');
-  if (e instanceof Anthropic.APIConnectionError) return new Error('אין חיבור לאינטרנט');
-  if (e instanceof Anthropic.APIError) return new Error(`שגיאת Claude ${e.status ?? ''}`);
-  return e instanceof Error ? e : new Error('שגיאה');
+  if (!Anthropic) return e instanceof Error ? e : new Error(t('שגיאה'));
+  if (e instanceof Anthropic.AuthenticationError) return new Error(t('מפתח Claude לא תקין'));
+  if (e instanceof Anthropic.PermissionDeniedError) return new Error(t('למפתח אין הרשאה. בדוק את החשבון ב-console.anthropic.com'));
+  if (e instanceof Anthropic.RateLimitError) return new Error(t('יותר מדי בקשות או שנגמר הקרדיט'));
+  if (e instanceof Anthropic.APIConnectionError) return new Error(t('אין חיבור לאינטרנט'));
+  if (e instanceof Anthropic.APIError) return new Error(t('שגיאת Claude {code}', { code: e.status ?? '' }));
+  return e instanceof Error ? e : new Error(t('שגיאה'));
 }
 
 async function post<T>(c: AiConfig, path: string, body: unknown): Promise<T> {
@@ -82,7 +99,7 @@ async function post<T>(c: AiConfig, path: string, body: unknown): Promise<T> {
       signal: ctrl.signal,
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data?.error || `שגיאה ${res.status}`);
+    if (!res.ok) throw new Error(data?.error || t('שגיאה {code}', { code: res.status }));
     return data as T;
   } finally {
     clearTimeout(timer);
@@ -98,7 +115,7 @@ export async function aiChat(c: AiConfig, mode: 'diary' | 'vent', messages: Chat
     }
   }
   const { reply } = await post<{ reply: string }>(c, '/chat', { mode, messages: toApi(messages), profile });
-  if (!reply) throw new Error('תשובה ריקה');
+  if (!reply) throw new Error(t('תשובה ריקה'));
   return reply;
 }
 

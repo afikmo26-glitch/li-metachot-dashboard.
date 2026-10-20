@@ -1,9 +1,26 @@
-export const HEB_DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
-export const HEB_DAYS_SHORT = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
-export const HEB_MONTHS = [
-  'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
-  'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר',
-];
+import { getLang, t } from '../i18n';
+
+const NAMES = {
+  he: {
+    days: ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'],
+    short: ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'],
+    months: ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'],
+  },
+  en: {
+    days: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+    short: ['S', 'M', 'T', 'W', 'T', 'F', 'S'],
+    months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+  },
+  ar: {
+    days: ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'],
+    short: ['ح', 'ن', 'ث', 'ر', 'خ', 'ج', 'س'],
+    months: ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'],
+  },
+};
+
+const names = () => NAMES[getLang()];
+export const dayNamesShort = () => names().short;
+export const monthName = (m: number) => names().months[m];
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -28,16 +45,33 @@ export function formatTimeSeconds(d: Date | string): string {
   return `${formatTime(date)}:${pad(date.getSeconds())}`;
 }
 
-/** "יום שלישי, 19 באוקטובר 2026" */
+/** "יום שלישי, 19 באוקטובר 2026" / "Tuesday, October 19, 2026" / "الثلاثاء، 19 أكتوبر 2026" */
 export function formatLongDate(d: Date | string): string {
   const date = typeof d === 'string' ? new Date(d) : d;
-  return `יום ${HEB_DAYS[date.getDay()]}, ${date.getDate()} ב${HEB_MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+  const n = names();
+  const [day, month, num, year] = [n.days[date.getDay()], n.months[date.getMonth()], date.getDate(), date.getFullYear()];
+  switch (getLang()) {
+    case 'en':
+      return `${day}, ${month} ${num}, ${year}`;
+    case 'ar':
+      return `${day}، ${num} ${month} ${year}`;
+    default:
+      return `יום ${day}, ${num} ב${month} ${year}`;
+  }
 }
 
-/** "19 באוק׳ 2026" */
+/** "19 באוקטובר 2026" / "October 19, 2026" / "19 أكتوبر 2026" */
 export function formatShortDate(d: Date | string): string {
   const date = typeof d === 'string' ? new Date(d) : d;
-  return `${date.getDate()} ב${HEB_MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+  const [month, num, year] = [names().months[date.getMonth()], date.getDate(), date.getFullYear()];
+  switch (getLang()) {
+    case 'en':
+      return `${month} ${num}, ${year}`;
+    case 'ar':
+      return `${num} ${month} ${year}`;
+    default:
+      return `${num} ב${month} ${year}`;
+  }
 }
 
 export function formatDuration(ms: number): string {
@@ -48,20 +82,20 @@ export function formatDuration(ms: number): string {
 export function relativeDay(d: Date | string): string {
   const key = dayKey(d);
   const today = new Date();
-  if (key === dayKey(today)) return 'היום';
+  if (key === dayKey(today)) return t('היום');
   const y = new Date(today);
   y.setDate(today.getDate() - 1);
-  if (key === dayKey(y)) return 'אתמול';
+  if (key === dayKey(y)) return t('אתמול');
   return formatShortDate(d);
 }
 
 export function greeting(now = new Date()): string {
   const h = now.getHours();
-  if (h < 5) return 'לילה טוב';
-  if (h < 12) return 'בוקר טוב';
-  if (h < 17) return 'צהריים טובים';
-  if (h < 21) return 'ערב טוב';
-  return 'לילה טוב';
+  if (h < 5) return t('לילה טוב');
+  if (h < 12) return t('בוקר טוב');
+  if (h < 17) return t('צהריים טובים');
+  if (h < 21) return t('ערב טוב');
+  return t('לילה טוב');
 }
 
 /** Number of consecutive days (ending today or yesterday) that have at least one entry */

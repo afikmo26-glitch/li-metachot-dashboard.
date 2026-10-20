@@ -1,5 +1,6 @@
 import { computeStreak, dayKey } from './dates';
 import type { Entry, GameStats, Person } from './types';
+import { t } from '../i18n';
 
 export type Achievement = { id: string; emoji: string; title: string; hint: string; done: boolean; progress: number };
 
@@ -22,8 +23,8 @@ export function achievements(entries: Entry[], people: Person[], game: GameStats
   return list.map(([id, emoji, title, hint, value, goal]) => ({
     id,
     emoji,
-    title,
-    hint,
+    title: t(title),
+    hint: t(hint),
     done: value >= goal,
     progress: Math.min(1, value / goal),
   }));

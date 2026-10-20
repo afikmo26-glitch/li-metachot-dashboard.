@@ -4,8 +4,10 @@ import { Animated, Easing, Pressable, ScrollView, Text, View } from 'react-nativ
 import { Card, GhostButton, GradientButton, notify, Row, T, tap } from '../components/ui';
 import { achievements } from '../lib/achievements';
 import { buildQuestions, demoData, levelInfo, Question, QUESTION_SECONDS, ROUND_SIZE } from '../lib/game';
+import { play } from '../lib/sound';
 import { useStore } from '../lib/store';
-import { colors, gradients } from '../lib/theme';
+import { colors, gradients, layout } from '../lib/theme';
+import { t } from '../i18n';
 
 type Phase = 'menu' | 'playing' | 'result';
 type Result = { score: number; correct: number; total: number; bestCombo: number; xp: number; demo: boolean; newBest: boolean };
@@ -35,6 +37,7 @@ export default function GameScreen() {
     const xp = demo ? 0 : Math.round(r.score / 10);
     const newBest = !demo && r.score > game.bestScore;
     if (!demo) {
+      if (levelInfo(game.xp + xp).level > lvl.level) setTimeout(() => play('levelup', 0.6), 400);
       updateGame({
         xp: game.xp + xp,
         bestScore: Math.max(game.bestScore, r.score),
@@ -58,7 +61,7 @@ export default function GameScreen() {
         <View style={{ alignItems: 'center', marginTop: 20 }}>
           <Text style={{ fontSize: 72 }}>{stars === 3 ? '🏆' : stars === 2 ? '🎉' : stars === 1 ? '👍' : '💪'}</Text>
           <T bold size={30} style={{ textAlign: 'center', marginTop: 8 }}>
-            {stars === 3 ? 'זיכרון מושלם!' : stars === 2 ? 'כל הכבוד!' : stars === 1 ? 'לא רע!' : 'פעם הבאה!'}
+            {stars === 3 ? t('זיכרון מושלם!') : stars === 2 ? t('כל הכבוד!') : stars === 1 ? t('לא רע!') : t('פעם הבאה!')}
           </T>
           <Text style={{ fontSize: 44, marginTop: 10, letterSpacing: 6, color: colors.yellow }}>
             {'⭐'.repeat(stars)}
@@ -66,26 +69,26 @@ export default function GameScreen() {
           </Text>
           {result.newBest && (
             <LinearGradient colors={gradients.game} style={{ borderRadius: 999, paddingHorizontal: 16, paddingVertical: 6, marginTop: 12 }}>
-              <T bold style={{ color: '#fff', textAlign: 'center' }}>🔥 שיא חדש!</T>
+              <T bold style={{ color: '#fff', textAlign: 'center' }}>{t('🔥 שיא חדש!')}</T>
             </LinearGradient>
           )}
         </View>
         <Row style={{ gap: 10, marginTop: 24 }}>
-          <BigStat label="ניקוד" value={result.score} />
-          <BigStat label="נכונות" value={`${result.correct}/${result.total}`} />
-          <BigStat label="קומבו" value={`x${result.bestCombo}`} />
+          <BigStat label={t('ניקוד')} value={result.score} />
+          <BigStat label={t('נכונות')} value={`${result.correct}/${result.total}`} />
+          <BigStat label={t('קומבו')} value={`x${result.bestCombo}`} />
         </Row>
         {result.demo ? (
           <T dim style={{ textAlign: 'center', marginTop: 16 }}>
-            זה היה משחק דמו 🙂 תקליט כמה ימים עם שמות והמשחק יהיה על החיים שלך!
+            {t('זה היה משחק דמו 🙂 תקליט כמה ימים עם שמות והמשחק יהיה על החיים שלך!')}
           </T>
         ) : (
           <T bold size={18} style={{ textAlign: 'center', marginTop: 16, color: colors.yellow }}>
             +{result.xp} XP
           </T>
         )}
-        <GradientButton title="שחק שוב" icon="🔄" colors={gradients.game} onPress={() => start(result.demo)} style={{ marginTop: 24 }} />
-        <GhostButton title="חזרה לתפריט" onPress={() => setPhase('menu')} style={{ marginTop: 10 }} />
+        <GradientButton title={t('שחק שוב')} icon="🔄" colors={gradients.game} onPress={() => start(result.demo)} style={{ marginTop: 24 }} />
+        <GhostButton title={t('חזרה לתפריט')} onPress={() => setPhase('menu')} style={{ marginTop: 10 }} />
       </ScrollView>
     );
   }
@@ -97,38 +100,38 @@ export default function GameScreen() {
       <LinearGradient colors={gradients.game} start={{ x: 1, y: 0 }} end={{ x: 0, y: 1 }} style={{ borderRadius: 28, padding: 22 }}>
         <Text style={{ fontSize: 54, textAlign: 'center' }}>🧠🎮</Text>
         <T bold size={30} style={{ color: '#fff', textAlign: 'center', marginTop: 6 }}>
-          משחק הזיכרון
+          {t('משחק הזיכרון')}
         </T>
         <T size={15} style={{ color: '#fff', textAlign: 'center', opacity: 0.9, marginTop: 4 }}>
-          כמה טוב אתה זוכר את האנשים בחיים שלך ומה הם אמרו לך?
+          {t('כמה טוב אתה זוכר את האנשים בחיים שלך ומה הם אמרו לך?')}
         </T>
         <View style={{ marginTop: 18, backgroundColor: '#0003', borderRadius: 18, padding: 14 }}>
           <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
             <T bold style={{ color: '#fff' }}>
-              רמה {lvl.level} · {lvl.title}
+              {t('רמה {n} · {title}', { n: lvl.level, title: t(lvl.title) })}
             </T>
             <T size={13} style={{ color: '#fff' }}>
               {game.xp} XP
             </T>
           </Row>
-          <View style={{ height: 10, backgroundColor: '#0004', borderRadius: 5, marginTop: 8, overflow: 'hidden', transform: [{ scaleX: -1 }] }}>
+          <View style={{ height: 10, backgroundColor: '#0004', borderRadius: 5, marginTop: 8, overflow: 'hidden', transform: [{ scaleX: layout.flip }] }}>
             <View style={{ width: `${lvl.progress * 100}%`, height: '100%', backgroundColor: colors.yellow, borderRadius: 5 }} />
           </View>
           <T size={12} style={{ color: '#fff', opacity: 0.85, marginTop: 6 }}>
-            עוד {lvl.toNext} XP לרמה הבאה
+            {t('עוד {n} XP לרמה הבאה', { n: lvl.toNext })}
           </T>
         </View>
       </LinearGradient>
 
       <Row style={{ gap: 10, marginTop: 14 }}>
-        <BigStat label="שיא" value={game.bestScore} />
-        <BigStat label="קומבו שיא" value={`x${game.bestCombo}`} />
-        <BigStat label="דיוק" value={`${accuracy}%`} />
+        <BigStat label={t('שיא')} value={game.bestScore} />
+        <BigStat label={t('קומבו שיא')} value={`x${game.bestCombo}`} />
+        <BigStat label={t('דיוק')} value={`${accuracy}%`} />
       </Row>
 
       {available >= 3 ? (
         <GradientButton
-          title={`שחק! (${Math.min(available, ROUND_SIZE)} שאלות)`}
+          title={t('שחק! ({n} שאלות)', { n: Math.min(available, ROUND_SIZE) })}
           icon="▶️"
           colors={gradients.primary}
           onPress={() => start(false)}
@@ -136,23 +139,23 @@ export default function GameScreen() {
         />
       ) : (
         <Card style={{ marginTop: 18 }}>
-          <T bold>🔒 המשחק נפתח אחרי שיהיו לך כמה רשומות עם שמות</T>
+          <T bold>{t('🔒 המשחק נפתח אחרי שיהיו לך כמה רשומות עם שמות')}</T>
           <T dim size={14} style={{ marginTop: 6, lineHeight: 20 }}>
-            ספר על היום שלך והזכר אנשים ("דנה אמרה לי ש…"). כל שם ומשפט הופכים לשאלה במשחק.
+            {t('ספר על היום שלך והזכר אנשים ("דנה אמרה לי ש…"). כל שם ומשפט הופכים לשאלה במשחק.')}
           </T>
         </Card>
       )}
-      <GhostButton title="🎲 נסה משחק דמו" onPress={() => start(true)} style={{ marginTop: 10 }} />
+      <GhostButton title={t('🎲 נסה משחק דמו')} onPress={() => start(true)} style={{ marginTop: 10 }} />
 
       <Badges />
 
       <Card style={{ marginTop: 18 }}>
         <T bold style={{ marginBottom: 8 }}>
-          איך משחקים?
+          {t('איך משחקים?')}
         </T>
         <T dim size={14} style={{ lineHeight: 22 }}>
-          💬 מי אמר את המשפט?{'\n'}🧩 השלם את השם החסר מהיומן{'\n'}📅 את מי פגשת באותו יום?{'\n'}⏳ מתי הזכרת מישהו לאחרונה?{'\n\n'}
-          ❤️ יש לך 3 חיים · ⚡ ענה מהר לבונוס · 🔥 תשובות ברצף מכפילות ניקוד
+          {t('💬 מי אמר את המשפט?')}{'\n'}{t('🧩 השלם את השם החסר מהיומן')}{'\n'}{t('📅 את מי פגשת באותו יום?')}{'\n'}{t('⏳ מתי הזכרת מישהו לאחרונה?')}{'\n\n'}
+          {t('❤️ יש לך 3 חיים · ⚡ ענה מהר לבונוס · 🔥 תשובות ברצף מכפילות ניקוד')}
         </T>
       </Card>
     </ScrollView>
@@ -166,7 +169,7 @@ function Badges() {
   return (
     <Card style={{ marginTop: 18 }}>
       <Row style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <T bold>🏆 הישגים</T>
+        <T bold>{t('🏆 הישגים')}</T>
         <T dim size={13}>
           {earned}/{list.length}
         </T>
@@ -281,7 +284,7 @@ function Round({
     } else {
       nextLives -= 1;
       setCombo(0);
-      setFloater(option === null ? '⏰ נגמר הזמן' : '💥');
+      setFloater(option === null ? t('⏰ נגמר הזמן') : '💥');
       notify('error');
       pop.setValue(1);
       Animated.sequence(
@@ -312,7 +315,7 @@ function Round({
     <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 120 }}>
       <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
         <Pressable onPress={onQuit} hitSlop={12}>
-          <T dim>✕ יציאה</T>
+          <T dim>{t('✕ יציאה')}</T>
         </Pressable>
         <Text style={{ fontSize: 22 }}>
           {'❤️'.repeat(lives)}
@@ -322,7 +325,7 @@ function Round({
 
       <Row style={{ justifyContent: 'space-between', alignItems: 'center', marginTop: 14 }}>
         <T bold size={16}>
-          שאלה {index + 1}/{questions.length}
+          {t('שאלה {i}/{n}', { i: index + 1, n: questions.length })}
         </T>
         <T bold size={22} style={{ color: colors.yellow }}>
           ⭐ {score}
@@ -330,11 +333,11 @@ function Round({
       </Row>
       {combo >= 2 && (
         <T bold size={15} style={{ color: colors.orange, marginTop: 4 }}>
-          🔥 קומבו x{combo}
+          {t('🔥 קומבו x{n}', { n: combo })}
         </T>
       )}
 
-      <View style={{ height: 10, backgroundColor: colors.bgDeep, borderRadius: 5, marginTop: 10, overflow: 'hidden', transform: [{ scaleX: -1 }] }}>
+      <View style={{ height: 10, backgroundColor: colors.bgDeep, borderRadius: 5, marginTop: 10, overflow: 'hidden', transform: [{ scaleX: layout.flip }] }}>
         <Animated.View style={{ width: timerWidth, height: '100%', backgroundColor: timerColor, borderRadius: 5 }} />
       </View>
 

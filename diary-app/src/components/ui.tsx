@@ -1,11 +1,13 @@
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
+  AccessibilityInfo,
+  Animated,
+  Easing,
   Platform,
   Pressable,
   StyleProp,
-  StyleSheet,
   Text,
   TextInput,
   TextInputProps,
@@ -15,9 +17,11 @@ import {
   ViewProps,
   ViewStyle,
 } from 'react-native';
-import { colors, rtl } from '../lib/theme';
+import { play } from '../lib/sound';
+import { colors, layout, rtl } from '../lib/theme';
 
 export function tap(style: 'light' | 'medium' | 'heavy' = 'light') {
+  play(style === 'light' ? 'tap' : 'pop', style === 'heavy' ? 0.6 : 0.4);
   if (Platform.OS === 'web') return;
   const map = {
     light: Haptics.ImpactFeedbackStyle.Light,
@@ -28,22 +32,23 @@ export function tap(style: 'light' | 'medium' | 'heavy' = 'light') {
 }
 
 export function notify(kind: 'success' | 'error') {
+  play(kind, 0.5);
   if (Platform.OS === 'web') return;
   Haptics.notificationAsync(
     kind === 'success' ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error,
   ).catch(() => {});
 }
 
-/** Right-to-left row: first child sits on the right. */
+/** Row in reading order: first child sits on the right in Hebrew/Arabic, on the left in English. */
 export function Row({ style, ...props }: ViewProps) {
-  return <View style={[styles.row, style]} {...props} />;
+  return <View style={[{ flexDirection: layout.row }, style]} {...props} />;
 }
 
 export function T({ style, dim, bold, size, ...props }: TextProps & { dim?: boolean; bold?: boolean; size?: number }) {
   return (
     <Text
       style={[
-        styles.text,
+        { color: colors.text, fontSize: 16, ...rtl },
         dim && { color: colors.textDim },
         bold && { fontWeight: '700' },
         size ? { fontSize: size } : null,
@@ -54,8 +59,68 @@ export function T({ style, dim, bold, size, ...props }: TextProps & { dim?: bool
   );
 }
 
+export const cardStyle = (): ViewStyle => ({
+  backgroundColor: colors.card,
+  borderRadius: 20,
+  padding: 16,
+  borderWidth: 1,
+  borderColor: colors.border,
+});
+
 export function Card({ style, ...props }: ViewProps) {
-  return <View style={[styles.card, style]} {...props} />;
+  return <View style={[cardStyle(), style]} {...props} />;
+}
+
+/** Fades and slides its children in once, staggered by `delay`. Skipped when the OS asks for reduced motion. */
+export function FadeIn({ children, delay = 0, style }: { children: React.ReactNode; delay?: number; style?: StyleProp<ViewStyle> }) {
+  const v = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    let alive = true;
+    AccessibilityInfo.isReduceMotionEnabled()
+      .catch(() => false)
+      .then((reduce) => {
+        if (!alive) return;
+        if (reduce) v.setValue(1);
+        else Animated.timing(v, { toValue: 1, duration: 380, delay, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+      });
+    return () => {
+      alive = false;
+    };
+  }, [v, delay]);
+  return (
+    <Animated.View style={[{ opacity: v, transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }] }, style]}>
+      {children}
+    </Animated.View>
+  );
+}
+
+/** Pressable that springs down slightly while pressed. */
+export function Bouncy({
+  children,
+  onPress,
+  style,
+  disabled,
+  accessibilityLabel,
+}: {
+  children: React.ReactNode;
+  onPress?: () => void;
+  style?: StyleProp<ViewStyle>;
+  disabled?: boolean;
+  accessibilityLabel?: string;
+}) {
+  const s = useRef(new Animated.Value(1)).current;
+  const to = (v: number) => Animated.spring(s, { toValue: v, useNativeDriver: true, speed: 40, bounciness: 8 }).start();
+  return (
+    <Pressable
+      disabled={disabled}
+      accessibilityLabel={accessibilityLabel}
+      onPressIn={() => to(0.96)}
+      onPressOut={() => to(1)}
+      onPress={onPress}
+    >
+      <Animated.View style={[{ transform: [{ scale: s }], opacity: disabled ? 0.45 : 1 }, style]}>{children}</Animated.View>
+    </Pressable>
+  );
 }
 
 export function GradientButton({
@@ -76,42 +141,42 @@ export function GradientButton({
   small?: boolean;
 }) {
   return (
-    <Pressable
+    <Bouncy
       disabled={disabled}
       onPress={() => {
         tap();
         onPress();
       }}
-      style={({ pressed }) => [{ opacity: disabled ? 0.4 : pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }, style]}
+      style={style}
     >
       <LinearGradient
         colors={grad}
-        start={{ x: 1, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={[styles.gradBtn, small && { paddingVertical: 9, paddingHorizontal: 14 }]}
+        start={{ x: layout.isRTL ? 1 : 0, y: 0 }}
+        end={{ x: layout.isRTL ? 0 : 1, y: 1 }}
+        style={{ borderRadius: 16, paddingVertical: small ? 9 : 15, paddingHorizontal: small ? 14 : 20, alignItems: 'center' }}
       >
         <T bold size={small ? 14 : 17} style={{ color: '#fff', textAlign: 'center' }}>
           {icon ? `${icon}  ` : ''}
           {title}
         </T>
       </LinearGradient>
-    </Pressable>
+    </Bouncy>
   );
 }
 
 export function GhostButton({ title, onPress, style, color }: { title: string; onPress: () => void; style?: StyleProp<ViewStyle>; color?: string }) {
   return (
-    <Pressable
+    <Bouncy
       onPress={() => {
         tap();
         onPress();
       }}
-      style={({ pressed }) => [styles.ghost, { opacity: pressed ? 0.7 : 1 }, style]}
+      style={[{ paddingVertical: 12, paddingHorizontal: 16, borderRadius: 14, borderWidth: 1, borderColor: colors.border }, style]}
     >
       <T bold style={{ color: color ?? colors.primaryHi, textAlign: 'center' }}>
         {title}
       </T>
-    </Pressable>
+    </Bouncy>
   );
 }
 
@@ -139,7 +204,19 @@ export function Chip({
         })
       }
       onLongPress={onLongPress}
-      style={[styles.chip, { borderColor: c }, active && { backgroundColor: c }]}
+      style={({ pressed }) => [
+        {
+          borderWidth: 1.5,
+          borderRadius: 999,
+          paddingVertical: 6,
+          paddingHorizontal: 12,
+          marginBottom: 8,
+          borderColor: c,
+          transform: [{ scale: pressed ? 0.95 : 1 }],
+        },
+        layout.isRTL ? { marginLeft: 8 } : { marginRight: 8 },
+        active && { backgroundColor: c },
+      ]}
     >
       <T size={14} bold style={{ color: active ? '#fff' : c }}>
         {label}
@@ -149,7 +226,26 @@ export function Chip({
 }
 
 export function Input(props: TextInputProps & { style?: StyleProp<TextStyle> }) {
-  return <TextInput placeholderTextColor={colors.textMute} {...props} style={[styles.input, props.style]} />;
+  return (
+    <TextInput
+      placeholderTextColor={colors.textMute}
+      {...props}
+      style={[
+        {
+          backgroundColor: colors.bgDeep,
+          borderRadius: 14,
+          borderWidth: 1,
+          borderColor: colors.border,
+          color: colors.text,
+          fontSize: 16,
+          paddingHorizontal: 14,
+          paddingVertical: 12,
+          ...rtl,
+        },
+        props.style,
+      ]}
+    />
+  );
 }
 
 export function SectionTitle({ children, style }: { children: React.ReactNode; style?: StyleProp<TextStyle> }) {
@@ -193,36 +289,3 @@ export function Empty({ emoji, title, text }: { emoji: string; title: string; te
     </View>
   );
 }
-
-export const styles = StyleSheet.create({
-  row: { flexDirection: 'row-reverse' },
-  text: { color: colors.text, fontSize: 16, ...rtl },
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  gradBtn: { borderRadius: 16, paddingVertical: 15, paddingHorizontal: 20, alignItems: 'center' },
-  ghost: { paddingVertical: 12, paddingHorizontal: 16, borderRadius: 14, borderWidth: 1, borderColor: colors.border },
-  chip: {
-    borderWidth: 1.5,
-    borderRadius: 999,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    marginLeft: 8,
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: colors.bgDeep,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    color: colors.text,
-    fontSize: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    ...rtl,
-  },
-});

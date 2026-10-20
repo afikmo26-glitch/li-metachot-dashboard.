@@ -11,6 +11,7 @@ import { Alert, Animated, Easing, Pressable, Text, View } from 'react-native';
 import { formatDuration } from '../lib/dates';
 import { colors, gradients } from '../lib/theme';
 import { T, tap } from './ui';
+import { t } from '../i18n';
 
 type Props = {
   /** Called when a recording finishes, with the temp file uri, its duration and when it started */
@@ -40,7 +41,7 @@ export default function Recorder({ onRecorded, hasRecording }: Props) {
   const start = async () => {
     const perm = await requestRecordingPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('אין גישה למיקרופון', 'אפשר גישה למיקרופון בהגדרות הטלפון כדי להקליט את היום שלך.');
+      Alert.alert(t('אין גישה למיקרופון'), t('אפשר גישה למיקרופון בהגדרות הטלפון כדי להקליט את היום שלך.'));
       return;
     }
     tap('medium');
@@ -100,12 +101,12 @@ export default function Recorder({ onRecorded, hasRecording }: Props) {
         {state.isRecording
           ? formatDuration(state.durationMillis)
           : hasRecording
-            ? '✅ ההקלטה נשמרה — אפשר להקליט מחדש'
-            : 'לחץ והקלט איך היה היום שלך'}
+            ? t('✅ ההקלטה נשמרה — אפשר להקליט מחדש')
+            : t('לחץ והקלט איך היה היום שלך')}
       </T>
       {state.isRecording && (
         <T dim size={13} style={{ textAlign: 'center', marginTop: 4 }}>
-          ● מקליט… לחץ שוב לסיום
+          {t('● מקליט… לחץ שוב לסיום')}
         </T>
       )}
     </View>

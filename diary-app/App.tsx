@@ -2,26 +2,29 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, I18nManager, KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Easing, I18nManager, KeyboardAvoidingView, Modal, Platform, Pressable, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import EntryModal from './src/components/EntryModal';
 import SettingsModal from './src/components/SettingsModal';
 import { T, tap } from './src/components/ui';
+import { t } from './src/i18n';
 import { Account, loadAccount } from './src/lib/account';
 import { scheduleBedtime } from './src/lib/notifications';
+import { PrefsProvider, usePrefs } from './src/lib/prefs';
 import { StoreProvider, useStore } from './src/lib/store';
-import { colors, gradients } from './src/lib/theme';
+import { colors, gradients, layout } from './src/lib/theme';
 import ArchiveScreen from './src/screens/ArchiveScreen';
 import { Login, Onboarding } from './src/screens/AuthScreens';
 import CalendarScreen from './src/screens/CalendarScreen';
 import GameScreen from './src/screens/GameScreen';
+import IntroScreen from './src/screens/IntroScreen';
 import PeopleScreen from './src/screens/PeopleScreen';
 import TodayScreen from './src/screens/TodayScreen';
 import VentScreen from './src/screens/VentScreen';
 
-// Layout is pinned LTR and every screen lays itself out right-to-left explicitly,
-// so it looks the same whatever the phone's language is.
+// The native layout is pinned LTR; screens lay themselves out through `layout`/`rtl`,
+// so Hebrew and Arabic read right-to-left and English left-to-right, whatever the phone's language.
 I18nManager.allowRTL(false);
 I18nManager.forceRTL(false);
 
@@ -36,24 +39,76 @@ const TABS: { key: Tab; label: string; icon: IconName; active: IconName }[] = [
   { key: 'game', label: 'משחק', icon: 'game-controller-outline', active: 'game-controller' },
 ];
 
-function Main() {
+/** Account and lock state live here, above the part that redraws when the theme or language changes. */
+function Root() {
   const { ready, settings, clearAll } = useStore();
+  const { version } = usePrefs();
   const [account, setAccount] = useState<Account | null | undefined>(undefined);
   const [unlocked, setUnlocked] = useState(false);
-  const [tab, setTab] = useState<Tab>('today');
-  const [entryId, setEntryId] = useState<string | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     loadAccount().then(setAccount);
   }, []);
 
-  // Make sure the nightly reminder is scheduled once settings are loaded
+  // Make sure the nightly reminder is scheduled (in the current language) once settings are loaded
   useEffect(() => {
     if (ready) scheduleBedtime(settings).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready]);
+  }, [ready, version]);
+
+  let screen: React.ReactNode;
+  if (!ready || account === undefined) {
+    screen = (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg }}>
+        <ActivityIndicator color={colors.primary} size="large" />
+      </View>
+    );
+  } else if (!account) {
+    screen = (
+      <Onboarding
+        key={version}
+        onDone={(a) => {
+          setAccount(a);
+          setUnlocked(true);
+        }}
+      />
+    );
+  } else if (account.lockEnabled && !unlocked) {
+    screen = (
+      <Login
+        key={version}
+        account={account}
+        onUnlock={(a) => {
+          setAccount(a);
+          setUnlocked(true);
+        }}
+        onReset={() => {
+          clearAll();
+          setAccount(null);
+        }}
+      />
+    );
+  } else {
+    screen = <Main key={version} account={account} setAccount={setAccount} onLock={() => setUnlocked(false)} />;
+  }
+
+  return (
+    <>
+      <StatusBar style={colors.statusBar} />
+      {screen}
+    </>
+  );
+}
+
+function Main({ account, setAccount, onLock }: { account: Account; setAccount: (a: Account) => void; onLock: () => void }) {
+  const { profile } = useStore();
+  const { takeReopenSettings } = usePrefs();
+  const [tab, setTab] = useState<Tab>('today');
+  const [entryId, setEntryId] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(takeReopenSettings);
+  const [introOpen, setIntroOpen] = useState(false);
+  const insets = useSafeAreaInsets();
+  const enter = useRef(new Animated.Value(1)).current;
 
   // Tapping a notification opens the right screen
   useEffect(() => {
@@ -69,40 +124,13 @@ function Main() {
     return () => sub.remove();
   }, []);
 
-  if (!ready || account === undefined) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg }}>
-        <ActivityIndicator color={colors.primary} size="large" />
-      </View>
-    );
-  }
-
-  if (!account) {
-    return (
-      <Onboarding
-        onDone={(a) => {
-          setAccount(a);
-          setUnlocked(true);
-        }}
-      />
-    );
-  }
-
-  if (account.lockEnabled && !unlocked) {
-    return (
-      <Login
-        account={account}
-        onUnlock={(a) => {
-          setAccount(a);
-          setUnlocked(true);
-        }}
-        onReset={() => {
-          clearAll();
-          setAccount(null);
-        }}
-      />
-    );
-  }
+  const go = (next: Tab) => {
+    if (next === tab) return;
+    tap();
+    setTab(next);
+    enter.setValue(0);
+    Animated.timing(enter, { toValue: 1, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  };
 
   const open = (id: string) => setEntryId(id);
 
@@ -110,18 +138,32 @@ function Main() {
     <LinearGradient colors={gradients.app} style={{ flex: 1 }}>
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          {tab === 'today' && <TodayScreen onOpenSettings={() => setSettingsOpen(true)} onOpenEntry={open} />}
-          {tab === 'archive' && <ArchiveScreen onOpenEntry={open} />}
-          {tab === 'calendar' && <CalendarScreen onOpenEntry={open} />}
-          {tab === 'people' && <PeopleScreen onOpenEntry={open} />}
-          {tab === 'vent' && <VentScreen />}
-          {tab === 'game' && <GameScreen />}
+          <Animated.View
+            style={{
+              flex: 1,
+              opacity: enter,
+              transform: [{ translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }],
+            }}
+          >
+            {tab === 'today' && (
+              <TodayScreen
+                onOpenSettings={() => setSettingsOpen(true)}
+                onOpenEntry={open}
+                onOpenIntro={profile.done ? undefined : () => setIntroOpen(true)}
+              />
+            )}
+            {tab === 'archive' && <ArchiveScreen onOpenEntry={open} />}
+            {tab === 'calendar' && <CalendarScreen onOpenEntry={open} />}
+            {tab === 'people' && <PeopleScreen onOpenEntry={open} />}
+            {tab === 'vent' && <VentScreen />}
+            {tab === 'game' && <GameScreen />}
+          </Animated.View>
         </KeyboardAvoidingView>
       </SafeAreaView>
 
       <View
         style={{
-          flexDirection: 'row-reverse',
+          flexDirection: layout.row,
           backgroundColor: colors.bgDeep,
           borderTopWidth: 1,
           borderTopColor: colors.border,
@@ -129,17 +171,10 @@ function Main() {
           paddingTop: 8,
         }}
       >
-        {TABS.map((t) => {
-          const active = t.key === tab;
+        {TABS.map((tb) => {
+          const active = tb.key === tab;
           return (
-            <Pressable
-              key={t.key}
-              onPress={() => {
-                tap();
-                setTab(t.key);
-              }}
-              style={{ flex: 1, alignItems: 'center' }}
-            >
+            <Pressable key={tb.key} onPress={() => go(tb.key)} style={{ flex: 1, alignItems: 'center' }} accessibilityLabel={t(tb.label)}>
               <View
                 style={{
                   paddingHorizontal: 12,
@@ -148,10 +183,10 @@ function Main() {
                   backgroundColor: active ? colors.cardHi : 'transparent',
                 }}
               >
-                <Ionicons name={active ? t.active : t.icon} size={24} color={active ? colors.primaryHi : colors.textMute} />
+                <Ionicons name={active ? tb.active : tb.icon} size={24} color={active ? colors.primaryHi : colors.textMute} />
               </View>
               <T size={11} bold={active} style={{ textAlign: 'center', marginTop: 2, color: active ? colors.text : colors.textMute }}>
-                {t.label}
+                {t(tb.label)}
               </T>
             </Pressable>
           );
@@ -164,11 +199,18 @@ function Main() {
         onClose={() => setSettingsOpen(false)}
         account={account}
         onAccountChange={setAccount}
+        onOpenIntro={() => {
+          setSettingsOpen(false);
+          setIntroOpen(true);
+        }}
         onLock={() => {
           setSettingsOpen(false);
-          setUnlocked(false);
+          onLock();
         }}
       />
+      <Modal visible={introOpen} animationType="slide" onRequestClose={() => setIntroOpen(false)}>
+        <IntroScreen onDone={() => setIntroOpen(false)} />
+      </Modal>
     </LinearGradient>
   );
 }
@@ -176,10 +218,11 @@ function Main() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <StoreProvider>
-        <StatusBar style="light" />
-        <Main />
-      </StoreProvider>
+      <PrefsProvider>
+        <StoreProvider>
+          <Root />
+        </StoreProvider>
+      </PrefsProvider>
     </SafeAreaProvider>
   );
 }

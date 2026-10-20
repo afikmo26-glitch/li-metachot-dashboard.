@@ -6,9 +6,11 @@ import { AiConfig, aiTest, EMPTY_AI, loadAiConfig, saveAiConfig } from '../lib/a
 import { pad } from '../lib/dates';
 import { scheduleBedtime, scheduleMorningRecap, sendTestNotification } from '../lib/notifications';
 import { useStore } from '../lib/store';
-import { colors, gradients } from '../lib/theme';
+import { usePrefs } from '../lib/prefs';
+import { colors, gradients, ThemeName, THEMES } from '../lib/theme';
 import type { Settings } from '../lib/types';
-import { Card, GhostButton, GradientButton, Input, Row, SectionTitle, T, tap } from './ui';
+import { Card, Chip, GhostButton, GradientButton, Input, Row, SectionTitle, T, tap } from './ui';
+import { LANGS, t } from '../i18n';
 
 type Props = {
   visible: boolean;
@@ -16,9 +18,10 @@ type Props = {
   account: Account;
   onAccountChange: (a: Account) => void;
   onLock: () => void;
+  onOpenIntro: () => void;
 };
 
-export default function SettingsModal({ visible, onClose, account, onAccountChange, onLock }: Props) {
+export default function SettingsModal({ visible, onClose, account, onAccountChange, onLock, onOpenIntro }: Props) {
   const { settings, updateSettings, entries, people } = useStore();
   const [draft, setDraft] = useState<Settings>(settings);
 
@@ -35,38 +38,42 @@ export default function SettingsModal({ visible, onClose, account, onAccountChan
         <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
           <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
             <T bold size={26}>
-              ⚙️ הגדרות
+              {t('⚙️ הגדרות')}
             </T>
             <Pressable onPress={onClose} hitSlop={12}>
-              <T bold style={{ color: colors.primaryHi }}>סגור ✕</T>
+              <T bold style={{ color: colors.primaryHi }}>{t('סגור ✕')}</T>
             </Pressable>
           </Row>
 
-          <SectionTitle>👤 החשבון שלי</SectionTitle>
-          <AccountCard account={account} onAccountChange={onAccountChange} onLock={onLock} />
+          <SectionTitle>{t('🎨 תצוגה')}</SectionTitle>
+          <DisplayCard />
 
-          <SectionTitle>✨ צ'אט חכם (AI)</SectionTitle>
+          <SectionTitle>{t('👤 החשבון שלי')}</SectionTitle>
+          <AccountCard account={account} onAccountChange={onAccountChange} onLock={onLock} />
+          <GhostButton title={t('👋 ההיכרות שלי (משפחה, חברים, עבודה)')} onPress={onOpenIntro} style={{ marginTop: 10 }} />
+
+          <SectionTitle>{t('✨ צ\'אט חכם (AI)')}</SectionTitle>
           <AiCard />
 
-          <SectionTitle>🛡️ אבטחה ופרטיות</SectionTitle>
+          <SectionTitle>{t('🛡️ אבטחה ופרטיות')}</SectionTitle>
           <Card style={{ gap: 6 }}>
-            <T size={14}>🔐 כל היומן מוצפן על הטלפון (AES-256), והמפתח שמור בכספת המאובטחת של המכשיר</T>
-            <T size={14}>🔑 הסיסמה נשמרת כ-hash חזק (PBKDF2) ולא כטקסט</T>
-            <T size={14}>⛔ 5 ניסיונות כניסה שגויים חוסמים ל-30 שניות</T>
-            <T size={14}>🫂 "המקום לפרוק" מוצפן בסיסמה נפרדת, ננעל ביציאה ואי אפשר לצלם בו מסך</T>
-            <T size={14}>📵 אין גיבוי אוטומטי של היומן לענן של גוגל, כדי שלא ייצא מהטלפון</T>
+            <T size={14}>{t('🔐 כל היומן מוצפן על הטלפון (AES-256), והמפתח שמור בכספת המאובטחת של המכשיר')}</T>
+            <T size={14}>{t('🔑 הסיסמה נשמרת כ-hash חזק (PBKDF2) ולא כטקסט')}</T>
+            <T size={14}>{t('⛔ 5 ניסיונות כניסה שגויים חוסמים ל-30 שניות')}</T>
+            <T size={14}>{t('🫂 "המקום לפרוק" מוצפן בסיסמה נפרדת, ננעל ביציאה ואי אפשר לצלם בו מסך')}</T>
+            <T size={14}>{t('📵 אין גיבוי אוטומטי של היומן לענן של גוגל, כדי שלא ייצא מהטלפון')}</T>
             <T dim size={12} style={{ marginTop: 4, lineHeight: 18 }}>
-              כשה-AI מופעל, ההודעות שלך בצ'אט נשלחות לשרת שלך ול-Claude כדי לקבל תשובה. בלי AI שום דבר לא יוצא מהטלפון.
+              {t('כשה-AI מופעל, ההודעות שלך בצ\'אט נשלחות לשרת שלך ול-Claude כדי לקבל תשובה. בלי AI שום דבר לא יוצא מהטלפון.')}
             </T>
           </Card>
 
-          <SectionTitle>איך לקרוא לך?</SectionTitle>
-          <Input value={draft.userName} onChangeText={(userName) => setDraft({ ...draft, userName })} placeholder="השם שלך" />
+          <SectionTitle>{t('איך לקרוא לך?')}</SectionTitle>
+          <Input value={draft.userName} onChangeText={(userName) => setDraft({ ...draft, userName })} placeholder={t('השם שלך')} />
 
-          <SectionTitle>🌙 תזכורת לפני השינה</SectionTitle>
+          <SectionTitle>{t('🌙 תזכורת לפני השינה')}</SectionTitle>
           <Card>
             <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-              <T style={{ flex: 1 }}>כל ערב אשאל "איך היה היום?"</T>
+              <T style={{ flex: 1 }}>{t('כל ערב אשאל "איך היה היום?"')}</T>
               <Switch
                 value={draft.bedtimeEnabled}
                 onValueChange={(bedtimeEnabled) => setDraft({ ...draft, bedtimeEnabled })}
@@ -82,10 +89,10 @@ export default function SettingsModal({ visible, onClose, account, onAccountChan
             )}
           </Card>
 
-          <SectionTitle>☀️ סיכום בבוקר</SectionTitle>
+          <SectionTitle>{t('☀️ סיכום בבוקר')}</SectionTitle>
           <Card>
             <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-              <T style={{ flex: 1 }}>למחרת בבוקר אזכיר לך מה היה אתמול ומה אנשים אמרו לך</T>
+              <T style={{ flex: 1 }}>{t('למחרת בבוקר אזכיר לך מה היה אתמול ומה אנשים אמרו לך')}</T>
               <Switch
                 value={draft.morningRecapEnabled}
                 onValueChange={(morningRecapEnabled) => setDraft({ ...draft, morningRecapEnabled })}
@@ -97,21 +104,71 @@ export default function SettingsModal({ visible, onClose, account, onAccountChan
             )}
           </Card>
 
-          <GradientButton title="שמור הגדרות" icon="💾" colors={gradients.primary} onPress={save} style={{ marginTop: 24 }} />
+          <GradientButton title={t('שמור הגדרות')} icon="💾" colors={gradients.primary} onPress={save} style={{ marginTop: 24 }} />
           <GhostButton
-            title="🔔 שלח התראת ניסיון"
+            title={t('🔔 שלח התראת ניסיון')}
             style={{ marginTop: 10 }}
             onPress={async () => {
               const ok = await sendTestNotification().catch(() => false);
-              Alert.alert(ok ? 'נשלח!' : 'אין הרשאה', ok ? 'ההתראה תגיע בעוד כמה שניות' : 'אפשר התראות בהגדרות הטלפון');
+              Alert.alert(ok ? t('נשלח!') : t('אין הרשאה'), ok ? t('ההתראה תגיע בעוד כמה שניות') : t('אפשר התראות בהגדרות הטלפון'));
             }}
           />
           <T dim size={12} style={{ textAlign: 'center', marginTop: 20, lineHeight: 18 }}>
-            🔒 כל המידע נשמר רק על הטלפון שלך — שום דבר לא נשלח לשרת.
+            {t('🔒 כל המידע נשמר רק על הטלפון שלך — שום דבר לא נשלח לשרת.')}
           </T>
         </ScrollView>
       </SafeAreaView>
     </Modal>
+  );
+}
+
+function DisplayCard() {
+  const { prefs, setPrefs } = usePrefs();
+  return (
+    <Card>
+      <T bold size={14} style={{ marginBottom: 8 }}>
+        {t('🌐 שפה')}
+      </T>
+      <Row style={{ flexWrap: 'wrap' }}>
+        {LANGS.map((l) => (
+          <Chip key={l.code} label={l.label} active={prefs.lang === l.code} onPress={() => setPrefs({ lang: l.code }, true)} />
+        ))}
+      </Row>
+      <T bold size={14} style={{ marginTop: 10, marginBottom: 10 }}>
+        {t('🎨 צבעים')}
+      </T>
+      <Row style={{ flexWrap: 'wrap', gap: 12 }}>
+        {(Object.keys(THEMES) as ThemeName[]).map((name) => {
+          const th = THEMES[name];
+          const active = prefs.theme === name;
+          return (
+            <Pressable key={name} onPress={() => setPrefs({ theme: name }, true)} style={{ alignItems: 'center', width: 64 }} accessibilityLabel={t(th.label)}>
+              <View
+                style={{
+                  width: 46,
+                  height: 46,
+                  borderRadius: 23,
+                  backgroundColor: th.palette.bg,
+                  borderWidth: active ? 3 : 1,
+                  borderColor: active ? th.palette.primaryHi : colors.border,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: th.swatch === th.palette.bg ? th.palette.primary : th.swatch }} />
+              </View>
+              <T size={11} bold={active} style={{ textAlign: 'center', marginTop: 4 }}>
+                {t(th.label)}
+              </T>
+            </Pressable>
+          );
+        })}
+      </Row>
+      <Row style={{ justifyContent: 'space-between', alignItems: 'center', marginTop: 14 }}>
+        <T style={{ flex: 1 }}>{t('🔊 צלילים באפליקציה')}</T>
+        <Switch value={prefs.sounds} onValueChange={(sounds) => setPrefs({ sounds }, true)} trackColor={{ true: colors.primary, false: colors.border }} />
+      </Row>
+    </Card>
   );
 }
 
@@ -135,9 +192,9 @@ function AiCard() {
     setStatus(null);
     try {
       const reply = await aiTest(cfg);
-      setStatus({ text: `מחובר ✓ (${reply.slice(0, 40)})`, ok: true });
+      setStatus({ text: t('מחובר ✓ ({reply})', { reply: reply.slice(0, 40) }), ok: true });
     } catch (e) {
-      setStatus({ text: `לא הצלחתי להתחבר: ${(e as Error).message}`, ok: false });
+      setStatus({ text: t('לא הצלחתי להתחבר: {err}', { err: (e as Error).message }), ok: false });
     }
     setBusy(false);
   };
@@ -145,10 +202,10 @@ function AiCard() {
   return (
     <Card>
       <T dim size={13} style={{ lineHeight: 19, marginBottom: 10 }}>
-        עם AI, יומי והמקום לפרוק עונים לך כמו בן אדם אמיתי (Claude). הדרך הכי פשוטה: מפתח Claude אישי מ-console.anthropic.com. בלי AI הם עובדים במצב רגיל.
+        {t('עם AI, יומי והמקום לפרוק עונים לך כמו בן אדם אמיתי (Claude). הדרך הכי פשוטה: מפתח Claude אישי מ-console.anthropic.com. בלי AI הם עובדים במצב רגיל.')}
       </T>
       <T bold size={14} style={{ marginBottom: 6 }}>
-        🔑 מפתח Claude אישי
+        {t('🔑 מפתח Claude אישי')}
       </T>
       <Input
         value={cfg.claudeKey}
@@ -160,15 +217,15 @@ function AiCard() {
         style={{ textAlign: 'left', writingDirection: 'ltr' }}
       />
       <T dim size={12} style={{ marginTop: 6, marginBottom: 12, lineHeight: 17 }}>
-        המפתח נשמר מוצפן רק בטלפון הזה. כל הודעה עולה בערך 1–3 סנט מהקרדיט שלך.
+        {t('המפתח נשמר מוצפן רק בטלפון הזה. כל הודעה עולה בערך 1–3 סנט מהקרדיט שלך.')}
       </T>
       <T bold size={14} style={{ marginBottom: 6 }}>
-        🌐 או: שרת משלך (לשיתוף עם חברים)
+        {t('🌐 או: שרת משלך (לשיתוף עם חברים)')}
       </T>
       <Input
         value={cfg.url}
         onChangeText={(url) => update({ url: url.trim() })}
-        placeholder="כתובת השרת, למשל https://diary-ai.xxx.workers.dev"
+        placeholder={t('כתובת השרת, למשל https://diary-ai.xxx.workers.dev')}
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="url"
@@ -177,20 +234,20 @@ function AiCard() {
       <Input
         value={cfg.appKey}
         onChangeText={(appKey) => update({ appKey: appKey.trim() })}
-        placeholder="מפתח האפליקציה (APP_KEY)"
+        placeholder={t('מפתח האפליקציה (APP_KEY)')}
         secureTextEntry
         autoCapitalize="none"
         style={{ marginTop: 8, textAlign: 'left', writingDirection: 'ltr' }}
       />
       <Row style={{ justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
-        <T style={{ flex: 1 }}>💜 AI בשיחה עם יומי</T>
+        <T style={{ flex: 1 }}>{t('💜 AI בשיחה עם יומי')}</T>
         <Switch value={cfg.diary} onValueChange={(diary) => update({ diary })} trackColor={{ true: colors.primary, false: colors.border }} />
       </Row>
       <Row style={{ justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-        <T style={{ flex: 1 }}>🫂 AI במקום לפרוק</T>
+        <T style={{ flex: 1 }}>{t('🫂 AI במקום לפרוק')}</T>
         <Switch value={cfg.vent} onValueChange={(vent) => update({ vent })} trackColor={{ true: colors.primary, false: colors.border }} />
       </Row>
-      <GhostButton title={busy ? 'בודק…' : '🔌 בדוק חיבור'} onPress={test} style={{ marginTop: 12 }} />
+      <GhostButton title={busy ? t('בודק…') : t('🔌 בדוק חיבור')} onPress={test} style={{ marginTop: 12 }} />
       {status && (
         <T size={13} style={{ marginTop: 8, color: status.ok ? colors.green : colors.red }}>
           {status.text}
@@ -219,7 +276,7 @@ function AccountCard({ account, onAccountChange, onLock }: { account: Account; o
       return;
     }
     onAccountChange(res);
-    setMsg({ text: 'הסיסמה עודכנה ✓', ok: true });
+    setMsg({ text: t('הסיסמה עודכנה ✓'), ok: true });
     setCurrent('');
     setNext('');
     setChanging(false);
@@ -243,22 +300,22 @@ function AccountCard({ account, onAccountChange, onLock }: { account: Account; o
         </View>
       </Row>
       <Row style={{ justifyContent: 'space-between', alignItems: 'center', marginTop: 14 }}>
-        <T style={{ flex: 1 }}>🔒 בקש סיסמה בכל פתיחה</T>
+        <T style={{ flex: 1 }}>{t('🔒 בקש סיסמה בכל פתיחה')}</T>
         <Switch value={account.lockEnabled} onValueChange={toggleLock} trackColor={{ true: colors.primary, false: colors.border }} />
       </Row>
       {changing ? (
         <View style={{ gap: 8, marginTop: 12 }}>
-          <Input value={current} onChangeText={setCurrent} placeholder="סיסמה נוכחית" secureTextEntry />
-          <Input value={next} onChangeText={setNext} placeholder="סיסמה חדשה" secureTextEntry />
+          <Input value={current} onChangeText={setCurrent} placeholder={t('סיסמה נוכחית')} secureTextEntry />
+          <Input value={next} onChangeText={setNext} placeholder={t('סיסמה חדשה')} secureTextEntry />
           <Row style={{ gap: 10 }}>
-            <GradientButton small title="עדכן" colors={gradients.primary} onPress={submit} />
-            <GhostButton title="ביטול" onPress={() => setChanging(false)} />
+            <GradientButton small title={t('עדכן')} colors={gradients.primary} onPress={submit} />
+            <GhostButton title={t('ביטול')} onPress={() => setChanging(false)} />
           </Row>
         </View>
       ) : (
         <Row style={{ gap: 10, marginTop: 12 }}>
-          <GhostButton title="שינוי סיסמה" onPress={() => setChanging(true)} style={{ flex: 1 }} />
-          {account.lockEnabled && <GhostButton title="נעל עכשיו" onPress={onLock} style={{ flex: 1 }} />}
+          <GhostButton title={t('שינוי סיסמה')} onPress={() => setChanging(true)} style={{ flex: 1 }} />
+          {account.lockEnabled && <GhostButton title={t('נעל עכשיו')} onPress={onLock} style={{ flex: 1 }} />}
         </Row>
       )}
       {msg && (

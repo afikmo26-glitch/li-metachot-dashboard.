@@ -3,6 +3,7 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { parseDayKey } from './dates';
 import type { CalendarEvent, Entry, Person, Settings } from './types';
+import { t } from '../i18n';
 
 const CHANNEL = 'diary';
 const IDS_KEY = 'diary.notifIds.v1';
@@ -38,7 +39,7 @@ export async function ensurePermissions(): Promise<boolean> {
   if (Platform.OS === 'web') return false;
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync(CHANNEL, {
-      name: 'יומן',
+      name: t('יומן'),
       importance: Notifications.AndroidImportance.HIGH,
     });
   }
@@ -65,8 +66,8 @@ export async function scheduleBedtime(settings: Settings) {
     const name = settings.userName ? `${settings.userName}, ` : '';
     ids.bedtime = await Notifications.scheduleNotificationAsync({
       content: {
-        title: `${name}איך היה היום? 🌙`,
-        body: BEDTIME_LINES[Math.floor(Math.random() * BEDTIME_LINES.length)],
+        title: settings.userName ? t('{name}, איך היה היום? 🌙', { name: settings.userName }) : t('איך היה היום? 🌙'),
+        body: t(BEDTIME_LINES[Math.floor(Math.random() * BEDTIME_LINES.length)]),
         data: { screen: 'record' },
       },
       trigger: {
@@ -97,16 +98,16 @@ export async function scheduleMorningRecap(settings: Settings, entry: Entry | un
       const names = entry.people.map((id) => people.find((p) => p.id === id)?.name).filter(Boolean);
       const quote = entry.quotes[0];
       const quoteLine = quote
-        ? `${people.find((p) => p.id === quote.personId)?.name ?? ''} אמר/ה: "${quote.text}"`
+        ? t('{name} אמר/ה: "{text}"', { name: people.find((p) => p.id === quote.personId)?.name ?? '', text: quote.text })
         : '';
       const snippet = entry.text.length > 90 ? `${entry.text.slice(0, 90)}…` : entry.text;
-      const body = [names.length ? `פגשת את ${names.join(', ')}.` : '', quoteLine || snippet]
+      const body = [names.length ? t('פגשת את {names}.', { names: names.join(', ') }) : '', quoteLine || snippet]
         .filter(Boolean)
         .join('\n');
       ids.recap = await Notifications.scheduleNotificationAsync({
         content: {
-          title: '☀️ בוקר טוב! ככה היה אתמול',
-          body: body || 'הקלטת יומן אתמול — בוא להיזכר',
+          title: t('☀️ בוקר טוב! ככה היה אתמול'),
+          body: body || t('הקלטת יומן אתמול — בוא להיזכר'),
           data: { screen: 'archive', entryId: entry.id },
         },
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: when, channelId: CHANNEL },
@@ -127,7 +128,7 @@ export async function scheduleTomorrowReminder(settings: Settings, note: string)
     when.setDate(when.getDate() + 1);
     when.setHours(settings.morningHour, 5, 0, 0);
     ids.todo = await Notifications.scheduleNotificationAsync({
-      content: { title: '📝 ביקשת שאזכיר לך', body: note, data: { screen: 'today' } },
+      content: { title: t('📝 ביקשת שאזכיר לך'), body: note, data: { screen: 'today' } },
       trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: when, channelId: CHANNEL },
     });
   }
@@ -145,7 +146,7 @@ export async function scheduleEvent(ev: CalendarEvent): Promise<string | undefin
   const date = parseDayKey(ev.date);
   const content = {
     title: `${KIND_EMOJI[ev.kind]} ${ev.title}`,
-    body: ev.kind === 'birthday' ? 'היום יום הולדת! אל תשכח לאחל 🎉' : 'תזכורת לאירוע של היום',
+    body: ev.kind === 'birthday' ? t('היום יום הולדת! אל תשכח לאחל 🎉') : t('תזכורת לאירוע של היום'),
     data: { screen: 'calendar' },
   };
   if (ev.yearly) {
@@ -176,7 +177,7 @@ export async function cancelEvent(ev: CalendarEvent) {
 export async function sendTestNotification() {
   if (!(await ensurePermissions())) return false;
   await Notifications.scheduleNotificationAsync({
-    content: { title: 'איך היה היום? 🌙', body: 'ככה תיראה התזכורת היומית שלך' },
+    content: { title: t('איך היה היום? 🌙'), body: t('ככה תיראה התזכורת היומית שלך') },
     trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 3, channelId: CHANNEL },
   });
   return true;

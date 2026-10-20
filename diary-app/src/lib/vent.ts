@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { t } from '../i18n';
 import { b64, decryptFromStorage, deriveKey, encryptForStorage, open, PBKDF2_ITERATIONS, randomBytes, seal } from './crypto';
 import type { ChatMessage } from './types';
 
@@ -76,7 +77,7 @@ const CRISIS_RE = new RegExp(
     'להתאבד', 'אתאבד', 'מתאבד', 'התאבדות', 'לשים קץ', 'לשים סוף', 'לגמור עם (זה|הכל|החיים)', 'לסיים את החיים',
     'לא רוצה לחיות', 'לא רוצה להיות פה', 'לא רוצה להמשיך', 'אין טעם לחיות', 'אין לי בשביל מה לחיות', 'נמאס לי לחיות',
     'עדיף שאמות', 'עדיף שלא הייתי', 'רוצה להיעלם', 'למות', 'לפגוע בעצמי', 'פוגע בעצמי', 'לחתוך את עצמי', 'לקפוץ מ',
-    'kill myself', 'suicid', 'end my life', 'want to die',
+    'kill myself', 'suicid', 'end my life', 'want to die', 'hurt myself', 'انتحار', 'أنتحر', 'أقتل نفسي', 'أريد أن أموت', 'بدي موت',
   ].join('|'),
   'i',
 );
@@ -84,7 +85,8 @@ const CRISIS_RE = new RegExp(
 /** True when the message suggests the person may be in danger. */
 export const detectCrisis = (text: string) => CRISIS_RE.test(text);
 
-const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
+/** Picks a random Hebrew source line and translates it. */
+const pick = (arr: string[]) => t(arr[Math.floor(Math.random() * arr.length)]);
 
 const FEELINGS: { re: RegExp; reflect: string[] }[] = [
   {
@@ -144,7 +146,7 @@ const MOTIVATE = [
  * `crisisCount` is how many earlier messages in this conversation suggested danger.
  */
 export function offlineVentReply(text: string, turn: number, crisisCount = 0): string {
-  if (detectCrisis(text)) return CRISIS_REPLIES[Math.min(crisisCount, CRISIS_REPLIES.length - 1)];
+  if (detectCrisis(text)) return t(CRISIS_REPLIES[Math.min(crisisCount, CRISIS_REPLIES.length - 1)]);
   // After someone mentioned suicide, stay gentle and keep the door to real help open
   if (crisisCount > 0) return `${pick(VALIDATE)} ${pick(['אתה עדיין כאן ומדבר איתי, וזה חשוב.', 'זוכר? ער"ן ב-1201 זמינים גם עכשיו.', 'מה יכול לעזור לך לעבור את הלילה הזה בשלום?'])}`;
   const parts: string[] = [];

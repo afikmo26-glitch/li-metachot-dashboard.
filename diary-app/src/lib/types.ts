@@ -26,6 +26,20 @@ export type Person = {
   note?: string;
 };
 
+/** What the user shared in the first-run "getting to know you" questions. */
+export type UserProfile = {
+  done: boolean;
+  age?: string;
+  city?: string;
+  job?: string;
+  workplace?: string;
+  familyName?: string;
+  hobbies?: string;
+  goals: string[];
+};
+
+export const EMPTY_PROFILE: UserProfile = { done: false, goals: [] };
+
 export type EventKind = 'birthday' | 'anniversary' | 'event';
 
 export type CalendarEvent = {

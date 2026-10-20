@@ -3,8 +3,9 @@ import { ScrollView, SectionList, View } from 'react-native';
 import { Chip, Empty, Input, Row, ScreenTitle, T } from '../components/ui';
 import { dayKey, formatLongDate } from '../lib/dates';
 import { personName, useStore } from '../lib/store';
-import { colors, MOODS } from '../lib/theme';
+import { colors, layout, MOODS } from '../lib/theme';
 import { MiniEntry } from './TodayScreen';
+import { t } from '../i18n';
 
 export default function ArchiveScreen({ onOpenEntry }: { onOpenEntry: (id: string) => void }) {
   const { entries, people } = useStore();
@@ -39,12 +40,12 @@ export default function ArchiveScreen({ onOpenEntry }: { onOpenEntry: (id: strin
   return (
     <View style={{ flex: 1 }}>
       <View style={{ padding: 18, paddingBottom: 6 }}>
-        <ScreenTitle title="📚 הארכיון שלי" subtitle={`${entries.length} רשומות · כל יום עם תאריך ושעה מדויקים`} />
-        <Input value={query} onChangeText={setQuery} placeholder="🔍 חפש מילה, שם או משפט…" />
+        <ScreenTitle title={t('📚 הארכיון שלי')} subtitle={t('{n} רשומות · כל יום עם תאריך ושעה מדויקים', { n: entries.length })} />
+        <Input value={query} onChangeText={setQuery} placeholder={t('🔍 חפש מילה, שם או משפט…')} />
         {mentioned.length > 0 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10, transform: [{ scaleX: -1 }] }}>
-            <View style={{ flexDirection: 'row', transform: [{ scaleX: -1 }] }}>
-              <Chip label="כולם" active={!personFilter} onPress={() => setPersonFilter(null)} />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10, transform: [{ scaleX: layout.flip }] }}>
+            <View style={{ flexDirection: 'row', transform: [{ scaleX: layout.flip }] }}>
+              <Chip label={t('כולם')} active={!personFilter} onPress={() => setPersonFilter(null)} />
               {mentioned.map((id) => (
                 <Chip key={id} label={personName(people, id)} active={personFilter === id} onPress={() => setPersonFilter(personFilter === id ? null : id)} />
               ))}
@@ -68,9 +69,9 @@ export default function ArchiveScreen({ onOpenEntry }: { onOpenEntry: (id: strin
         renderItem={({ item }) => <MiniEntry entry={item} onPress={() => onOpenEntry(item.id)} />}
         ListEmptyComponent={
           entries.length === 0 ? (
-            <Empty emoji="📭" title="הארכיון עוד ריק" text="הקלט את היום הראשון שלך במסך 'היום' — כל רשומה נשמרת כאן עם התאריך והשעה המדויקים." />
+            <Empty emoji="📭" title={t('הארכיון עוד ריק')} text={t('הקלט את היום הראשון שלך במסך \'היום\' — כל רשומה נשמרת כאן עם התאריך והשעה המדויקים.')} />
           ) : (
-            <Empty emoji="🔎" title="לא נמצא כלום" text="נסה מילה אחרת" />
+            <Empty emoji="🔎" title={t('לא נמצא כלום')} text={t('נסה מילה אחרת')} />
           )
         }
       />

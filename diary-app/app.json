@@ -46,7 +46,8 @@
         {
           "configureAndroidBackup": false
         }
-      ]
+      ],
+      "expo-font"
     ],
     "backgroundColor": "#14102B"
   }

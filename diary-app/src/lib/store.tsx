@@ -9,6 +9,8 @@ import {
   GameStats,
   Person,
   Settings,
+  EMPTY_PROFILE,
+  UserProfile,
 } from './types';
 
 const KEYS = {
@@ -17,6 +19,7 @@ const KEYS = {
   events: 'diary.events.v1',
   settings: 'diary.settings.v1',
   game: 'diary.game.v1',
+  profile: 'diary.profile.v1',
 };
 
 export const newId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
@@ -28,6 +31,8 @@ type Store = {
   events: CalendarEvent[];
   settings: Settings;
   game: GameStats;
+  profile: UserProfile;
+  updateProfile: (patch: Partial<UserProfile>) => void;
   saveEntry: (e: Entry) => void;
   deleteEntry: (id: string) => void;
   addPerson: (name: string) => Person;
@@ -66,23 +71,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [game, setGame] = useState<GameStats>(DEFAULT_GAME_STATS);
+  const [profile, setProfile] = useState<UserProfile>(EMPTY_PROFILE);
   const peopleRef = useRef(people);
   peopleRef.current = people;
 
   useEffect(() => {
     (async () => {
-      const [e, p, ev, s, g] = await Promise.all([
+      const [e, p, ev, s, g, pr] = await Promise.all([
         load<Entry[]>(KEYS.entries, []),
         load<Person[]>(KEYS.people, []),
         load<CalendarEvent[]>(KEYS.events, []),
         load<Settings>(KEYS.settings, DEFAULT_SETTINGS),
         load<GameStats>(KEYS.game, DEFAULT_GAME_STATS),
+        load<UserProfile>(KEYS.profile, EMPTY_PROFILE),
       ]);
       setEntries(e);
       setPeople(p);
       setEvents(ev);
       setSettings({ ...DEFAULT_SETTINGS, ...s });
       setGame({ ...DEFAULT_GAME_STATS, ...g });
+      setProfile({ ...EMPTY_PROFILE, ...pr });
       setReady(true);
     })();
   }, []);
@@ -175,6 +183,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const updateProfile = useCallback((patch: Partial<UserProfile>) => {
+    setProfile((prev) => {
+      const next = { ...prev, ...patch };
+      persist(KEYS.profile, next);
+      return next;
+    });
+  }, []);
+
   const clearAll = useCallback(() => {
     setEntries([]);
     setPeople([]);
@@ -182,6 +198,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setEvents([]);
     setSettings(DEFAULT_SETTINGS);
     setGame(DEFAULT_GAME_STATS);
+    setProfile(EMPTY_PROFILE);
   }, []);
 
   const value = useMemo<Store>(
@@ -192,6 +209,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       events,
       settings,
       game,
+      profile,
+      updateProfile,
       saveEntry,
       deleteEntry,
       addPerson,
@@ -203,7 +222,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       updateGame,
       clearAll,
     }),
-    [ready, entries, people, events, settings, game, saveEntry, deleteEntry, addPerson, updatePerson, deletePerson, saveEvent, deleteEvent, updateSettings, updateGame, clearAll],
+    [ready, entries, people, events, settings, game, profile, updateProfile, saveEntry, deleteEntry, addPerson, updatePerson, deletePerson, saveEvent, deleteEvent, updateSettings, updateGame, clearAll],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

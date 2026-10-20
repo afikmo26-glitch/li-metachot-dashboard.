@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import { b64, decryptFromStorage, deleteDataKey, deriveKey, encryptForStorage, randomBytes } from './crypto';
+import { t } from '../i18n';
 
 const KEY = 'diary.account.v1';
 
@@ -52,10 +53,10 @@ export async function saveAccount(a: Account) {
 
 /** Returns an error message, or null when the details are valid. */
 export function validateSignup(displayName: string, username: string, password: string, confirm: string): string | null {
-  if (!displayName.trim()) return 'כתוב איך לקרוא לך';
-  if (!USERNAME_RE.test(username.trim())) return 'שם משתמש: 3–20 תווים באנגלית, מספרים, נקודה או קו תחתון';
-  if (password.length < MIN_PASSWORD) return `הסיסמה צריכה לפחות ${MIN_PASSWORD} תווים`;
-  if (password !== confirm) return 'הסיסמאות לא תואמות';
+  if (!displayName.trim()) return t('כתוב איך לקרוא לך');
+  if (!USERNAME_RE.test(username.trim())) return t('שם משתמש: 3–20 תווים באנגלית, מספרים, נקודה או קו תחתון');
+  if (password.length < MIN_PASSWORD) return t('הסיסמה צריכה לפחות {n} תווים', { n: MIN_PASSWORD });
+  if (password !== confirm) return t('הסיסמאות לא תואמות');
   return null;
 }
 
@@ -88,8 +89,8 @@ export async function checkLogin(account: Account, username: string, password: s
 }
 
 export async function changePassword(account: Account, current: string, next: string): Promise<Account | string> {
-  if (!(await verify(account, current))) return 'הסיסמה הנוכחית שגויה';
-  if (next.length < MIN_PASSWORD) return `הסיסמה החדשה צריכה לפחות ${MIN_PASSWORD} תווים`;
+  if (!(await verify(account, current))) return t('הסיסמה הנוכחית שגויה');
+  if (next.length < MIN_PASSWORD) return t('הסיסמה החדשה צריכה לפחות {n} תווים', { n: MIN_PASSWORD });
   const salt = newSalt();
   const updated: Account = { ...account, salt, passwordHash: await hash(next, salt), kdf: 'pbkdf2' };
   await saveAccount(updated);

@@ -2,19 +2,21 @@ import React, { useMemo, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Chip, GhostButton, GradientButton, Input, Row, ScreenTitle, SectionTitle, T, tap } from '../components/ui';
-import { dayKey, formatLongDate, HEB_DAYS_SHORT, HEB_MONTHS, parseDayKey } from '../lib/dates';
+import { dayKey, dayNamesShort, formatLongDate, monthName, parseDayKey } from '../lib/dates';
 import { cancelEvent, scheduleEvent } from '../lib/notifications';
 import { newId, useStore } from '../lib/store';
-import { colors, gradients, MOODS } from '../lib/theme';
+import { colors, gradients, layout, MOODS } from '../lib/theme';
 import type { CalendarEvent, EventKind } from '../lib/types';
 import { MiniEntry } from './TodayScreen';
+import { t } from '../i18n';
 
-const KINDS: { kind: EventKind; label: string; emoji: string; color: string }[] = [
-  { kind: 'event', label: 'אירוע', emoji: '📌', color: colors.blue },
-  { kind: 'birthday', label: 'יום הולדת', emoji: '🎂', color: colors.pink },
-  { kind: 'anniversary', label: 'יום נישואין', emoji: '💍', color: colors.orange },
+/** Event kinds; built on each call so labels and colors follow the current language and theme. */
+const kinds = (): { kind: EventKind; label: string; emoji: string; color: string }[] => [
+  { kind: 'event', label: t('אירוע'), emoji: '📌', color: colors.blue },
+  { kind: 'birthday', label: t('יום הולדת'), emoji: '🎂', color: colors.pink },
+  { kind: 'anniversary', label: t('יום נישואין'), emoji: '💍', color: colors.orange },
 ];
-const kindInfo = (k: EventKind) => KINDS.find((x) => x.kind === k)!;
+const kindInfo = (k: EventKind) => kinds().find((x) => x.kind === k)!;
 
 function eventOnDay(ev: CalendarEvent, d: Date) {
   const e = parseDayKey(ev.date);
@@ -83,10 +85,10 @@ export default function CalendarScreen({ onOpenEntry }: { onOpenEntry: (id: stri
   };
 
   const removeEvent = (ev: CalendarEvent) =>
-    Alert.alert('למחוק את האירוע?', ev.title, [
-      { text: 'ביטול', style: 'cancel' },
+    Alert.alert(t('למחוק את האירוע?'), ev.title, [
+      { text: t('ביטול'), style: 'cancel' },
       {
-        text: 'מחק',
+        text: t('מחק'),
         style: 'destructive',
         onPress: () => {
           cancelEvent(ev).catch(() => {});
@@ -98,27 +100,27 @@ export default function CalendarScreen({ onOpenEntry }: { onOpenEntry: (id: stri
 
   return (
     <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 120 }}>
-      <ScreenTitle title="🗓️ לוח שנה" subtitle="ימים שתיעדת ואירועים מיוחדים" />
+      <ScreenTitle title={t('🗓️ לוח שנה')} subtitle={t('ימים שתיעדת ואירועים מיוחדים')} />
 
       <Card>
         <Row style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <Pressable onPress={() => shift(-1)} hitSlop={12}>
             <T bold size={22}>
-              ›
+              {layout.isRTL ? '›' : '‹'}
             </T>
           </Pressable>
           <T bold size={18}>
-            {HEB_MONTHS[cursor.getMonth()]} {cursor.getFullYear()}
+            {monthName(cursor.getMonth())} {cursor.getFullYear()}
           </T>
           <Pressable onPress={() => shift(1)} hitSlop={12}>
             <T bold size={22}>
-              ‹
+              {layout.isRTL ? '‹' : '›'}
             </T>
           </Pressable>
         </Row>
         <Row>
-          {HEB_DAYS_SHORT.map((d) => (
-            <T key={d} dim size={13} style={{ flex: 1, textAlign: 'center' }}>
+          {dayNamesShort().map((d, i) => (
+            <T key={i} dim size={13} style={{ flex: 1, textAlign: 'center' }}>
               {d}
             </T>
           ))}
@@ -172,9 +174,9 @@ export default function CalendarScreen({ onOpenEntry }: { onOpenEntry: (id: stri
           </Row>
         ))}
         <Row style={{ marginTop: 12, gap: 14 }}>
-          <T dim size={12}>😊 = יום מתועד</T>
+          <T dim size={12}>{t('😊 = יום מתועד')}</T>
           <T dim size={12}>
-            <Text style={{ color: colors.orange }}>●</Text> = אירוע
+            <Text style={{ color: colors.orange }}>●</Text> {t('= אירוע')}
           </T>
         </Row>
       </Card>
@@ -185,7 +187,7 @@ export default function CalendarScreen({ onOpenEntry }: { onOpenEntry: (id: stri
       <GradientButton
         small
         icon="➕"
-        title="הוסף אירוע ליום הזה"
+        title={t('הוסף אירוע ליום הזה')}
         colors={gradients.calm}
         onPress={() => setEditor({ id: newId(), title: '', date: selected, kind: 'event', yearly: false })}
       />
@@ -198,17 +200,17 @@ export default function CalendarScreen({ onOpenEntry }: { onOpenEntry: (id: stri
         ))}
         {!dayEvents.length && !dayEntries.length && (
           <T dim style={{ textAlign: 'center', marginVertical: 12 }}>
-            אין כלום ביום הזה עדיין
+            {t('אין כלום ביום הזה עדיין')}
           </T>
         )}
       </View>
 
       {upcoming.length > 0 && (
         <>
-          <SectionTitle>⏳ בקרוב</SectionTitle>
+          <SectionTitle>{t('⏳ בקרוב')}</SectionTitle>
           {upcoming.map(({ ev, next }) => {
             const days = Math.round((next.getTime() - new Date(new Date().toDateString()).getTime()) / 86400000);
-            return <EventRow key={ev.id} ev={ev} subtitle={days === 0 ? 'היום!' : days === 1 ? 'מחר' : `בעוד ${days} ימים`} onPress={() => setEditor(ev)} />;
+            return <EventRow key={ev.id} ev={ev} subtitle={days === 0 ? t('היום!') : days === 1 ? t('מחר') : t('בעוד {n} ימים', { n: days })} onPress={() => setEditor(ev)} />;
           })}
         </>
       )}
@@ -239,7 +241,7 @@ function EventRow({ ev, onPress, subtitle }: { ev: CalendarEvent; onPress: () =>
               {subtitle ? `${subtitle} · ` : ''}
               {info.label}
               {ev.time ? ` · ${ev.time}` : ''}
-              {ev.yearly ? ' · כל שנה 🔁' : ''}
+              {ev.yearly ? t(' · כל שנה 🔁') : ''}
             </T>
           </View>
         </Row>
@@ -266,15 +268,15 @@ function EventEditor({
 
   const save = () => {
     if (!ev.title.trim()) {
-      Alert.alert('חסרה כותרת', 'תן שם לאירוע');
+      Alert.alert(t('חסרה כותרת'), t('תן שם לאירוע'));
       return;
     }
-    const t = time.trim();
-    if (t && !/^([01]?\d|2[0-3]):[0-5]\d$/.test(t)) {
-      Alert.alert('שעה לא תקינה', 'כתוב שעה בפורמט 18:30');
+    const tm = time.trim();
+    if (tm && !/^([01]?\d|2[0-3]):[0-5]\d$/.test(tm)) {
+      Alert.alert(t('שעה לא תקינה'), t('כתוב שעה בפורמט 18:30'));
       return;
     }
-    onSave({ ...ev, title: ev.title.trim(), time: t ? t.padStart(5, '0') : undefined });
+    onSave({ ...ev, title: ev.title.trim(), time: tm ? tm.padStart(5, '0') : undefined });
   };
 
   return (
@@ -283,13 +285,13 @@ function EventEditor({
         <SafeAreaView edges={['bottom']} style={{ backgroundColor: colors.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28 }}>
           <View style={{ padding: 20 }}>
             <T bold size={20}>
-              {isNew ? '➕ אירוע חדש' : '✏️ עריכת אירוע'}
+              {isNew ? t('➕ אירוע חדש') : t('✏️ עריכת אירוע')}
             </T>
             <T dim style={{ marginTop: 2, marginBottom: 14 }}>
               {formatLongDate(parseDayKey(ev.date))}
             </T>
             <Row style={{ flexWrap: 'wrap' }}>
-              {KINDS.map((k) => (
+              {kinds().map((k) => (
                 <Chip
                   key={k.kind}
                   label={`${k.emoji} ${k.label}`}
@@ -302,22 +304,22 @@ function EventEditor({
             <Input
               value={ev.title}
               onChangeText={(title) => setEv({ ...ev, title })}
-              placeholder={ev.kind === 'birthday' ? 'יום הולדת ל…' : 'שם האירוע'}
+              placeholder={ev.kind === 'birthday' ? t('יום הולדת ל…') : t('שם האירוע')}
               style={{ marginTop: 6 }}
               autoFocus={isNew}
             />
-            <Input value={time} onChangeText={setTime} placeholder="שעה (לא חובה) למשל 18:30" keyboardType="numbers-and-punctuation" style={{ marginTop: 10 }} />
+            <Input value={time} onChangeText={setTime} placeholder={t('שעה (לא חובה) למשל 18:30')} keyboardType="numbers-and-punctuation" style={{ marginTop: 10 }} />
             <Row style={{ alignItems: 'center', justifyContent: 'space-between', marginTop: 14 }}>
-              <T>🔁 חוזר כל שנה</T>
+              <T>{t('🔁 חוזר כל שנה')}</T>
               <Switch value={ev.yearly} onValueChange={(yearly) => setEv({ ...ev, yearly })} trackColor={{ true: colors.primary, false: colors.border }} />
             </Row>
             <T dim size={12} style={{ marginTop: 6 }}>
-              🔔 תקבל התראה ביום האירוע{time ? ` ב-${time}` : ' ב-9:00'}
+              {t('🔔 תקבל התראה ביום האירוע בשעה {time}', { time: time || '9:00' })}
             </T>
-            <GradientButton title="שמור" colors={gradients.primary} onPress={save} style={{ marginTop: 18 }} />
+            <GradientButton title={t('שמור')} colors={gradients.primary} onPress={save} style={{ marginTop: 18 }} />
             <Row style={{ gap: 10, marginTop: 10 }}>
-              <GhostButton title="ביטול" onPress={onCancel} style={{ flex: 1 }} />
-              {!isNew && <GhostButton title="🗑️ מחק" color={colors.red} onPress={onDelete} style={{ flex: 1, borderColor: colors.red }} />}
+              <GhostButton title={t('ביטול')} onPress={onCancel} style={{ flex: 1 }} />
+              {!isNew && <GhostButton title={t('🗑️ מחק')} color={colors.red} onPress={onDelete} style={{ flex: 1, borderColor: colors.red }} />}
             </Row>
           </View>
         </SafeAreaView>

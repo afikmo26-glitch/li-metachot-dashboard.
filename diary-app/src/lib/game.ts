@@ -1,6 +1,7 @@
 import { dayKey, formatShortDate } from './dates';
 import { maskName, mentionsName, randomCommonNames } from './names';
 import type { Entry, Person } from './types';
+import { t } from '../i18n';
 
 export type Question = {
   id: string;
@@ -67,7 +68,7 @@ export function buildQuestions(entries: Entry[], people: Person[]): Question[] {
       pool.push({
         id: id(),
         emoji: '💬',
-        prompt: 'מי אמר לך את זה?',
+        prompt: t('מי אמר לך את זה?'),
         context: `"${q.text}"\n— ${formatShortDate(e.createdAt)}`,
         options: nameOptions(p.name, people),
         answer: p.name,
@@ -84,7 +85,7 @@ export function buildQuestions(entries: Entry[], people: Person[]): Question[] {
       pool.push({
         id: id(),
         emoji: '🧩',
-        prompt: 'השלם את השם החסר',
+        prompt: t('השלם את השם החסר'),
         context: `${snippetAround(e.text, p.name)}\n— ${formatShortDate(e.createdAt)}`,
         options: nameOptions(p.name, people, others),
         answer: p.name,
@@ -101,7 +102,7 @@ export function buildQuestions(entries: Entry[], people: Person[]): Question[] {
     pool.push({
       id: id(),
       emoji: '📅',
-      prompt: `את מי פגשת או הזכרת ב-${formatShortDate(e.createdAt)}?`,
+      prompt: t('את מי פגשת או הזכרת ב-{date}?', { date: formatShortDate(e.createdAt) }),
       options: nameOptions(answer, people, names.filter((x) => x !== answer)),
       answer,
     });
@@ -121,11 +122,39 @@ export function buildQuestions(entries: Entry[], people: Person[]): Question[] {
       pool.push({
         id: id(),
         emoji: '⏳',
-        prompt: `מתי הזכרת לאחרונה את ${p.name}?`,
+        prompt: t('מתי הזכרת לאחרונה את {name}?', { name: p.name }),
         options: shuffle([answer, ...distractors]),
         answer,
       });
     }
+  }
+
+  // 5. From the intro and people notes: "who is X to you?" and "what's your mom's name?"
+  const withNotes = people.filter((p) => p.note?.trim());
+  const roles = [...new Set(withNotes.map((p) => p.note!.split(' · ')[0]))];
+  if (roles.length >= 2) {
+    for (const p of withNotes) {
+      const role = p.note!.split(' · ')[0];
+      const others = shuffle(roles.filter((r) => r !== role)).slice(0, 3);
+      pool.push({
+        id: id(),
+        emoji: '🫂',
+        prompt: t('מי זה {name} בשבילך?', { name: p.name }),
+        options: shuffle([role, ...others]),
+        answer: role,
+      });
+    }
+  }
+  for (const role of roles) {
+    const holders = withNotes.filter((p) => p.note!.split(' · ')[0] === role);
+    if (holders.length !== 1) continue; // only roles with a single person, like mom or dad
+    pool.push({
+      id: id(),
+      emoji: '👨‍👩‍👧',
+      prompt: t('איך קוראים ל{role} שלך?', { role }),
+      options: nameOptions(holders[0].name, people),
+      answer: holders[0].name,
+    });
   }
 
   // Keep a variety: shuffle then limit repeats of the same answer
