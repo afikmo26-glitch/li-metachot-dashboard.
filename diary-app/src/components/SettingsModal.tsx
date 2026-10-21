@@ -3,6 +3,7 @@ import { Alert, Modal, Pressable, ScrollView, Switch, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Account, changePassword, saveAccount } from '../lib/account';
 import { AiConfig, aiTest, EMPTY_AI, loadAiConfig, saveAiConfig } from '../lib/ai';
+import { biometricAvailable, biometricUnlock } from '../lib/biometric';
 import { pad } from '../lib/dates';
 import { scheduleBedtime, scheduleMorningRecap, sendTestNotification } from '../lib/notifications';
 import { useStore } from '../lib/store';
@@ -263,6 +264,19 @@ function AccountCard({ account, onAccountChange, onLock }: { account: Account; o
   const [next, setNext] = useState('');
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
+  const [canBio, setCanBio] = useState(false);
+  useEffect(() => {
+    biometricAvailable().then(setCanBio);
+  }, []);
+
+  // Turning it on asks for the finger/face once, so we know it works on this phone
+  const toggleBio = async (on: boolean) => {
+    if (on && !(await biometricUnlock())) return;
+    const a = { ...account, biometric: on };
+    await saveAccount(a);
+    onAccountChange(a);
+  };
+
   const toggleLock = async (lockEnabled: boolean) => {
     const a = { ...account, lockEnabled };
     await saveAccount(a);
@@ -303,6 +317,12 @@ function AccountCard({ account, onAccountChange, onLock }: { account: Account; o
         <T style={{ flex: 1 }}>{t('🔒 בקש סיסמה בכל פתיחה')}</T>
         <Switch value={account.lockEnabled} onValueChange={toggleLock} trackColor={{ true: colors.primary, false: colors.border }} />
       </Row>
+      {canBio && account.lockEnabled && (
+        <Row style={{ justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
+          <T style={{ flex: 1 }}>{t('👆 פתיחה עם טביעת אצבע / Face ID')}</T>
+          <Switch value={!!account.biometric} onValueChange={toggleBio} trackColor={{ true: colors.primary, false: colors.border }} />
+        </Row>
+      )}
       {changing ? (
         <View style={{ gap: 8, marginTop: 12 }}>
           <Input value={current} onChangeText={setCurrent} placeholder={t('סיסמה נוכחית')} secureTextEntry />

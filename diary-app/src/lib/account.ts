@@ -14,6 +14,8 @@ export type Account = {
   passwordHash: string;
   salt: string;
   lockEnabled: boolean;
+  /** Unlock with fingerprint / Face ID instead of typing the password */
+  biometric?: boolean;
   createdAt: string;
   /** 'pbkdf2' (current) or missing for accounts made before it (single SHA-256) */
   kdf?: 'pbkdf2';

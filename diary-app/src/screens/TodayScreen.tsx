@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useMemo, useState } from 'react';
 import { Alert, Keyboard, Pressable, ScrollView, Text, View } from 'react-native';
 import ChatModal, { BotAvatar, BOT_NAME, PendingRecording } from '../components/ChatModal';
@@ -10,6 +11,7 @@ import { extractQuotes, findKnownPeople, suggestNewNames } from '../lib/names';
 import { scheduleMorningRecap } from '../lib/notifications';
 import { newId, personName, useStore } from '../lib/store';
 import { circleEmoji, circleOf } from '../lib/circles';
+import RecapModal, { recentEntries } from '../components/RecapModal';
 import { colors, gradients, layout, MOOD_LABELS, MOODS } from '../lib/theme';
 import type { Entry } from '../lib/types';
 import { t } from '../i18n';
@@ -22,6 +24,7 @@ export default function TodayScreen({ onOpenSettings, onOpenEntry, onOpenIntro }
   const [mood, setMood] = useState(3);
   const [recording, setRecording] = useState<PendingRecording | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
+  const [recapOpen, setRecapOpen] = useState(false);
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const [manual, setManual] = useState<string[]>([]);
   const [newName, setNewName] = useState('');
@@ -151,6 +154,27 @@ export default function TodayScreen({ onOpenSettings, onOpenEntry, onOpenIntro }
               </View>
             </Row>
           </Card>
+        </Pressable>
+      )}
+
+      {recentEntries(entries).length >= 3 && (
+        <Pressable onPress={() => setRecapOpen(true)} style={({ pressed }) => ({ marginTop: 14, opacity: pressed ? 0.85 : 1 })}>
+          <LinearGradient colors={['#6D28D9', '#A855F7', '#EC4899']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: 20, padding: 16 }}>
+            <Row style={{ alignItems: 'center', gap: 12 }}>
+              <Text style={{ fontSize: 34 }}>✨</Text>
+              <View style={{ flex: 1 }}>
+                <T bold size={17} style={{ color: '#fff' }}>
+                  {t('החודש שלך מוכן!')}
+                </T>
+                <T size={13} style={{ color: 'rgba(255,255,255,0.85)' }}>
+                  {t('מצב הרוח, האנשים והרגעים של 30 הימים האחרונים')}
+                </T>
+              </View>
+              <T bold size={22} style={{ color: '#fff' }}>
+                {layout.isRTL ? '‹' : '›'}
+              </T>
+            </Row>
+          </LinearGradient>
         </Pressable>
       )}
 
@@ -300,6 +324,7 @@ export default function TodayScreen({ onOpenSettings, onOpenEntry, onOpenIntro }
           </Pressable>
         </>
       )}
+      <RecapModal visible={recapOpen} onClose={() => setRecapOpen(false)} />
       <ChatModal
         visible={chatOpen}
         recording={recording}

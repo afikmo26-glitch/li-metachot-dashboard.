@@ -1,5 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { TimePicker } from '../components/SettingsModal';
@@ -11,6 +11,7 @@ import { useStore } from '../lib/store';
 import IntroScreen from './IntroScreen';
 import { FloatingEmojis, LogoBurst, PopEmoji, Pulse } from '../components/Wow';
 import { play } from '../lib/sound';
+import { biometricAvailable, biometricUnlock } from '../lib/biometric';
 import { colors, gradients, layout } from '../lib/theme';
 import { LANGS, t } from '../i18n';
 
@@ -324,6 +325,21 @@ export function Login({ account, onUnlock, onReset }: { account: Account; onUnlo
   const [busy, setBusy] = useState(false);
   const [fails, setFails] = useState(0);
   const [lockedUntil, setLockedUntil] = useState(0);
+  const [canBio, setCanBio] = useState(false);
+
+  const bio = async () => {
+    if (await biometricUnlock()) onUnlock(account);
+  };
+
+  // Offer fingerprint / Face ID right away when the user turned it on
+  useEffect(() => {
+    if (!account.biometric) return;
+    biometricAvailable().then((ok) => {
+      setCanBio(ok);
+      if (ok) bio();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const login = async () => {
     if (busy) return;
@@ -374,6 +390,7 @@ export function Login({ account, onUnlock, onReset }: { account: Account; onUnlo
       </View>
       {error && <Notice text={error} color={colors.red} />}
       <GradientButton title={busy ? t('בודק…') : t('כניסה')} colors={gradients.primary} onPress={login} disabled={busy} style={{ marginTop: 18 }} />
+      {canBio && <GhostButton title={t('👆 פתח עם טביעת אצבע / Face ID')} onPress={bio} style={{ marginTop: 10 }} />}
 
       {!forgot ? (
         <GhostButton title={t('שכחתי סיסמה')} onPress={() => setForgot(true)} style={{ marginTop: 10, borderWidth: 0 }} />

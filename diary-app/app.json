@@ -47,7 +47,13 @@
           "configureAndroidBackup": false
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "אפשר לפתוח את היומן עם Face ID."
+        }
+      ]
     ],
     "backgroundColor": "#14102B"
   }
