@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="fonts/local.css">
+<style>
+  /* 1080x1920 Hebrew promo with voiceover subtitles. All motion is time-based so frames can be captured by seeking. */
+  :root { --violet: #8B5CF6; --pink: #EC4899; --ink: #F4F1FF; --dim: #C9C2EE; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; }
+  body { font-family: Rubik, sans-serif; color: var(--ink); background: radial-gradient(120% 80% at 50% 20%, #3B1D8F 0%, #1B1240 45%, #0C0920 100%); }
+  .glow { position: absolute; width: 900px; height: 900px; border-radius: 50%; left: 90px; top: 300px; background: radial-gradient(circle, rgba(236,72,153,.32), rgba(139,92,246,0) 65%); animation: breathe 4s ease-in-out infinite alternate; }
+  @keyframes breathe { from { transform: scale(.9); opacity: .7 } to { transform: scale(1.12); opacity: 1 } }
+  .float { position: absolute; font-size: 64px; opacity: 0; animation: rise linear infinite; }
+  @keyframes rise { 0% { transform: translateY(2000px) rotate(-15deg); opacity: 0 } 10% { opacity: .5 } 85% { opacity: .35 } 100% { transform: translateY(-200px) rotate(20deg); opacity: 0 } }
+
+  .scene { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; opacity: 0;
+           animation: sIn .7s cubic-bezier(.2,.8,.2,1) var(--in) both, sOut .45s ease-in var(--out) forwards; }
+  .scene.last { animation: sIn .7s cubic-bezier(.2,.8,.2,1) var(--in) both; }
+  @keyframes sIn { from { opacity: 0; transform: translateY(60px) scale(.97) } to { opacity: 1; transform: none } }
+  @keyframes sOut { to { opacity: 0; transform: translateY(-50px) scale(.98) } }
+  .center-col { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 1500px; }
+  .logo-wrap { position: relative; display: flex; align-items: center; justify-content: center; }
+  .logo { width: 360px; height: 360px; border-radius: 86px; box-shadow: 0 40px 120px rgba(139,92,246,.6); animation: pop 1s cubic-bezier(.3,1.6,.5,1) var(--d) both; }
+  @keyframes pop { from { transform: scale(0) rotate(-25deg) } to { transform: scale(1) rotate(0) } }
+  .ring { position: absolute; width: 360px; height: 360px; border-radius: 86px; border: 6px solid #C4B5FD; animation: ring 2s ease-out infinite; }
+  @keyframes ring { from { transform: scale(1); opacity: .8 } to { transform: scale(1.6); opacity: 0 } }
+  h1 { font-size: 132px; font-weight: 800; margin-top: 50px; }
+  .tag { font-size: 56px; color: var(--dim); margin-top: 14px; }
+  .up { animation: up .8s cubic-bezier(.2,.8,.2,1) var(--d) both; }
+  @keyframes up { from { opacity: 0; transform: translateY(40px) } to { opacity: 1; transform: none } }
+
+  .headline { margin-top: 110px; font-size: 88px; font-weight: 800; text-align: center; line-height: 1.12; }
+  .headline em { font-style: normal; color: #F9A8D4; }
+  .phone { margin-top: 56px; width: 540px; height: 1060px; border-radius: 76px; padding: 16px; background: #2D2459;
+           box-shadow: 0 50px 140px rgba(0,0,0,.6), inset 0 0 0 3px #4C3D8F; overflow: hidden;
+           animation: phoneIn 1s cubic-bezier(.2,.9,.2,1) calc(var(--in) + .15s) both; }
+  .phone img { width: 100%; height: 100%; object-fit: cover; object-position: top; border-radius: 62px; display: block; }
+  @keyframes phoneIn { from { transform: translateY(400px) rotate(6deg); opacity: 0 } to { transform: none; opacity: 1 } }
+  .badge { position: absolute; top: 900px; left: 40px; padding: 22px 34px; border-radius: 40px; background: rgba(255,255,255,.14);
+           border: 2px solid rgba(255,255,255,.28); font-size: 42px; font-weight: 700; white-space: nowrap;
+           animation: badge .7s cubic-bezier(.3,1.5,.5,1) var(--d) both; }
+  @keyframes badge { from { transform: scale(0); opacity: 0 } to { transform: scale(1); opacity: 1 } }
+  .pills { display: flex; flex-direction: column; gap: 24px; margin-top: 60px; }
+  .pill { font-size: 50px; padding: 28px 46px; border-radius: 36px; background: rgba(255,255,255,.08); border: 2px solid rgba(196,181,253,.35); }
+  .cta { margin-top: 60px; font-size: 46px; font-weight: 700; padding: 32px 60px; border-radius: 60px; white-space: nowrap;
+         background: linear-gradient(90deg, var(--pink), var(--violet)); box-shadow: 0 24px 70px rgba(236,72,153,.45);
+         animation: up .8s ease var(--d) both, pulse 1.6s ease-in-out calc(var(--d) + .8s) infinite; }
+  @keyframes pulse { 50% { transform: scale(1.05) } }
+  .confetti { position: absolute; top: -40px; width: 22px; height: 34px; border-radius: 4px; animation: fall linear both; }
+  @keyframes fall { to { transform: translateY(2050px) rotate(900deg) } }
+
+  /* subtitles */
+  .caps { position: absolute; left: 50px; right: 50px; bottom: 70px; height: 190px; display: flex; align-items: center; justify-content: center; }
+  .cap { position: absolute; max-width: 980px; text-align: center; font-size: 54px; font-weight: 700; line-height: 1.3; color: #fff;
+         background: rgba(12, 9, 32, .78); border: 2px solid rgba(196,181,253,.3); padding: 18px 34px; border-radius: 28px; opacity: 0;
+         animation: capIn .18s ease-out var(--a) both, capOut .15s ease-in var(--b) forwards; }
+  @keyframes capIn { from { opacity: 0; transform: translateY(14px) } to { opacity: 1; transform: none } }
+  @keyframes capOut { to { opacity: 0 } }
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<div id="floats"></div>
+<!--SCENES-->
+<div class="caps">
+<!--CAPS-->
+</div>
+<script>
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const em = ['📔','💜','🎙️','🫶','🎂','✨','👨‍👩‍👧','🧠','🌙','💬','🎮','⭐'];
+  const f = document.getElementById('floats');
+  for (let i = 0; i < 16; i++) {
+    const d = document.createElement('div'); d.className = 'float'; d.textContent = em[i % em.length];
+    d.style.left = (rnd() * 980) + 'px'; d.style.fontSize = (44 + rnd() * 40) + 'px';
+    d.style.animationDuration = (9 + rnd() * 6) + 's'; d.style.animationDelay = (-rnd() * 12) + 's'; f.appendChild(d);
+  }
+  const c = document.getElementById('confetti'); const at = +c.dataset.at; const cols = ['#F472B6','#A78BFA','#FACC15','#34D399','#60A5FA','#FB923C'];
+  for (let i = 0; i < 90; i++) {
+    const d = document.createElement('div'); d.className = 'confetti'; d.style.background = cols[i % cols.length];
+    d.style.left = (rnd() * 1080) + 'px'; d.style.animationDuration = (2.6 + rnd() * 1.8) + 's'; d.style.animationDelay = (at + rnd() * .8) + 's'; c.appendChild(d);
+  }
+</script>
+</body>
+</html>
