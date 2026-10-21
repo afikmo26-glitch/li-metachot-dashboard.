@@ -4,14 +4,15 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } fro
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { TimePicker } from '../components/SettingsModal';
 import { FadeIn, GhostButton, GradientButton, Input, Row, T, tap } from '../components/ui';
-import { Account, AuthProvider, checkLogin, createLocalAccount, validateSignup, wipeAllData } from '../lib/account';
+import { Account, AuthProvider, checkLogin, createLocalAccount, resetPassword, validateSignup, wipeAllData } from '../lib/account';
+import { maskContact, normalizeContact, sendRecoveryCode, verifyRecoveryCode } from '../lib/recovery';
 import { scheduleBedtime } from '../lib/notifications';
 import { usePrefs } from '../lib/prefs';
 import { useStore } from '../lib/store';
 import IntroScreen from './IntroScreen';
 import { FloatingEmojis, LogoBurst, PopEmoji, Pulse } from '../components/Wow';
 import { play } from '../lib/sound';
-import { biometricAvailable, biometricUnlock } from '../lib/biometric';
+import { biometricAvailable, biometricLabel, biometricUnlock } from '../lib/biometric';
 import { colors, gradients, layout } from '../lib/theme';
 import { LANGS, t } from '../i18n';
 
@@ -205,6 +206,7 @@ function Signup({ onCreated }: { onCreated: (a: Account) => void }) {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [recovery, setRecovery] = useState('');
 
   const social = (p: AuthProvider) => {
     tap();
@@ -215,12 +217,13 @@ function Signup({ onCreated }: { onCreated: (a: Account) => void }) {
   };
 
   const create = async () => {
-    const err = validateSignup(displayName, username, password, confirm);
+    const contact = normalizeContact(recovery);
+    const err = validateSignup(displayName, username, password, confirm) ?? (contact ? null : t('כתוב אימייל או מספר טלפון תקין, כדי שאפשר יהיה לשחזר את הסיסמה'));
     setError(err);
     setInfo(null);
     if (err) return;
     setBusy(true);
-    const a = await createLocalAccount(displayName, username, password);
+    const a = await createLocalAccount(displayName, username, password, contact ?? undefined);
     updateSettings({ userName: a.displayName });
     setBusy(false);
     onCreated(a);
@@ -258,7 +261,21 @@ function Signup({ onCreated }: { onCreated: (a: Account) => void }) {
           style={{ textAlign: 'left', writingDirection: 'ltr' }}
         />
         <Input value={password} onChangeText={setPassword} placeholder={t('סיסמה (לפחות 6 תווים)')} secureTextEntry autoComplete="new-password" />
-        <Input value={confirm} onChangeText={setConfirm} placeholder={t('אימות סיסמה')} secureTextEntry autoComplete="new-password" onSubmitEditing={create} />
+        <Input value={confirm} onChangeText={setConfirm} placeholder={t('אימות סיסמה')} secureTextEntry autoComplete="new-password" />
+        <Input
+          value={recovery}
+          onChangeText={setRecovery}
+          placeholder={t('אימייל או מספר טלפון (לשחזור סיסמה)')}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="email-address"
+          autoComplete="email"
+          onSubmitEditing={create}
+          style={{ textAlign: 'left', writingDirection: 'ltr' }}
+        />
+        <T dim size={12}>
+          {t('משמש רק לשליחת קוד אם תשכח את הסיסמה')}
+        </T>
       </View>
 
       {error && <Notice text={error} color={colors.red} />}
@@ -326,6 +343,7 @@ export function Login({ account, onUnlock, onReset }: { account: Account; onUnlo
   const [fails, setFails] = useState(0);
   const [lockedUntil, setLockedUntil] = useState(0);
   const [canBio, setCanBio] = useState(false);
+  const [bioLabel, setBioLabel] = useState('');
 
   const bio = async () => {
     if (await biometricUnlock()) onUnlock(account);
@@ -334,6 +352,7 @@ export function Login({ account, onUnlock, onReset }: { account: Account; onUnlo
   // Offer fingerprint / Face ID right away when the user turned it on
   useEffect(() => {
     if (!account.biometric) return;
+    biometricLabel().then(setBioLabel);
     biometricAvailable().then((ok) => {
       setCanBio(ok);
       if (ok) bio();
@@ -390,18 +409,118 @@ export function Login({ account, onUnlock, onReset }: { account: Account; onUnlo
       </View>
       {error && <Notice text={error} color={colors.red} />}
       <GradientButton title={busy ? t('בודק…') : t('כניסה')} colors={gradients.primary} onPress={login} disabled={busy} style={{ marginTop: 18 }} />
-      {canBio && <GhostButton title={t('👆 פתח עם טביעת אצבע / Face ID')} onPress={bio} style={{ marginTop: 10 }} />}
+      {canBio && <GhostButton title={t('🔓 פתח עם {method}', { method: bioLabel })} onPress={bio} style={{ marginTop: 10 }} />}
 
       {!forgot ? (
         <GhostButton title={t('שכחתי סיסמה')} onPress={() => setForgot(true)} style={{ marginTop: 10, borderWidth: 0 }} />
       ) : (
-        <View style={{ marginTop: 18, backgroundColor: colors.card, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: colors.red }}>
-          <T bold>{t('אין דרך לשחזר את הסיסמה')}</T>
+        <ForgotPassword account={account} onCancel={() => setForgot(false)} onUnlock={onUnlock} onReset={onReset} />
+      )}
+    </Screen>
+  );
+}
+
+/** Forgot password: a code to the recovery email/phone, then a new password. Starting over (wiping) is the last resort. */
+function ForgotPassword({ account, onCancel, onUnlock, onReset }: { account: Account; onCancel: () => void; onUnlock: (a: Account) => void; onReset: () => void }) {
+  const [step, setStep] = useState<'send' | 'code' | 'password'>('send');
+  const [code, setCode] = useState('');
+  const [pass, setPass] = useState('');
+  const [pass2, setPass2] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [wipe, setWipe] = useState(!account.recovery);
+  const contact = account.recovery;
+
+  const run = async (fn: () => Promise<void>) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await fn();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('שגיאה'));
+    }
+    setBusy(false);
+  };
+
+  const send = () =>
+    run(async () => {
+      await sendRecoveryCode(contact!);
+      setStep('code');
+    });
+
+  const check = () =>
+    run(async () => {
+      const err = await verifyRecoveryCode(contact!, code);
+      if (err) setError(err);
+      else setStep('password');
+    });
+
+  const save = () =>
+    run(async () => {
+      if (pass !== pass2) return setError(t('הסיסמאות לא תואמות'));
+      const res = await resetPassword(account, pass);
+      if (typeof res === 'string') setError(res);
+      else onUnlock(res);
+    });
+
+  return (
+    <View style={{ marginTop: 18, backgroundColor: colors.card, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: wipe ? colors.red : colors.primary }}>
+      {contact && !wipe && (
+        <>
+          <T bold size={17}>
+            {t('🔑 שחזור סיסמה')}
+          </T>
+          {step === 'send' && (
+            <>
+              <T dim size={14} style={{ marginTop: 6, lineHeight: 20 }}>
+                {t('נשלח קוד של 6 ספרות אל {contact}', { contact: maskContact(contact) })}
+              </T>
+              <GradientButton title={busy ? t('שולח…') : t('שלח לי קוד')} colors={gradients.primary} onPress={send} disabled={busy} style={{ marginTop: 12 }} />
+            </>
+          )}
+          {step === 'code' && (
+            <>
+              <T dim size={14} style={{ marginTop: 6, lineHeight: 20 }}>
+                {t('הקוד נשלח אל {contact}. הוא בתוקף ל-10 דקות.', { contact: maskContact(contact) })}
+              </T>
+              <Input
+                value={code}
+                onChangeText={(v) => setCode(v.replace(/\D/g, '').slice(0, 6))}
+                placeholder="••••••"
+                keyboardType="number-pad"
+                autoComplete="one-time-code"
+                textContentType="oneTimeCode"
+                style={{ marginTop: 10, textAlign: 'center', letterSpacing: 8, fontSize: 22 }}
+              />
+              <GradientButton title={busy ? t('בודק…') : t('אמת קוד')} colors={gradients.primary} onPress={check} disabled={busy || code.length !== 6} style={{ marginTop: 10 }} />
+              <GhostButton title={t('שלח קוד חדש')} onPress={send} style={{ marginTop: 6, borderWidth: 0 }} />
+            </>
+          )}
+          {step === 'password' && (
+            <View style={{ gap: 8, marginTop: 10 }}>
+              <T dim size={14}>
+                {t('✓ אומת! בחר סיסמה חדשה')}
+              </T>
+              <Input value={pass} onChangeText={setPass} placeholder={t('סיסמה חדשה')} secureTextEntry autoComplete="new-password" />
+              <Input value={pass2} onChangeText={setPass2} placeholder={t('אימות סיסמה')} secureTextEntry autoComplete="new-password" onSubmitEditing={save} />
+              <GradientButton title={t('שמור והיכנס')} colors={gradients.primary} onPress={save} disabled={busy} />
+            </View>
+          )}
+          {error && <Notice text={error} color={colors.red} />}
+          <Row style={{ gap: 10, marginTop: 10 }}>
+            <GhostButton title={t('ביטול')} onPress={onCancel} style={{ flex: 1 }} />
+            <GhostButton title={t('אין לי גישה')} onPress={() => setWipe(true)} style={{ flex: 1 }} />
+          </Row>
+        </>
+      )}
+      {wipe && (
+        <>
+          <T bold>{contact ? t('אין גישה לאימייל או לטלפון?') : t('לא הוגדר אימייל או טלפון לשחזור')}</T>
           <T dim size={14} style={{ marginTop: 6, lineHeight: 20 }}>
             {t('היומן נשמר רק על הטלפון ואין שרת ששומר את הסיסמה. אפשר להתחיל מחדש, אבל כל היומן, האנשים והאירועים יימחקו לתמיד.')}
           </T>
           <Row style={{ gap: 10, marginTop: 12 }}>
-            <GhostButton title={t('ביטול')} onPress={() => setForgot(false)} style={{ flex: 1 }} />
+            <GhostButton title={t('ביטול')} onPress={contact ? () => setWipe(false) : onCancel} style={{ flex: 1 }} />
             <GhostButton
               title={t('מחק הכל והתחל מחדש')}
               color={colors.red}
@@ -412,9 +531,9 @@ export function Login({ account, onUnlock, onReset }: { account: Account; onUnlo
               }}
             />
           </Row>
-        </View>
+        </>
       )}
-    </Screen>
+    </View>
   );
 }
 

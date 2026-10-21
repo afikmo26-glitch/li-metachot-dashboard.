@@ -25,3 +25,14 @@ export async function biometricUnlock(): Promise<boolean> {
     return false;
   }
 }
+
+/** "Face ID" on phones that unlock with the face, "fingerprint" otherwise (already translated). */
+export async function biometricLabel(): Promise<string> {
+  try {
+    const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
+    if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) return Platform.OS === 'ios' ? 'Face ID' : t('זיהוי פנים');
+  } catch {
+    // fall through to fingerprint
+  }
+  return t('טביעת אצבע');
+}

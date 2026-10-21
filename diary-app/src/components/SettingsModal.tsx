@@ -3,7 +3,8 @@ import { Alert, Modal, Pressable, ScrollView, Switch, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Account, changePassword, saveAccount } from '../lib/account';
 import { AiConfig, aiTest, EMPTY_AI, loadAiConfig, saveAiConfig } from '../lib/ai';
-import { biometricAvailable, biometricUnlock } from '../lib/biometric';
+import { biometricAvailable, biometricLabel, biometricUnlock } from '../lib/biometric';
+import { maskContact, normalizeContact } from '../lib/recovery';
 import { pad } from '../lib/dates';
 import { scheduleBedtime, scheduleMorningRecap, sendTestNotification } from '../lib/notifications';
 import { useStore } from '../lib/store';
@@ -265,8 +266,26 @@ function AccountCard({ account, onAccountChange, onLock }: { account: Account; o
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
   const [canBio, setCanBio] = useState(false);
+  const [bioLabel, setBioLabel] = useState('');
+  const [editContact, setEditContact] = useState(false);
+  const [contact, setContact] = useState(account.recovery ?? '');
+
+  const saveContact = async () => {
+    const c = normalizeContact(contact);
+    if (!c) {
+      setMsg({ text: t('כתוב אימייל או מספר טלפון תקין'), ok: false });
+      return;
+    }
+    const a = { ...account, recovery: c };
+    await saveAccount(a);
+    onAccountChange(a);
+    setEditContact(false);
+    setMsg({ text: t('פרטי השחזור עודכנו ✓'), ok: true });
+  };
+
   useEffect(() => {
     biometricAvailable().then(setCanBio);
+    biometricLabel().then(setBioLabel);
   }, []);
 
   // Turning it on asks for the finger/face once, so we know it works on this phone
@@ -317,9 +336,27 @@ function AccountCard({ account, onAccountChange, onLock }: { account: Account; o
         <T style={{ flex: 1 }}>{t('🔒 בקש סיסמה בכל פתיחה')}</T>
         <Switch value={account.lockEnabled} onValueChange={toggleLock} trackColor={{ true: colors.primary, false: colors.border }} />
       </Row>
+      <View style={{ marginTop: 12 }}>
+        <T>{t('🔑 שחזור סיסמה אל: {contact}', { contact: account.recovery ? maskContact(account.recovery) : t('לא הוגדר') })}</T>
+        {editContact ? (
+          <Row style={{ gap: 8, marginTop: 8, alignItems: 'center' }}>
+            <Input
+              value={contact}
+              onChangeText={setContact}
+              placeholder={t('אימייל או מספר טלפון')}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              style={{ flex: 1, minWidth: 0, textAlign: 'left', writingDirection: 'ltr' }}
+            />
+            <GradientButton small title={t('שמור')} colors={gradients.primary} onPress={saveContact} />
+          </Row>
+        ) : (
+          <GhostButton title={account.recovery ? t('שינוי אימייל / טלפון') : t('הוסף אימייל או טלפון')} onPress={() => setEditContact(true)} style={{ marginTop: 8 }} />
+        )}
+      </View>
       {canBio && account.lockEnabled && (
         <Row style={{ justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
-          <T style={{ flex: 1 }}>{t('👆 פתיחה עם טביעת אצבע / Face ID')}</T>
+          <T style={{ flex: 1 }}>{t('🔓 פתיחה עם {method}', { method: bioLabel })}</T>
           <Switch value={!!account.biometric} onValueChange={toggleBio} trackColor={{ true: colors.primary, false: colors.border }} />
         </Row>
       )}

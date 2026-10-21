@@ -16,6 +16,8 @@ export type Account = {
   lockEnabled: boolean;
   /** Unlock with fingerprint / Face ID instead of typing the password */
   biometric?: boolean;
+  /** Email or phone (+972…) that password-reset codes go to */
+  recovery?: string;
   createdAt: string;
   /** 'pbkdf2' (current) or missing for accounts made before it (single SHA-256) */
   kdf?: 'pbkdf2';
@@ -62,7 +64,7 @@ export function validateSignup(displayName: string, username: string, password: 
   return null;
 }
 
-export async function createLocalAccount(displayName: string, username: string, password: string): Promise<Account> {
+export async function createLocalAccount(displayName: string, username: string, password: string, recovery?: string): Promise<Account> {
   const salt = newSalt();
   const account: Account = {
     displayName: displayName.trim(),
@@ -73,6 +75,7 @@ export async function createLocalAccount(displayName: string, username: string, 
     lockEnabled: true,
     createdAt: new Date().toISOString(),
     kdf: 'pbkdf2',
+    ...(recovery ? { recovery } : {}),
   };
   await saveAccount(account);
   return account;
@@ -92,6 +95,15 @@ export async function checkLogin(account: Account, username: string, password: s
 
 export async function changePassword(account: Account, current: string, next: string): Promise<Account | string> {
   if (!(await verify(account, current))) return t('הסיסמה הנוכחית שגויה');
+  if (next.length < MIN_PASSWORD) return t('הסיסמה החדשה צריכה לפחות {n} תווים', { n: MIN_PASSWORD });
+  const salt = newSalt();
+  const updated: Account = { ...account, salt, passwordHash: await hash(next, salt), kdf: 'pbkdf2' };
+  await saveAccount(updated);
+  return updated;
+}
+
+/** Sets a new password after the user proved who they are with a recovery code. */
+export async function resetPassword(account: Account, next: string): Promise<Account | string> {
   if (next.length < MIN_PASSWORD) return t('הסיסמה החדשה צריכה לפחות {n} תווים', { n: MIN_PASSWORD });
   const salt = newSalt();
   const updated: Account = { ...account, salt, passwordHash: await hash(next, salt), kdf: 'pbkdf2' };

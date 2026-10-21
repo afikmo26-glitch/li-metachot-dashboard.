@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { chatWithClaude, cleanMessages, Profile, summarizeWithClaude } from '../../src/lib/aiCore';
+import { handleRecover, RecoverEnv } from './recover';
 
 /**
  * AI server for the diary app. The Claude API key stays here (a Cloudflare secret)
@@ -8,11 +9,12 @@ import { chatWithClaude, cleanMessages, Profile, summarizeWithClaude } from '../
  *
  *   POST /chat       { mode: 'diary' | 'vent', messages, profile } -> { reply }
  *   POST /summarize  { messages, profile }                         -> { entry, mood, people, quotes, tomorrow }
+ *   POST /recover/*  password reset codes by email / SMS (see recover.ts)
  *
  * Every request must carry the header `x-app-key: <APP_KEY>`.
  */
 
-export interface Env {
+export interface Env extends RecoverEnv {
   ANTHROPIC_API_KEY: string;
   APP_KEY: string;
 }
@@ -33,17 +35,22 @@ export default {
     if (req.method !== 'POST') return json({ error: 'not found' }, 404);
     if (!env.APP_KEY || req.headers.get('x-app-key') !== env.APP_KEY) return json({ error: 'unauthorized' }, 401);
 
-    let body: { mode?: string; messages?: unknown; profile?: Profile };
+    let body: { mode?: string; messages?: unknown; profile?: Profile } & Record<string, unknown>;
     try {
       body = await req.json();
     } catch {
       return json({ error: 'bad json' }, 400);
     }
+    const path = new URL(req.url).pathname;
+    if (path.startsWith('/recover/')) {
+      const [status, res] = await handleRecover(path, body, env);
+      return json(res, status);
+    }
+
     const messages = cleanMessages(body.messages);
     if (!messages.length) return json({ error: 'no messages' }, 400);
 
     const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
-    const path = new URL(req.url).pathname;
 
     try {
       if (path === '/chat') {
