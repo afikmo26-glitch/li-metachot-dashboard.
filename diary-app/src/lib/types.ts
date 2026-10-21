@@ -19,11 +19,15 @@ export type Entry = {
 
 export type ChatMessage = { from: 'bot' | 'me'; text: string };
 
+/** Which part of the user's life someone belongs to. */
+export type Circle = 'family' | 'friends' | 'work' | 'other';
+
 export type Person = {
   id: string;
   name: string;
   firstSeen: string; // ISO
   note?: string;
+  circle?: Circle;
 };
 
 /** What the user shared in the first-run "getting to know you" questions. */

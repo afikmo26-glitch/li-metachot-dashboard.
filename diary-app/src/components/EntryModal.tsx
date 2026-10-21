@@ -6,6 +6,7 @@ import { deleteRecording } from '../lib/audio';
 import { formatDuration, formatLongDate, formatTimeSeconds } from '../lib/dates';
 import { extractQuotes, findKnownPeople } from '../lib/names';
 import { personName, useStore } from '../lib/store';
+import { circleEmoji, relationText } from '../lib/circles';
 import { colors, gradients, layout, MOOD_LABELS, MOODS } from '../lib/theme';
 import { Card, Chip, GhostButton, GradientButton, Input, Row, T } from './ui';
 import { t } from '../i18n';
@@ -112,12 +113,14 @@ export default function EntryModal({ entryId, onClose }: { entryId: string | nul
           {entry.people.length > 0 && (
             <>
               <T bold style={{ marginTop: 16, marginBottom: 8 }}>
-                {t('👥 אנשים')}
+                {t('💞 מי היה ביום הזה')}
               </T>
               <Row style={{ flexWrap: 'wrap' }}>
-                {entry.people.map((id) => (
-                  <Chip key={id} label={personName(people, id)} active />
-                ))}
+                {entry.people.map((id) => {
+                  const p = people.find((x) => x.id === id);
+                  const rel = p ? relationText(p) : '';
+                  return <Chip key={id} label={`${circleEmoji(p)} ${personName(people, id)}${rel ? ` · ${rel}` : ''}`} active />;
+                })}
               </Row>
             </>
           )}

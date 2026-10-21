@@ -9,6 +9,7 @@ import { computeStreak, dayKey, dayNamesShort, formatLongDate, formatShortDate, 
 import { extractQuotes, findKnownPeople, suggestNewNames } from '../lib/names';
 import { scheduleMorningRecap } from '../lib/notifications';
 import { newId, personName, useStore } from '../lib/store';
+import { circleEmoji, circleOf } from '../lib/circles';
 import { colors, gradients, layout, MOOD_LABELS, MOODS } from '../lib/theme';
 import type { Entry } from '../lib/types';
 import { t } from '../i18n';
@@ -132,7 +133,7 @@ export default function TodayScreen({ onOpenSettings, onOpenEntry, onOpenIntro }
       <Row style={{ marginTop: 14, gap: 10 }}>
         <Stat emoji="🔥" value={streak} label={t('ימים ברצף')} />
         <Stat emoji="📖" value={days.size} label={t('ימים בארכיון')} />
-        <Stat emoji="👥" value={people.length} label={t('אנשים')} />
+        <Stat emoji="💞" value={people.filter((p) => circleOf(p) === 'family' || circleOf(p) === 'friends').length} label={t('משפחה וחברים')} />
       </Row>
 
       {onOpenIntro && (
@@ -229,7 +230,7 @@ export default function TodayScreen({ onOpenSettings, onOpenEntry, onOpenIntro }
         </Row>
 
         <T bold style={{ marginTop: 16, marginBottom: 8 }}>
-          {t('👥 אנשים מהיום')}
+          {t('💞 מי היה איתך היום?')}
         </T>
         {people.length === 0 && suggestions.length === 0 ? (
           <T dim size={14} style={{ marginBottom: 8 }}>
@@ -238,7 +239,7 @@ export default function TodayScreen({ onOpenSettings, onOpenEntry, onOpenIntro }
         ) : null}
         <Row style={{ flexWrap: 'wrap' }}>
           {[...new Set([...detected, ...manual])].map((id) => (
-            <Chip key={id} label={personName(people, id)} active={tagged.includes(id)} onPress={() => toggle(id)} />
+            <Chip key={id} label={`${circleEmoji(people.find((x) => x.id === id))} ${personName(people, id)}`} active={tagged.includes(id)} onPress={() => toggle(id)} />
           ))}
           {suggestions.map((n) => (
             <Chip key={`s-${n}`} label={`+ ${n}`} color={colors.yellow} onPress={() => addManual(n)} />
@@ -292,7 +293,7 @@ export default function TodayScreen({ onOpenSettings, onOpenEntry, onOpenIntro }
               </T>
               {memory.people.length > 0 && (
                 <T dim size={13} style={{ marginTop: 6 }}>
-                  👥 {memory.people.map((p) => personName(people, p)).join(', ')}
+                  {memory.people.map((p) => `${circleEmoji(people.find((x) => x.id === p))} ${personName(people, p)}`).join('  ')}
                 </T>
               )}
             </Card>
@@ -394,7 +395,7 @@ export function MiniEntry({ entry, onPress }: { entry: Entry; onPress: () => voi
         ) : null}
         {entry.people.length > 0 && (
           <T size={13} style={{ marginTop: 6, color: colors.primaryHi }}>
-            👥 {entry.people.map((p) => personName(people, p)).join(' · ')}
+            {entry.people.map((p) => `${circleEmoji(people.find((x) => x.id === p))} ${personName(people, p)}`).join('  ')}
           </T>
         )}
       </Card>

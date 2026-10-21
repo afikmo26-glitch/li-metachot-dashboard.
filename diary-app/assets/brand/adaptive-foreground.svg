@@ -1,0 +1,29 @@
+<!-- The mark: an open diary with a heart rising from it, and two sparkles. Drawn in a 1024 box, centered. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <g fill="#FFFFFF" transform="translate(512 512) scale(0.72) translate(-512 -530)">
+    <!-- heart -->
+    <path d="M512 520 C 452 470 360 410 360 330 C 360 278 400 240 448 240 C 478 240 500 256 512 280 C 524 256 546 240 576 240 C 624 240 664 278 664 330 C 664 410 572 470 512 520 Z"/>
+    <!-- left page -->
+    <path d="M492 600 C 420 556 316 540 216 556 L 216 780 C 316 764 420 780 492 824 Z" opacity="0.96"/>
+    <!-- right page -->
+    <path d="M532 600 C 604 556 708 540 808 556 L 808 780 C 708 764 604 780 532 824 Z" opacity="0.96"/>
+    <!-- sparkles -->
+    <path d="M760 250 L 776 302 L 828 318 L 776 334 L 760 386 L 744 334 L 692 318 L 744 302 Z"/>
+    <path d="M262 380 L 272 412 L 304 422 L 272 432 L 262 464 L 252 432 L 220 422 L 252 412 Z" opacity="0.85"/>
+  
+    <!-- voice bars inside the heart: the diary listens -->
+    <g fill="#8B5CF6">
+      <rect x="452" y="318" width="22" height="64" rx="11"/>
+      <rect x="501" y="292" width="22" height="116" rx="11"/>
+      <rect x="550" y="318" width="22" height="64" rx="11"/>
+    </g>
+    <!-- lines of writing on the pages -->
+    <g stroke="#C4B5FD" stroke-width="14" stroke-linecap="round" fill="none">
+      <path d="M262 626 C 320 618 390 622 450 642"/>
+      <path d="M262 676 C 320 668 390 672 450 692"/>
+      <path d="M262 726 C 310 720 360 722 400 732"/>
+      <path d="M574 642 C 634 622 704 618 762 626"/>
+      <path d="M574 692 C 634 672 704 668 762 676"/>
+    </g>
+  </g>
+</svg>

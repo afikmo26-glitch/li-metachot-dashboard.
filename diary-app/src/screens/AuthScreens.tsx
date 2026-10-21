@@ -3,12 +3,14 @@ import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { TimePicker } from '../components/SettingsModal';
-import { GhostButton, GradientButton, Input, Row, T, tap } from '../components/ui';
+import { FadeIn, GhostButton, GradientButton, Input, Row, T, tap } from '../components/ui';
 import { Account, AuthProvider, checkLogin, createLocalAccount, validateSignup, wipeAllData } from '../lib/account';
 import { scheduleBedtime } from '../lib/notifications';
 import { usePrefs } from '../lib/prefs';
 import { useStore } from '../lib/store';
 import IntroScreen from './IntroScreen';
+import { FloatingEmojis, LogoBurst, PopEmoji, Pulse } from '../components/Wow';
+import { play } from '../lib/sound';
 import { colors, gradients, layout } from '../lib/theme';
 import { LANGS, t } from '../i18n';
 
@@ -69,9 +71,21 @@ function Dots({ count, index }: { count: number; index: number }) {
 
 /** First run: tutorial → create account → pick reminder time. */
 export function Onboarding({ onDone }: { onDone: (a: Account) => void }) {
-  const [step, setStep] = useState<'slides' | 'signup' | 'intro' | 'reminder'>('slides');
+  const [step, setStep] = useState<'welcome' | 'slides' | 'signup' | 'intro' | 'reminder'>('welcome');
   const [slide, setSlide] = useState(0);
   const [account, setAccount] = useState<Account | null>(null);
+
+  if (step === 'welcome') {
+    return (
+      <Welcome
+        onStart={() => {
+          play('whoosh', 0.5);
+          setStep('slides');
+        }}
+        onSkip={() => setStep('signup')}
+      />
+    );
+  }
 
   if (step === 'slides') {
     const s = SLIDES[slide];
@@ -97,14 +111,16 @@ export function Onboarding({ onDone }: { onDone: (a: Account) => void }) {
               justifyContent: 'center',
             }}
           >
-            <Text style={{ fontSize: 70 }}>{s.emoji}</Text>
+            <PopEmoji emoji={s.emoji} id={slide} />
           </View>
-          <T bold size={28} style={{ textAlign: 'center', marginTop: 28 }}>
-            {t(s.title)}
-          </T>
-          <T dim size={17} style={{ textAlign: 'center', marginTop: 12, lineHeight: 26, maxWidth: 360 }}>
-            {t(s.text)}
-          </T>
+          <FadeIn key={slide}>
+            <T bold size={28} style={{ textAlign: 'center', marginTop: 28 }}>
+              {t(s.title)}
+            </T>
+            <T dim size={17} style={{ textAlign: 'center', marginTop: 12, lineHeight: 26, maxWidth: 360 }}>
+              {t(s.text)}
+            </T>
+          </FadeIn>
         </View>
         <Dots count={SLIDES.length} index={slide} />
         <GradientButton
@@ -131,6 +147,52 @@ export function Onboarding({ onDone }: { onDone: (a: Account) => void }) {
   if (step === 'intro') return <IntroScreen onDone={() => setStep('reminder')} />;
 
   return <ReminderStep onDone={() => onDone(account)} />;
+}
+
+const PROMISES = ['🎙️ מספרים במקום לכתוב — יומי כותב בשבילך', '💞 זוכר כל מי שחשוב לך ומה אמרו לך', '🎮 הופך את הזיכרונות שלך למשחק', '🔒 מוצפן ופרטי — רק אצלך בטלפון'];
+
+/** The very first screen: the logo springs in, emojis drift up, and the app says what it is in one breath. */
+function Welcome({ onStart, onSkip }: { onStart: () => void; onSkip: () => void }) {
+  return (
+    <LinearGradient colors={gradients.app} style={{ flex: 1 }}>
+      <FloatingEmojis />
+      <SafeAreaView style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 22, justifyContent: 'center' }}>
+          <Row style={{ justifyContent: 'flex-end' }}>
+            <LanguagePicker />
+          </Row>
+          <View style={{ alignItems: 'center', marginTop: 6 }}>
+            <LogoBurst />
+            <FadeIn delay={350}>
+              <T bold size={38} style={{ textAlign: 'center' }}>
+                {t('היומן שלי')}
+              </T>
+            </FadeIn>
+            <FadeIn delay={650}>
+              <T size={19} style={{ textAlign: 'center', marginTop: 8, lineHeight: 28, color: colors.primaryHi, maxWidth: 340 }}>
+                {t('החבר שמקשיב לך כל ערב, מכיר את האנשים שלך — ולא שוכח אף רגע')}
+              </T>
+            </FadeIn>
+          </View>
+          <View style={{ marginTop: 26, gap: 10 }}>
+            {PROMISES.map((p, i) => (
+              <FadeIn key={p} delay={1000 + i * 220}>
+                <View style={{ backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 14 }}>
+                  <T size={16}>{t(p)}</T>
+                </View>
+              </FadeIn>
+            ))}
+          </View>
+          <FadeIn delay={1000 + PROMISES.length * 220 + 150}>
+            <Pulse>
+              <GradientButton title={t('בוא נתחיל ✨')} colors={gradients.primary} onPress={onStart} style={{ marginTop: 26 }} />
+            </Pulse>
+            <GhostButton title={t('כבר מכיר/ה — ישר להרשמה')} onPress={onSkip} style={{ marginTop: 10, borderWidth: 0 }} />
+          </FadeIn>
+        </ScrollView>
+      </SafeAreaView>
+    </LinearGradient>
+  );
 }
 
 function Signup({ onCreated }: { onCreated: (a: Account) => void }) {

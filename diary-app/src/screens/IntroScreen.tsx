@@ -6,7 +6,11 @@ import { Chip, FadeIn, GhostButton, GradientButton, Input, Row, T } from '../com
 import { t } from '../i18n';
 import { useStore } from '../lib/store';
 import { colors, gradients, layout } from '../lib/theme';
-import type { UserProfile } from '../lib/types';
+import { Confetti, PopEmoji } from '../components/Wow';
+import { Avatar } from './PeopleScreen';
+import { CIRCLES, circleColor } from '../lib/circles';
+import { notify } from '../components/ui';
+import type { Circle, UserProfile } from '../lib/types';
 
 /**
  * First-run "getting to know you": age, work, family, five close friends and what
@@ -27,8 +31,9 @@ const FAMILY: { key: string; label: string; role: string; multi?: boolean }[] = 
 type Friend = { name: string; how: string };
 
 export default function IntroScreen({ onDone }: { onDone: () => void }) {
-  const { profile, updateProfile, people, addPerson, updatePerson } = useStore();
+  const { profile, updateProfile, people, addPerson, updatePerson, settings } = useStore();
   const [step, setStep] = useState(0);
+  const [met, setMet] = useState<{ name: string; circle: Circle }[] | null>(null);
   const [p, setP] = useState<UserProfile>(profile);
   const [family, setFamily] = useState<Record<string, string>>({});
   const [friends, setFriends] = useState<Friend[]>(Array.from({ length: 5 }, () => ({ name: '', how: '' })));
@@ -36,23 +41,28 @@ export default function IntroScreen({ onDone }: { onDone: () => void }) {
   const steps = 5;
 
   const finish = () => {
+    const added: { name: string; circle: Circle }[] = [];
     // Save people with who they are; existing people keep their note unless they had none
-    const add = (name: string, note: string) => {
+    const add = (name: string, note: string, circle: Circle) => {
       const n = name.trim();
       if (!n) return;
+      added.push({ name: n, circle });
       const existing = people.find((x) => x.name === n);
       const person = existing ?? addPerson(n);
-      if (!person.note) updatePerson({ ...person, note });
+      updatePerson({ ...person, note: person.note || note, circle: person.circle ?? circle });
     };
     for (const f of FAMILY) {
       const raw = family[f.key] ?? '';
       const names = f.multi ? raw.split(/[,،]/) : [raw];
-      names.forEach((n) => add(n, t(f.role)));
+      names.forEach((n) => add(n, t(f.role), 'family'));
     }
-    friends.forEach((f) => add(f.name, f.how.trim() ? `${t('חבר/ה קרוב/ה')} · ${f.how.trim()}` : t('חבר/ה קרוב/ה')));
+    friends.forEach((f) => add(f.name, f.how.trim() ? `${t('חבר/ה קרוב/ה')} · ${f.how.trim()}` : t('חבר/ה קרוב/ה'), 'friends'));
     updateProfile({ ...p, done: true });
-    onDone();
+    notify('success');
+    setMet(added);
   };
+
+  if (met) return <Celebration name={settings.userName} met={met} onDone={onDone} />;
 
   const next = () => (step < steps - 1 ? setStep(step + 1) : finish());
   const toggleGoal = (g: string) => setP((x) => ({ ...x, goals: x.goals.includes(g) ? x.goals.filter((y) => y !== g) : [...x.goals, g] }));
@@ -183,5 +193,62 @@ function Label({ text }: { text: string }) {
     <T bold size={14} style={{ marginTop: 14, marginBottom: 6 }}>
       {text}
     </T>
+  );
+}
+
+/** The payoff after the questions: confetti, and the people the app now knows, grouped by circle. */
+function Celebration({ name, met, onDone }: { name: string; met: { name: string; circle: Circle }[]; onDone: () => void }) {
+  const groups = CIRCLES.map((c) => ({ ...c, names: met.filter((m) => m.circle === c.key).map((m) => m.name) })).filter((g) => g.names.length);
+  return (
+    <LinearGradient colors={gradients.app} style={{ flex: 1 }}>
+      <SafeAreaView style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 22, justifyContent: 'center' }}>
+          <View style={{ alignItems: 'center' }}>
+            <PopEmoji emoji="🎉" id="party" size={84} />
+            <FadeIn delay={200}>
+              <T bold size={30} style={{ textAlign: 'center', marginTop: 10 }}>
+                {name ? t('וואו, {name}!', { name }) : t('וואו!')}
+              </T>
+              <T size={18} style={{ textAlign: 'center', marginTop: 8, lineHeight: 27, color: colors.primaryHi }}>
+                {met.length ? t('עכשיו אני באמת מכיר אותך — ואת {n} האנשים הכי חשובים לך', { n: met.length }) : t('עכשיו אני מכיר אותך קצת יותר. את האנשים שלך נכיר בדרך')}
+              </T>
+            </FadeIn>
+          </View>
+
+          {groups.map((g, gi) => (
+            <FadeIn key={g.key} delay={500 + gi * 300}>
+              <View style={{ marginTop: 18, backgroundColor: colors.card, borderRadius: 18, borderWidth: 1, borderColor: circleColor(g.key) + '66', padding: 14 }}>
+                <T bold size={16} style={{ color: circleColor(g.key), marginBottom: 10 }}>
+                  {g.emoji} {t(g.label)} · {g.names.length}
+                </T>
+                <Row style={{ flexWrap: 'wrap', gap: 12 }}>
+                  {g.names.map((n) => (
+                    <View key={n} style={{ alignItems: 'center', width: 64 }}>
+                      <Avatar name={n} size={48} />
+                      <T size={12} numberOfLines={1} style={{ marginTop: 4, textAlign: 'center' }}>
+                        {n}
+                      </T>
+                    </View>
+                  ))}
+                </Row>
+              </View>
+            </FadeIn>
+          ))}
+
+          <FadeIn delay={600 + groups.length * 300}>
+            <View style={{ marginTop: 18, gap: 6 }}>
+              <T dim size={15} style={{ textAlign: 'center' }}>
+                {t('🎮 משחק הזיכרון כבר מוכן עם שאלות עליהם')}
+              </T>
+              <T dim size={15} style={{ textAlign: 'center' }}>
+                {t('💬 ויומי ישאל עליהם כשתספר על היום')}
+              </T>
+            </View>
+            <GradientButton title={t('יאללה, ממשיכים 🚀')} colors={gradients.primary} onPress={onDone} style={{ marginTop: 24 }} />
+          </FadeIn>
+        </ScrollView>
+      </SafeAreaView>
+      <Confetti />
+    </LinearGradient>
   );
 }

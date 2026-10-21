@@ -5,12 +5,15 @@ import { dayKey, formatLongDate } from '../lib/dates';
 import { personName, useStore } from '../lib/store';
 import { colors, layout, MOODS } from '../lib/theme';
 import { MiniEntry } from './TodayScreen';
+import { CIRCLES, circleColor, circleEmoji, circleOf } from '../lib/circles';
+import type { Circle } from '../lib/types';
 import { t } from '../i18n';
 
 export default function ArchiveScreen({ onOpenEntry }: { onOpenEntry: (id: string) => void }) {
   const { entries, people } = useStore();
   const [query, setQuery] = useState('');
   const [personFilter, setPersonFilter] = useState<string | null>(null);
+  const [circleFilter, setCircleFilter] = useState<Circle | null>(null);
 
   const mentioned = useMemo(() => {
     const counts = new Map<string, number>();
@@ -22,6 +25,7 @@ export default function ArchiveScreen({ onOpenEntry }: { onOpenEntry: (id: strin
     const q = query.trim();
     const filtered = entries.filter((e) => {
       if (personFilter && !e.people.includes(personFilter)) return false;
+      if (circleFilter && !e.people.some((id) => { const p = people.find((x) => x.id === id); return p && circleOf(p) === circleFilter; })) return false;
       if (!q) return true;
       return (
         e.text.includes(q) ||
@@ -35,7 +39,7 @@ export default function ArchiveScreen({ onOpenEntry }: { onOpenEntry: (id: strin
       groups.set(k, [...(groups.get(k) ?? []), e]);
     });
     return [...groups.entries()].map(([key, data]) => ({ key, title: formatLongDate(data[0].createdAt), data }));
-  }, [entries, people, query, personFilter]);
+  }, [entries, people, query, personFilter, circleFilter]);
 
   return (
     <View style={{ flex: 1 }}>
@@ -44,10 +48,24 @@ export default function ArchiveScreen({ onOpenEntry }: { onOpenEntry: (id: strin
         <Input value={query} onChangeText={setQuery} placeholder={t('🔍 חפש מילה, שם או משפט…')} />
         {mentioned.length > 0 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10, transform: [{ scaleX: layout.flip }] }}>
-            <View style={{ flexDirection: 'row', transform: [{ scaleX: layout.flip }] }}>
-              <Chip label={t('כולם')} active={!personFilter} onPress={() => setPersonFilter(null)} />
+            <View style={{ flexDirection: layout.row, transform: [{ scaleX: layout.flip }] }}>
+              <Chip label={t('כל הימים')} active={!personFilter && !circleFilter} onPress={() => { setPersonFilter(null); setCircleFilter(null); }} />
+              {CIRCLES.filter((c) => c.key !== 'other').map((c) => (
+                <Chip
+                  key={c.key}
+                  label={`${c.emoji} ${t(c.with)}`}
+                  color={circleColor(c.key)}
+                  active={circleFilter === c.key}
+                  onPress={() => { setPersonFilter(null); setCircleFilter(circleFilter === c.key ? null : c.key); }}
+                />
+              ))}
               {mentioned.map((id) => (
-                <Chip key={id} label={personName(people, id)} active={personFilter === id} onPress={() => setPersonFilter(personFilter === id ? null : id)} />
+                <Chip
+                  key={id}
+                  label={`${circleEmoji(people.find((p) => p.id === id))} ${personName(people, id)}`}
+                  active={personFilter === id}
+                  onPress={() => { setCircleFilter(null); setPersonFilter(personFilter === id ? null : id); }}
+                />
               ))}
             </View>
           </ScrollView>
