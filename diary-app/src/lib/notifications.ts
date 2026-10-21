@@ -81,6 +81,20 @@ export async function scheduleBedtime(settings: Settings) {
   await setIds(ids);
 }
 
+/** "Still at work?" if a shift has been running for 9 hours; cancelled on clock-out. */
+export async function scheduleShiftReminder(place: string): Promise<string | undefined> {
+  if (Platform.OS === 'web' || !(await ensurePermissions())) return undefined;
+  return Notifications.scheduleNotificationAsync({
+    content: { title: t('⏱️ עדיין במשמרת?'), body: t('המשמרת ב{place} רצה כבר 9 שעות. שכחת לסיים?', { place }), data: { screen: 'work' } },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 9 * 3600, channelId: CHANNEL },
+  });
+}
+
+export async function cancelShiftReminder(id?: string) {
+  if (Platform.OS === 'web' || !id) return;
+  await Notifications.cancelScheduledNotificationAsync(id).catch(() => {});
+}
+
 /** Optional daily nudge to add a photo of the day (off unless the user turns it on). */
 export async function schedulePhotoReminder(settings: Settings) {
   if (Platform.OS === 'web') return;

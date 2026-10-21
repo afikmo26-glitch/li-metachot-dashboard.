@@ -39,6 +39,29 @@ export type FollowUp = {
   done?: boolean;
 };
 
+/** A place the user works at (for the shift clock). */
+export type Workplace = {
+  id: string;
+  name: string;
+  emoji: string;
+  /** Hourly wage, for the pay estimate */
+  wage?: number;
+  role?: string;
+};
+
+/** One worked shift. A shift that ends after midnight has end on the next day. */
+export type Shift = {
+  id: string;
+  workplaceId: string;
+  start: string; // ISO
+  end: string; // ISO
+  breakMin?: number;
+  note?: string;
+};
+
+/** The shift that is running right now (clocked in, not out yet). */
+export type ActiveShift = { workplaceId: string; start: string; notificationId?: string };
+
 /** A personal goal with weekly check-ins. */
 export type Goal = {
   id: string;

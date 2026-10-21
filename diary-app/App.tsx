@@ -22,19 +22,21 @@ import IntroScreen from './src/screens/IntroScreen';
 import PeopleScreen from './src/screens/PeopleScreen';
 import TodayScreen from './src/screens/TodayScreen';
 import VentScreen from './src/screens/VentScreen';
+import WorkScreen from './src/screens/WorkScreen';
 
 // The native layout is pinned LTR; screens lay themselves out through `layout`/`rtl`,
 // so Hebrew and Arabic read right-to-left and English left-to-right, whatever the phone's language.
 I18nManager.allowRTL(false);
 I18nManager.forceRTL(false);
 
-type Tab = 'today' | 'archive' | 'calendar' | 'people' | 'vent' | 'game';
+type Tab = 'today' | 'archive' | 'calendar' | 'people' | 'work' | 'vent' | 'game';
 type IconName = keyof typeof Ionicons.glyphMap;
 const TABS: { key: Tab; label: string; icon: IconName; active: IconName }[] = [
   { key: 'today', label: 'היום', icon: 'mic-outline', active: 'mic' },
   { key: 'archive', label: 'ארכיון', icon: 'library-outline', active: 'library' },
   { key: 'calendar', label: 'לוח שנה', icon: 'calendar-outline', active: 'calendar' },
   { key: 'people', label: 'אנשים', icon: 'people-outline', active: 'people' },
+  { key: 'work', label: 'עבודה', icon: 'time-outline', active: 'time' },
   { key: 'vent', label: 'לפרוק', icon: 'lock-closed-outline', active: 'lock-closed' },
   { key: 'game', label: 'משחק', icon: 'game-controller-outline', active: 'game-controller' },
 ];
@@ -158,6 +160,7 @@ function Main({ account, setAccount, onLock }: { account: Account; setAccount: (
             {tab === 'archive' && <ArchiveScreen onOpenEntry={open} />}
             {tab === 'calendar' && <CalendarScreen onOpenEntry={open} />}
             {tab === 'people' && <PeopleScreen onOpenEntry={open} />}
+            {tab === 'work' && <WorkScreen />}
             {tab === 'vent' && <VentScreen />}
             {tab === 'game' && <GameScreen />}
           </Animated.View>
@@ -180,7 +183,7 @@ function Main({ account, setAccount, onLock }: { account: Account; setAccount: (
             <Pressable key={tb.key} onPress={() => go(tb.key)} style={{ flex: 1, alignItems: 'center' }} accessibilityLabel={t(tb.label)}>
               <View
                 style={{
-                  paddingHorizontal: 12,
+                  paddingHorizontal: 10,
                   paddingVertical: 4,
                   borderRadius: 999,
                   backgroundColor: active ? colors.cardHi : 'transparent',

@@ -424,11 +424,13 @@ export function TimePicker({
   minute,
   onChange,
   hourOnly,
+  minuteStep = 15,
 }: {
   hour: number;
   minute: number;
   onChange: (h: number, m: number) => void;
   hourOnly?: boolean;
+  minuteStep?: number;
 }) {
   const step = (dh: number, dm: number) => {
     tap();
@@ -447,7 +449,7 @@ export function TimePicker({
   return (
     <Row style={{ justifyContent: 'center', alignItems: 'center', marginTop: 16, gap: 18 }}>
       {/* Row is right-to-left but "22:30" reads left-to-right: minutes arrows go on the right, hours on the left */}
-      {!hourOnly && <Stepper onUp={() => step(0, 15)} onDown={() => step(0, -15)} />}
+      {!hourOnly && <Stepper onUp={() => step(0, minuteStep)} onDown={() => step(0, -minuteStep)} />}
       <View style={{ backgroundColor: colors.bgDeep, borderRadius: 16, paddingHorizontal: 20, paddingVertical: 10 }}>
         <T bold size={34} style={{ textAlign: 'center', fontVariant: ['tabular-nums'] }}>
           {pad(hour)}:{pad(minute)}
@@ -494,8 +496,8 @@ function BackupCard() {
   const doExport = () =>
     run(async () => {
       if (pass.length < MIN_BACKUP_PASSWORD) throw new Error(t('סיסמת גיבוי של לפחות {n} תווים', { n: MIN_BACKUP_PASSWORD }));
-      const { entries, people, events, settings, game, profile, followUps, goals } = store;
-      await exportBackup({ entries, people, events, settings, game, profile, followUps, goals }, pass);
+      const { entries, people, events, settings, game, profile, followUps, goals, workplaces, shifts } = store;
+      await exportBackup({ entries, people, events, settings, game, profile, followUps, goals, workplaces, shifts }, pass);
       setMsg({ text: t('הגיבוי נוצר ✓ שמור אותו במקום בטוח, ואל תשכח את הסיסמה'), ok: true });
     });
 

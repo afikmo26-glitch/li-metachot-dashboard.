@@ -6,7 +6,7 @@ import ChatModal, { BotAvatar, BOT_NAME, PendingRecording } from '../components/
 import Recorder from '../components/Recorder';
 import { Card, Chip, GradientButton, Input, notify, Row, SectionTitle, T, tap } from '../components/ui';
 import { persistRecording } from '../lib/audio';
-import { computeStreak, dayKey, dayNamesShort, formatLongDate, formatShortDate, formatTimeSeconds, greeting, parseDayKey } from '../lib/dates';
+import { computeStreak, dayKey, dayNamesShort, formatLongDate, formatShortDate, formatTime, formatTimeSeconds, greeting, parseDayKey } from '../lib/dates';
 import { extractQuotes, findKnownPeople, suggestNewNames } from '../lib/names';
 import { scheduleMorningRecap } from '../lib/notifications';
 import { newId, personName, useStore } from '../lib/store';
@@ -24,7 +24,7 @@ import { t } from '../i18n';
 type Props = { onOpenSettings: () => void; onOpenEntry: (id: string) => void; onOpenIntro?: () => void };
 
 export default function TodayScreen({ onOpenSettings, onOpenEntry, onOpenIntro }: Props) {
-  const { entries, people, events, settings, saveEntry, addPerson } = useStore();
+  const { entries, people, events, settings, saveEntry, addPerson, activeShift, workplaces } = useStore();
   const [text, setText] = useState('');
   const [mood, setMood] = useState(3);
   const [recording, setRecording] = useState<PendingRecording | null>(null);
@@ -162,6 +162,17 @@ export default function TodayScreen({ onOpenSettings, onOpenEntry, onOpenIntro }
             </Row>
           </Card>
         </Pressable>
+      )}
+
+      {activeShift && (
+        <Card style={{ marginTop: 14, borderColor: colors.green, paddingVertical: 12 }}>
+          <T bold style={{ color: colors.green }}>
+            {t('🟢 במשמרת ב{place} · התחלת ב-{time}', {
+              place: workplaces.find((w) => w.id === activeShift.workplaceId)?.name ?? t('מקום עבודה'),
+              time: formatTime(activeShift.start),
+            })}
+          </T>
+        </Card>
       )}
 
       {recentEntries(entries).length >= 3 && (
