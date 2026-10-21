@@ -179,7 +179,7 @@ function PersonRow({ s, onPress, onPick }: { s: PersonStats; onPress: () => void
               </T>
             ) : null}
             <T dim size={13}>
-              {s.entries.length ? t('{n} אזכורים · לאחרונה {when}', { n: s.entries.length, when: relativeDay(s.entries[0].createdAt) }) : t('עוד לא הוזכר ביומן')}
+              {s.entries.length ? (s.entries.length === 1 ? t('אזכור אחד · {when}', { when: relativeDay(s.entries[0].createdAt) }) : t('{n} אזכורים · לאחרונה {when}', { n: s.entries.length, when: relativeDay(s.entries[0].createdAt) })) : t('עוד לא הוזכר ביומן')}
             </T>
             {s.quotes[0] && (
               <T size={13} numberOfLines={1} style={{ color: colors.pink, marginTop: 2 }}>

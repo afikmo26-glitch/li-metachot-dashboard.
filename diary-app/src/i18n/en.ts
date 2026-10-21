@@ -617,4 +617,5 @@ export const en: Record<string, string> = {
   "👆 פתח עם טביעת אצבע / Face ID": "👆 Open with fingerprint / Face ID",
   "החודש שלך מוכן!": "Your month is ready!",
   "מצב הרוח, האנשים והרגעים של 30 הימים האחרונים": "Your mood, people and moments from the last 30 days",
+  'אזכור אחד · {when}': '1 mention · {when}',
 };

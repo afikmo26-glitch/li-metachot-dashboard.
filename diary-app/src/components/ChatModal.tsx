@@ -46,7 +46,8 @@ type Draft = {
   tomorrow?: string;
 };
 
-export const BOT_NAME = t('יומי');
+/** Hebrew key; translate with t() at render so a language change applies. */
+export const BOT_NAME = 'יומי';
 
 export default function ChatModal({ visible, recording, onClose, onSaved }: Props) {
   const { people, entries, settings, profile: me, addPerson, updatePerson, saveEntry } = useStore();
@@ -254,7 +255,7 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
               <BotAvatar />
               <View>
                 <T bold size={18}>
-                  {BOT_NAME}
+                  {t(BOT_NAME)}
                 </T>
                 <T dim size={12}>
                   {typing ? t('מקליד…') : useAi ? t('✨ AI · החבר שזוכר הכל') : t('החבר שזוכר הכל')}
