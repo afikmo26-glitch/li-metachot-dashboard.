@@ -47,6 +47,10 @@ export type Workplace = {
   /** Hourly wage, for the pay estimate */
   wage?: number;
   role?: string;
+  /** Overtime: after how many hours a day, on by default (8h, then 125% for 2h and 150% after) */
+  overtime?: { enabled: boolean; after: number };
+  /** Shabbat premium: rate in % and the Friday-to-Saturday window (hours), on by default */
+  shabbat?: { enabled: boolean; rate: number; friFrom: number; satUntil: number };
 };
 
 /** One worked shift. A shift that ends after midnight has end on the next day. */
@@ -57,6 +61,8 @@ export type Shift = {
   end: string; // ISO
   breakMin?: number;
   note?: string;
+  /** Worked on a holiday: paid like Shabbat */
+  holiday?: boolean;
 };
 
 /** The shift that is running right now (clocked in, not out yet). */

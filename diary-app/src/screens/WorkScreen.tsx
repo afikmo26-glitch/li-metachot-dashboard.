@@ -1,7 +1,7 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Modal, Platform, Pressable, ScrollView, Share, Text, View } from 'react-native';
+import { Alert, Modal, Platform, Pressable, ScrollView, Share, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { TimePicker } from '../components/SettingsModal';
 import { Card, Chip, Empty, GhostButton, GradientButton, Input, notify, Row, ScreenTitle, SectionTitle, T, tap } from '../components/ui';
@@ -11,14 +11,32 @@ import { cancelShiftReminder, scheduleShiftReminder } from '../lib/notifications
 import { newId, useStore } from '../lib/store';
 import { colors, gradients, layout } from '../lib/theme';
 import type { Shift, Workplace } from '../lib/types';
-import { fmtClock, fmtHM, makeTimes, money, monthReportText, monthTotals, shiftMinutes, shiftsInMonth, timeRange, WORK_EMOJIS } from '../lib/work';
+import {
+  DEFAULT_OVERTIME,
+  DEFAULT_SHABBAT,
+  fmtClock,
+  fmtHM,
+  makeTimes,
+  money,
+  monthReportText,
+  monthTotals,
+  overtimeMinutes,
+  rateLabel,
+  shabbatMinutes,
+  shiftMinutes,
+  shiftRates,
+  shiftsInMonth,
+  sortedRates,
+  timeRange,
+  WORK_EMOJIS,
+} from '../lib/work';
 
 /**
  * Shift clock: clock in and out with one button (or add a shift by hand), for one or more workplaces.
  * Hours add up per month, with an estimated pay and a report to send the employer.
  */
 export default function WorkScreen() {
-  const { workplaces, shifts, activeShift, setActiveShift, saveShift, settings } = useStore();
+  const { workplaces, shifts, activeShift, setActiveShift, saveShift, settings, profile } = useStore();
   const now = new Date();
   const [ym, setYm] = useState({ y: now.getFullYear(), m: now.getMonth() });
   const [placeId, setPlaceId] = useState<string | null>(null);
@@ -203,6 +221,33 @@ export default function WorkScreen() {
           </Card>
         ))}
 
+      {sortedRates(totals.rates).some(([k]) => !k.startsWith('reg')) && (
+        <Card style={{ marginTop: 8, padding: 12 }}>
+          <T bold style={{ marginBottom: 6 }}>
+            {t('💰 פירוט לפי תעריף')}
+          </T>
+          {sortedRates(totals.rates).map(([k, m]) => (
+            <Row key={k} style={{ justifyContent: 'space-between', marginBottom: 2 }}>
+              <T dim size={14}>
+                {rateLabel(k)}
+              </T>
+              <T size={14}>{fmtHM(m)}</T>
+            </Row>
+          ))}
+        </Card>
+      )}
+
+      {Number(profile.age) > 0 && Number(profile.age) < 18 && (overtimeMinutes(totals.rates) > 0 || shabbatMinutes(totals.rates) > 0) && (
+        <Card style={{ marginTop: 8, padding: 12, borderColor: colors.yellow }}>
+          <T bold size={14}>
+            {t('⚠️ שים/י לב: חוק עבודת נוער')}
+          </T>
+          <T dim size={13} style={{ marginTop: 4, lineHeight: 19 }}>
+            {t('עד גיל 18 בדרך כלל אסור לעבוד שעות נוספות ובשבת, ויש הגבלות על עבודה בלילה. אם מבקשים ממך — כדאי לבדוק את הזכויות שלך באתר כל-זכות או במשרד העבודה.')}
+          </T>
+        </Card>
+      )}
+
       {monthShifts.length > 0 && (
         <Row style={{ gap: 10, marginTop: 12 }}>
           <GhostButton title={t('📤 שלח דוח')} onPress={shareText} style={{ flex: 1 }} />
@@ -216,6 +261,9 @@ export default function WorkScreen() {
       ) : (
         monthShifts.map((s) => {
           const w = workplaces.find((x) => x.id === s.workplaceId);
+          const r = shiftRates(s, w);
+          const ot = overtimeMinutes(r);
+          const shb = shabbatMinutes(r);
           return (
             <Pressable key={s.id} onPress={() => setEditing(s)} style={{ marginBottom: 8 }}>
               <Card style={{ padding: 12 }}>
@@ -229,6 +277,11 @@ export default function WorkScreen() {
                       {s.breakMin ? ` · ${t('הפסקה {n} דק׳', { n: s.breakMin })}` : ''}
                       {s.note ? ` · ${s.note}` : ''}
                     </T>
+                    {(ot > 0 || shb > 0) && (
+                      <T size={12} style={{ color: colors.orange, marginTop: 2 }}>
+                        {[ot ? t('⏫ נוספות {h}', { h: fmtHM(ot) }) : '', shb ? (s.holiday ? t('🕎 חג') : t('🕯️ שבת {h}', { h: fmtHM(shb) })) : ''].filter(Boolean).join('  ')}
+                      </T>
+                    )}
                   </View>
                   <T bold size={18} style={{ color: colors.primaryHi }}>
                     {fmtHM(shiftMinutes(s))}
@@ -273,9 +326,11 @@ function ShiftModal({ shift, defaultPlace, onClose }: { shift: Shift | null; def
   const [end, setEnd] = useState({ h: e0.getHours(), m: e0.getMinutes() });
   const [breakMin, setBreakMin] = useState(shift?.breakMin ?? 0);
   const [note, setNote] = useState(shift?.note ?? '');
+  const [holiday, setHoliday] = useState(!!shift?.holiday);
 
   const times = makeTimes(day, start.h, start.m, end.h, end.m);
   const mins = shiftMinutes({ ...times, breakMin });
+  const rates = shiftRates({ id: '', workplaceId: placeId ?? '', ...times, breakMin, holiday }, workplaces.find((w) => w.id === placeId));
   const today = new Date(new Date().setHours(0, 0, 0, 0));
   const dayChips = [0, 1, 2].map((ago) => new Date(today.getTime() - ago * 86400000));
   const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
@@ -291,7 +346,14 @@ function ShiftModal({ shift, defaultPlace, onClose }: { shift: Shift | null; def
 
   const save = () => {
     if (!placeId) return;
-    saveShift({ id: shift?.id ?? newId(), workplaceId: placeId, ...times, ...(breakMin ? { breakMin } : {}), ...(note.trim() ? { note: note.trim() } : {}) });
+    saveShift({
+      id: shift?.id ?? newId(),
+      workplaceId: placeId,
+      ...times,
+      ...(breakMin ? { breakMin } : {}),
+      ...(note.trim() ? { note: note.trim() } : {}),
+      ...(holiday ? { holiday } : {}),
+    });
     notify('success');
     onClose();
   };
@@ -346,12 +408,21 @@ function ShiftModal({ shift, defaultPlace, onClose }: { shift: Shift | null; def
             ))}
           </Row>
           <Input value={note} onChangeText={setNote} placeholder={t('הערה (לא חובה), למשל "החלפתי את דני"')} style={{ marginTop: 8 }} />
+          <Row style={{ marginTop: 8 }}>
+            <Chip label={t('🕎 עבדתי בחג (תשלום כמו בשבת)')} active={holiday} onPress={() => setHoliday(!holiday)} />
+          </Row>
 
           <Card style={{ marginTop: 16, alignItems: 'center' }}>
             <T dim>{t('סה״כ')}</T>
             <T bold size={30}>
               {fmtHM(mins)}
             </T>
+            {sortedRates(rates).some(([k]) => !k.startsWith('reg')) &&
+              sortedRates(rates).map(([k, m]) => (
+                <T key={k} dim size={13}>
+                  {rateLabel(k)}: {fmtHM(m)}
+                </T>
+              ))}
           </Card>
           <GradientButton title={t('שמור משמרת')} icon="💾" colors={gradients.primary} onPress={save} style={{ marginTop: 16 }} />
           {shift && (
@@ -387,11 +458,14 @@ function PlaceForm({ place, onSaved }: { place?: Workplace; onSaved: () => void 
   const [emoji, setEmoji] = useState(place?.emoji ?? WORK_EMOJIS[0]);
   const [role, setRole] = useState(place?.role ?? '');
   const [wage, setWage] = useState(place?.wage ? String(place.wage) : '');
+  const [ot, setOt] = useState(place?.overtime ?? DEFAULT_OVERTIME);
+  const [sh, setSh] = useState(place?.shabbat ?? DEFAULT_SHABBAT);
+  const [more, setMore] = useState(false);
 
   const save = () => {
     if (!name.trim()) return;
     const w = parseFloat(wage.replace(',', '.'));
-    saveWorkplace({ id: place?.id ?? newId(), name: name.trim(), emoji, ...(role.trim() ? { role: role.trim() } : {}), ...(w > 0 ? { wage: w } : {}) });
+    saveWorkplace({ id: place?.id ?? newId(), name: name.trim(), emoji, ...(role.trim() ? { role: role.trim() } : {}), ...(w > 0 ? { wage: w } : {}), overtime: ot, shabbat: sh });
     if (!place) {
       setName('');
       setRole('');
@@ -410,6 +484,53 @@ function PlaceForm({ place, onSaved }: { place?: Workplace; onSaved: () => void 
           <Chip key={e} label={e} active={emoji === e} onPress={() => setEmoji(e)} />
         ))}
       </Row>
+      <Pressable onPress={() => setMore(!more)}>
+        <T bold size={14} style={{ color: colors.primaryHi }}>
+          {more ? t('▾ שעות נוספות ושבת') : t('▸ שעות נוספות ושבת ({ot}, {sh})', { ot: ot.enabled ? t('אחרי {h} ש׳', { h: ot.after }) : t('כבוי'), sh: sh.enabled ? `${sh.rate}%` : t('כבוי') })}
+        </T>
+      </Pressable>
+      {more && (
+        <View style={{ gap: 6 }}>
+          <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+            <T style={{ flex: 1 }}>{t('⏫ שעות נוספות (125% ואחר כך 150%)')}</T>
+            <Switch value={ot.enabled} onValueChange={(enabled) => setOt({ ...ot, enabled })} trackColor={{ true: colors.primary, false: colors.border }} />
+          </Row>
+          {ot.enabled && (
+            <Row style={{ flexWrap: 'wrap', alignItems: 'center' }}>
+              <T dim size={13}>{t('מתחילות אחרי:')} </T>
+              {[8, 8.6, 9].map((h) => (
+                <Chip key={h} label={t('{h} שעות', { h })} active={ot.after === h} onPress={() => setOt({ ...ot, after: h })} />
+              ))}
+            </Row>
+          )}
+          <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+            <T style={{ flex: 1 }}>{t('🕯️ תוספת שבת וחג')}</T>
+            <Switch value={sh.enabled} onValueChange={(enabled) => setSh({ ...sh, enabled })} trackColor={{ true: colors.primary, false: colors.border }} />
+          </Row>
+          {sh.enabled && (
+            <>
+              <Row style={{ flexWrap: 'wrap' }}>
+                {[125, 150, 175, 200].map((r) => (
+                  <Chip key={r} label={`${r}%`} active={sh.rate === r} onPress={() => setSh({ ...sh, rate: r })} />
+                ))}
+              </Row>
+              <Row style={{ flexWrap: 'wrap', alignItems: 'center' }}>
+                <T dim size={13}>{t('שבת מתחילה ביום שישי בשעה:')} </T>
+                {[14, 15, 16, 17, 18, 19].map((h) => (
+                  <Chip key={h} label={`${h}:00`} active={sh.friFrom === h} onPress={() => setSh({ ...sh, friFrom: h })} />
+                ))}
+              </Row>
+              <Row style={{ flexWrap: 'wrap', alignItems: 'center' }}>
+                <T dim size={13}>{t('ונגמרת במוצ״ש בשעה:')} </T>
+                {[17, 18, 19, 20, 21].map((h) => (
+                  <Chip key={h} label={`${h}:00`} active={sh.satUntil === h} onPress={() => setSh({ ...sh, satUntil: h })} />
+                ))}
+              </Row>
+              <T dim size={12}>{t('כניסת ויציאת שבת משתנות לפי העונה — כוון/י לפי מה שנהוג אצלכם בעבודה')}</T>
+            </>
+          )}
+        </View>
+      )}
       <GradientButton title={place ? t('שמור') : t('➕ הוסף מקום עבודה')} colors={gradients.primary} onPress={save} />
     </View>
   );

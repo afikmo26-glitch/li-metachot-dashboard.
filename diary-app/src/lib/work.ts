@@ -41,21 +41,27 @@ export function shiftsInMonth(shifts: Shift[], year: number, month: number): Shi
     .sort((a, b) => b.start.localeCompare(a.start));
 }
 
-export type PlaceTotal = { place: Workplace | undefined; workplaceId: string; minutes: number; shifts: number; pay?: number };
+export type PlaceTotal = { place: Workplace | undefined; workplaceId: string; minutes: number; shifts: number; rates: RateMinutes; pay?: number };
 
-export function monthTotals(shifts: Shift[], workplaces: Workplace[]): { minutes: number; pay: number; hasPay: boolean; byPlace: PlaceTotal[] } {
+export function monthTotals(
+  shifts: Shift[],
+  workplaces: Workplace[],
+): { minutes: number; pay: number; hasPay: boolean; rates: RateMinutes; byPlace: PlaceTotal[] } {
   const map = new Map<string, PlaceTotal>();
   for (const s of shifts) {
-    const cur = map.get(s.workplaceId) ?? { place: workplaces.find((w) => w.id === s.workplaceId), workplaceId: s.workplaceId, minutes: 0, shifts: 0 };
+    const place = workplaces.find((w) => w.id === s.workplaceId);
+    const cur = map.get(s.workplaceId) ?? { place, workplaceId: s.workplaceId, minutes: 0, shifts: 0, rates: {} };
     cur.minutes += shiftMinutes(s);
     cur.shifts += 1;
+    cur.rates = addRates(cur.rates, shiftRates(s, place));
     map.set(s.workplaceId, cur);
   }
-  const byPlace = [...map.values()].map((p) => ({ ...p, pay: p.place?.wage ? (p.minutes / 60) * p.place.wage : undefined })).sort((a, b) => b.minutes - a.minutes);
+  const byPlace = [...map.values()].map((p) => ({ ...p, pay: p.place?.wage ? ratesPay(p.rates, p.place.wage) : undefined })).sort((a, b) => b.minutes - a.minutes);
   return {
     minutes: byPlace.reduce((a, p) => a + p.minutes, 0),
     pay: byPlace.reduce((a, p) => a + (p.pay ?? 0), 0),
     hasPay: byPlace.some((p) => p.pay !== undefined),
+    rates: byPlace.reduce((a, p) => addRates(a, p.rates), {} as RateMinutes),
     byPlace,
   };
 }
@@ -79,9 +85,13 @@ export function monthReportText(name: string, year: number, month: number, shift
     const placeShifts = list.filter((s) => s.workplaceId === p.workplaceId).sort((a, b) => a.start.localeCompare(b.start));
     for (const s of placeShifts) {
       const br = s.breakMin ? ` (${t('הפסקה {n} דק׳', { n: s.breakMin })})` : '';
-      lines.push(`• ${formatShortDate(s.start)}  ${timeRange(s.start, s.end)}  = ${fmtHM(shiftMinutes(s))}${br}${s.note ? ` — ${s.note}` : ''}`);
+      const r = shiftRates(s, p.place);
+      const tags = [overtimeMinutes(r) ? t('נוספות {h}', { h: fmtHM(overtimeMinutes(r)) }) : '', shabbatMinutes(r) ? (s.holiday ? t('חג') : t('שבת')) : ''].filter(Boolean).join(', ');
+      lines.push(`• ${formatShortDate(s.start)}  ${timeRange(s.start, s.end)}  = ${fmtHM(shiftMinutes(s))}${br}${tags ? ` [${tags}]` : ''}${s.note ? ` — ${s.note}` : ''}`);
     }
-    lines.push(t('סה״כ: {h} שעות ב-{n} משמרות', { h: fmtHM(p.minutes), n: p.shifts }) + (p.pay !== undefined ? ` · ${t('שכר משוער: {pay}', { pay: money(p.pay) })}` : ''));
+    lines.push(t('סה״כ: {h} שעות ב-{n} משמרות', { h: fmtHM(p.minutes), n: p.shifts }));
+    for (const [k, m] of sortedRates(p.rates)) lines.push(`   ${rateLabel(k)}: ${fmtHM(m)}`);
+    if (p.pay !== undefined) lines.push(t('שכר משוער: {pay}', { pay: money(p.pay) }));
   }
   if (totals.byPlace.length > 1) {
     lines.push('');
@@ -90,4 +100,73 @@ export function monthReportText(name: string, year: number, month: number, shift
   lines.push('');
   lines.push(t('— נוצר באפליקציית "היומן שלי"'));
   return lines.filter((l, i) => l !== '' || lines[i - 1] !== '').join('\n');
+}
+
+// ---- Overtime and Shabbat premium ----
+
+export const DEFAULT_OVERTIME = { enabled: true, after: 8 };
+export const DEFAULT_SHABBAT = { enabled: true, rate: 150, friFrom: 17, satUntil: 19 };
+
+/** Worked minutes by kind and rate, e.g. { "reg:100": 480, "ot:125": 60, "sh:150": 120, "shot:175": 30 }. */
+export type RateMinutes = Record<string, number>;
+
+const rateOf = (key: string) => +key.split(':')[1];
+
+function isShabbat(d: Date, sh: typeof DEFAULT_SHABBAT): boolean {
+  const day = d.getDay();
+  const h = d.getHours() + d.getMinutes() / 60;
+  return (day === 5 && h >= sh.friFrom) || (day === 6 && h < sh.satUntil);
+}
+
+/**
+ * Splits a shift's worked minutes by pay rate. The break is taken out of the middle of the shift.
+ * Rate = (Shabbat/holiday ? Shabbat rate : 100) + (first 2 overtime hours ? 25 : later overtime ? 50 : 0),
+ * which gives the usual 125/150 on weekdays and 175/200 on Shabbat.
+ */
+export function shiftRates(s: Shift, place?: Workplace): RateMinutes {
+  const ot = place?.overtime ?? DEFAULT_OVERTIME;
+  const sh = place?.shabbat ?? DEFAULT_SHABBAT;
+  const start = new Date(s.start).getTime();
+  const span = Math.max(0, Math.round((new Date(s.end).getTime() - start) / 60000));
+  const brk = Math.min(s.breakMin ?? 0, span);
+  const breakFrom = Math.floor((span - brk) / 2);
+  const out: RateMinutes = {};
+  let worked = 0;
+  for (let i = 0; i < span; i++) {
+    if (i >= breakFrom && i < breakFrom + brk) continue;
+    worked++;
+    const special = !!s.holiday || (sh.enabled && isShabbat(new Date(start + i * 60000), sh));
+    const over = ot.enabled ? worked - ot.after * 60 : -1;
+    const extra = over <= 0 ? 0 : over <= 120 ? 25 : 50;
+    const key = `${special ? (extra ? 'shot' : 'sh') : extra ? 'ot' : 'reg'}:${(special ? sh.rate : 100) + extra}`;
+    out[key] = (out[key] ?? 0) + 1;
+  }
+  return out;
+}
+
+export function addRates(a: RateMinutes, b: RateMinutes): RateMinutes {
+  const out = { ...a };
+  for (const [k, m] of Object.entries(b)) out[k] = (out[k] ?? 0) + m;
+  return out;
+}
+
+/** Pay for minutes at rates, given an hourly wage. */
+export const ratesPay = (r: RateMinutes, wage: number) => Object.entries(r).reduce((a, [k, m]) => a + (m / 60) * wage * (rateOf(k) / 100), 0);
+
+export const overtimeMinutes = (r: RateMinutes) => Object.entries(r).reduce((a, [k, m]) => a + (k.startsWith('ot') || k.startsWith('shot') ? m : 0), 0);
+export const shabbatMinutes = (r: RateMinutes) => Object.entries(r).reduce((a, [k, m]) => a + (k.startsWith('sh') ? m : 0), 0);
+
+const ORDER = ['reg', 'ot', 'sh', 'shot'];
+/** Buckets in a stable order: regular, overtime, Shabbat, Shabbat overtime. */
+export const sortedRates = (r: RateMinutes) =>
+  Object.entries(r)
+    .filter(([, m]) => m > 0)
+    .sort(([a], [b]) => ORDER.indexOf(a.split(':')[0]) - ORDER.indexOf(b.split(':')[0]) || rateOf(a) - rateOf(b));
+
+export function rateLabel(key: string): string {
+  const [kind, r] = key.split(':');
+  if (kind === 'reg') return t('רגילות {r}%', { r });
+  if (kind === 'ot') return t('נוספות {r}%', { r });
+  if (kind === 'sh') return t('שבת/חג {r}%', { r });
+  return t('שבת + נוספות {r}%', { r });
 }
