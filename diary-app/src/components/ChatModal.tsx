@@ -4,6 +4,8 @@ import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, ScrollVie
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { detectCrisis } from '../lib/vent';
 import CrisisCard from './CrisisCard';
+import DictateButton from './DictateButton';
+import { dueFollowUps, followUpQuestion } from '../lib/followups';
 import { AiConfig, aiChat, aiReady, aiSummarize, buildProfile, EMPTY_AI, loadAiConfig } from '../lib/ai';
 import { persistRecording } from '../lib/audio';
 import {
@@ -22,7 +24,7 @@ import {
 } from '../lib/interviewer';
 import { extractQuotes, findKnownPeople, suggestNewNames } from '../lib/names';
 import { scheduleMorningRecap, scheduleTomorrowReminder } from '../lib/notifications';
-import { newId, useStore } from '../lib/store';
+import { newId, personName, useStore } from '../lib/store';
 import { colors, gradients, layout, MOODS, rtl } from '../lib/theme';
 import type { ChatMessage, Entry, Person } from '../lib/types';
 import { Chip, GhostButton, GradientButton, notify, Row, T, tap } from './ui';
@@ -50,7 +52,7 @@ type Draft = {
 export const BOT_NAME = 'יומי';
 
 export default function ChatModal({ visible, recording, onClose, onSaved }: Props) {
-  const { people, entries, settings, profile: me, addPerson, updatePerson, saveEntry } = useStore();
+  const { people, entries, settings, profile: me, addPerson, updatePerson, saveEntry, followUps, saveFollowUp, goals } = useStore();
   const [ai, setAi] = useState<AiConfig>(EMPTY_AI);
   const [useAi, setUseAi] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -63,7 +65,16 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
   const scroll = useRef<ScrollViewInstance>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const profile = () => buildProfile(settings.userName, people, entries, me);
+  const profile = () => {
+    const p = buildProfile(settings.userName, people, entries, me);
+    // Let Yomi ask about news people shared and about the user's goals
+    const pending = dueFollowUps(followUps).slice(0, 3).map((f) => `${personName(people, f.personId)}: "${f.text}"`);
+    const extra = [
+      pending.length ? `Things people told the user that are worth asking about now: ${pending.join('; ')}` : '',
+      goals.some((g) => !g.done) ? `The user's goals: ${goals.filter((g) => !g.done).map((g) => g.title).join(', ')}` : '',
+    ].filter(Boolean);
+    return extra.length ? { ...p, about: [p.about, ...extra].filter(Boolean).join('\n') } : p;
+  };
   const say = (text: string) => setMessages((m) => [...m, { from: 'bot', text }]);
 
   /** Offline mode: say an optional reaction, then the next scripted question (or finish). */
@@ -96,6 +107,12 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
       const on = aiReady(c, 'diary');
       setUseAi(on);
       const first = openingQuestion(settings.userName || undefined);
+      // A friend remembers: ask about something a person shared a few days ago
+      const fu = dueFollowUps(followUps)[0];
+      if (fu && !on) {
+        first.text += `\n\n${t('ודרך אגב, {q}', { q: followUpQuestion(fu, personName(people, fu.personId)) })}`;
+        saveFollowUp({ ...fu, done: true });
+      }
       if (on) {
         say(first.text);
       } else {
@@ -317,7 +334,7 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
                 <TextInput
                   value={input}
                   onChangeText={setInput}
-                  placeholder={t('כתוב או הכתב בקול עם 🎤 במקלדת…')}
+                  placeholder={t('כתוב, או לחץ על המיקרופון ודבר…')}
                   placeholderTextColor={colors.textMute}
                   multiline
                   style={{
@@ -333,6 +350,7 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
                     ...rtl,
                   }}
                 />
+                <DictateButton size={19} onText={(said) => setInput((cur) => (cur.trim() ? `${cur.trim()} ${said}` : said))} />
                 <Pressable
                   accessibilityLabel={t('שלח')}
                   onPress={() => send(input)}

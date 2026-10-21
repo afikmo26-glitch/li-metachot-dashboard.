@@ -12,6 +12,11 @@ import { scheduleMorningRecap } from '../lib/notifications';
 import { newId, personName, useStore } from '../lib/store';
 import { circleEmoji, circleOf } from '../lib/circles';
 import RecapModal, { recentEntries } from '../components/RecapModal';
+import DayExtras, { EMPTY_EXTRAS, Extras } from '../components/DayExtras';
+import DictateButton from '../components/DictateButton';
+import ForYou from '../components/ForYou';
+import GoalsModal from '../components/GoalsModal';
+import PhotoTimeline from '../components/PhotoTimeline';
 import { colors, gradients, layout, MOOD_LABELS, MOODS } from '../lib/theme';
 import type { Entry } from '../lib/types';
 import { t } from '../i18n';
@@ -25,6 +30,11 @@ export default function TodayScreen({ onOpenSettings, onOpenEntry, onOpenIntro }
   const [recording, setRecording] = useState<PendingRecording | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [recapOpen, setRecapOpen] = useState(false);
+  const [goalsOpen, setGoalsOpen] = useState(false);
+  const [photosOpen, setPhotosOpen] = useState(false);
+  const [extras, setExtras] = useState<Extras>(EMPTY_EXTRAS);
+  const [draftId, setDraftId] = useState(newId);
+  const [interim, setInterim] = useState('');
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const [manual, setManual] = useState<string[]>([]);
   const [newName, setNewName] = useState('');
@@ -50,16 +60,6 @@ export default function TodayScreen({ onOpenSettings, onOpenEntry, onOpenIntro }
     });
   }, [events, todayKey]);
 
-  /** A past entry from this calendar day (a month / year ago), or a random older one. */
-  const memory = useMemo(() => {
-    const now = new Date();
-    const past = entries.filter((e) => dayKey(e.createdAt) !== todayKey);
-    if (!past.length) return null;
-    const sameDay = past.find((e) => new Date(e.createdAt).getDate() === now.getDate());
-    if (sameDay) return sameDay;
-    return past[now.getDate() % past.length];
-  }, [entries, todayKey]);
-
   const addManual = (name: string) => {
     if (!name.trim()) return;
     const p = addPerson(name);
@@ -83,12 +83,13 @@ export default function TodayScreen({ onOpenSettings, onOpenEntry, onOpenIntro }
   };
 
   const save = async () => {
-    if (!text.trim() && !recording) {
+    if (!text.trim() && !recording && !extras.photoUri) {
       Alert.alert(t('עוד רגע…'), t('הקלט או כתוב משהו על היום שלך לפני השמירה 🙂'));
       return;
     }
     Keyboard.dismiss();
-    const id = newId();
+    const id = draftId;
+    const gratitude = extras.gratitude.map((g) => g.trim()).filter(Boolean);
     const audioUri = recording ? await persistRecording(recording.uri, id) : undefined;
     const entry: Entry = {
       id,
@@ -99,6 +100,10 @@ export default function TodayScreen({ onOpenSettings, onOpenEntry, onOpenIntro }
       mood,
       people: tagged,
       quotes,
+      ...(extras.photoUri ? { photoUri: extras.photoUri } : {}),
+      ...(gratitude.length ? { gratitude } : {}),
+      ...(extras.sleep !== undefined ? { sleep: extras.sleep } : {}),
+      ...(extras.workout !== undefined ? { workout: extras.workout } : {}),
     };
     saveEntry(entry);
     scheduleMorningRecap(settings, entry, people).catch(() => {});
@@ -108,6 +113,8 @@ export default function TodayScreen({ onOpenSettings, onOpenEntry, onOpenIntro }
     setRecording(null);
     setExcluded(new Set());
     setManual([]);
+    setExtras(EMPTY_EXTRAS);
+    setDraftId(newId());
     Alert.alert(
       t('נשמר בארכיון ✨'),
       `${formatLongDate(entry.createdAt)}\n${t('בשעה {time}', { time: formatTimeSeconds(entry.createdAt) })}${
@@ -221,13 +228,18 @@ export default function TodayScreen({ onOpenSettings, onOpenEntry, onOpenIntro }
           }}
         />
 
-        <Input
-          multiline
-          value={text}
-          onChangeText={setText}
-          placeholder={t('ספר מה קרה היום, מי פגשת ומה אמרו לך… (טיפ: לחץ על 🎤 במקלדת כדי להכתיב בקול)')}
-          style={{ minHeight: 120, textAlignVertical: 'top', marginTop: 10, lineHeight: 22 }}
-        />
+        <View>
+          <Input
+            multiline
+            value={interim ? `${text}${text ? ' ' : ''}${interim}` : text}
+            onChangeText={setText}
+            placeholder={t('ספר מה קרה היום, מי פגשת ומה אמרו לך… או לחץ על המיקרופון ודבר')}
+            style={{ minHeight: 120, textAlignVertical: 'top', marginTop: 10, lineHeight: 22, paddingBottom: 52 }}
+          />
+          <View style={{ position: 'absolute', bottom: 8, [layout.isRTL ? 'left' : 'right']: 8 }}>
+            <DictateButton onText={(said) => setText((cur) => (cur.trim() ? `${cur.trim()} ${said}` : said))} onInterim={setInterim} />
+          </View>
+        </View>
 
         <T bold style={{ marginTop: 16, marginBottom: 8 }}>
           {t('מצב רוח: {mood}', { mood: t(MOOD_LABELS[mood - 1]) })}
@@ -252,6 +264,8 @@ export default function TodayScreen({ onOpenSettings, onOpenEntry, onOpenIntro }
             </Pressable>
           ))}
         </Row>
+
+        <DayExtras value={extras} onChange={setExtras} entryId={draftId} />
 
         <T bold style={{ marginTop: 16, marginBottom: 8 }}>
           {t('💞 מי היה איתך היום?')}
@@ -304,26 +318,10 @@ export default function TodayScreen({ onOpenSettings, onOpenEntry, onOpenIntro }
         </>
       )}
 
-      {memory && (
-        <>
-          <SectionTitle>{t('🕰️ זוכר את זה?')}</SectionTitle>
-          <Pressable onPress={() => onOpenEntry(memory.id)}>
-            <Card style={{ borderColor: colors.primary }}>
-              <T dim size={13}>
-                {formatShortDate(memory.createdAt)} · {MOODS[memory.mood - 1]}
-              </T>
-              <T style={{ marginTop: 6, lineHeight: 22 }} numberOfLines={4}>
-                {memory.text || t('🎙️ הקלטה קולית')}
-              </T>
-              {memory.people.length > 0 && (
-                <T dim size={13} style={{ marginTop: 6 }}>
-                  {memory.people.map((p) => `${circleEmoji(people.find((x) => x.id === p))} ${personName(people, p)}`).join('  ')}
-                </T>
-              )}
-            </Card>
-          </Pressable>
-        </>
-      )}
+      <ForYou onOpenEntry={onOpenEntry} onOpenGoals={() => setGoalsOpen(true)} onOpenPhotos={() => setPhotosOpen(true)} />
+
+      <GoalsModal visible={goalsOpen} onClose={() => setGoalsOpen(false)} />
+      <PhotoTimeline visible={photosOpen} onClose={() => setPhotosOpen(false)} onOpenEntry={onOpenEntry} />
       <RecapModal visible={recapOpen} onClose={() => setRecapOpen(false)} />
       <ChatModal
         visible={chatOpen}
@@ -409,6 +407,7 @@ export function MiniEntry({ entry, onPress }: { entry: Entry; onPress: () => voi
             🕐 {formatTimeSeconds(entry.createdAt)}
           </T>
           <Text style={{ fontSize: 20 }}>
+            {entry.photoUri ? '📸 ' : ''}
             {entry.audioUri ? '🎙️ ' : ''}
             {MOODS[entry.mood - 1]}
           </Text>

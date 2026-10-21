@@ -15,6 +15,37 @@ export type Entry = {
   quotes: Quote[];
   /** The conversation with the diary bot, when the entry was made by chatting */
   chat?: ChatMessage[];
+  /** Optional photo of the day (a copy inside the app's folder) */
+  photoUri?: string;
+  /** "Three good things" from today */
+  gratitude?: string[];
+  /** Hours slept last night */
+  sleep?: number;
+  /** Worked out today */
+  workout?: boolean;
+};
+
+/** Something a person said that is worth asking about later ("Dana has a job interview"). */
+export type FollowUp = {
+  id: string;
+  personId: string;
+  /** What they said, as saved in the entry */
+  text: string;
+  /** Short topic key used to phrase the question, e.g. 'interview' */
+  topic: string;
+  createdAt: string;
+  /** When to ask about it */
+  due: string;
+  done?: boolean;
+};
+
+/** A personal goal with weekly check-ins. */
+export type Goal = {
+  id: string;
+  title: string;
+  createdAt: string;
+  checkins: { at: string; progress: number }[];
+  done?: boolean;
 };
 
 export type ChatMessage = { from: 'bot' | 'me'; text: string };
@@ -28,6 +59,11 @@ export type Person = {
   firstSeen: string; // ISO
   note?: string;
   circle?: Circle;
+  /** "MM-DD" */
+  birthday?: string;
+  /** What they like: hobbies, food, brands… (gift ideas come from here) */
+  likes?: string;
+  gifts?: string[];
 };
 
 /** What the user shared in the first-run "getting to know you" questions. */
@@ -63,6 +99,8 @@ export type Settings = {
   bedtimeMinute: number;
   morningRecapEnabled: boolean;
   morningHour: number;
+  /** Daily reminder to add a photo of the day; off unless the user turns it on */
+  photoReminder: boolean;
 };
 
 export type GameStats = {
@@ -72,6 +110,8 @@ export type GameStats = {
   gamesPlayed: number;
   totalCorrect: number;
   totalAnswered: number;
+  /** Weekly challenges already rewarded, as "weekKey:challengeId" */
+  challengesDone?: string[];
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -81,6 +121,7 @@ export const DEFAULT_SETTINGS: Settings = {
   bedtimeMinute: 30,
   morningRecapEnabled: true,
   morningHour: 8,
+  photoReminder: false,
 };
 
 export const DEFAULT_GAME_STATS: GameStats = {

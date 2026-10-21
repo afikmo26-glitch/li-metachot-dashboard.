@@ -217,9 +217,30 @@ function PersonModal({ stats, onClose, onOpenEntry }: { stats: PersonStats; onCl
   const [name, setName] = useState(person.name);
   const [note, setNote] = useState(person.note ?? '');
   const [circle, setCircle] = useState<Circle | undefined>(circleOf(person));
+  const [bday, setBday] = useState(person.birthday ? person.birthday.split('-').reverse().join('/') : '');
+  const [likes, setLikes] = useState(person.likes ?? '');
+  const [gifts, setGifts] = useState<string[]>(person.gifts ?? []);
+  const [gift, setGift] = useState('');
+
+  // "DD/MM" (as typed) ↔ "MM-DD" (as stored)
+  const parsedBday = (() => {
+    const m = bday.trim().match(/^(\d{1,2})[/.\-](\d{1,2})/);
+    if (!m) return undefined;
+    const d = +m[1], mo = +m[2];
+    return d >= 1 && d <= 31 && mo >= 1 && mo <= 12 ? `${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}` : undefined;
+  })();
 
   const save = () => {
-    if (name.trim()) updatePerson({ ...person, name: name.trim(), note: note.trim() || undefined, circle });
+    if (name.trim())
+      updatePerson({
+        ...person,
+        name: name.trim(),
+        note: note.trim() || undefined,
+        circle,
+        birthday: parsedBday,
+        likes: likes.trim() || undefined,
+        gifts: gifts.length ? gifts : undefined,
+      });
     onClose();
   };
 
@@ -251,6 +272,32 @@ function PersonModal({ stats, onClose, onOpenEntry }: { stats: PersonStats; onCl
             ))}
           </Row>
           <Input value={note} onChangeText={setNote} placeholder={t('מי זה? (חבר מהעבודה, בן דוד…)')} style={{ marginTop: 8 }} multiline />
+
+          <SectionTitle>{t('🎂 יום הולדת ומתנות')}</SectionTitle>
+          <Input value={bday} onChangeText={setBday} placeholder={t('יום הולדת (יום/חודש, למשל 14/3)')} keyboardType="numbers-and-punctuation" />
+          {bday.trim() !== '' && !parsedBday && (
+            <T size={12} style={{ color: colors.red, marginTop: 4 }}>
+              {t('כתוב יום/חודש, למשל 14/3')}
+            </T>
+          )}
+          <Input value={likes} onChangeText={setLikes} placeholder={t('מה {name} אוהב/ת? (תחביבים, אוכל, מותגים…)', { name: person.name })} style={{ marginTop: 8 }} multiline />
+          <Row style={{ gap: 8, marginTop: 8, alignItems: 'center' }}>
+            <Input value={gift} onChangeText={setGift} placeholder={t('רעיון למתנה…')} style={{ flex: 1, minWidth: 0 }} />
+            <GradientButton
+              small
+              title={t('הוסף')}
+              colors={gradients.calm}
+              onPress={() => {
+                if (gift.trim()) setGifts([...gifts, gift.trim()]);
+                setGift('');
+              }}
+            />
+          </Row>
+          <Row style={{ flexWrap: 'wrap', marginTop: 8 }}>
+            {gifts.map((g) => (
+              <Chip key={g} label={`🎁 ${g} ✕`} onPress={() => setGifts(gifts.filter((x) => x !== g))} />
+            ))}
+          </Row>
 
           {quotes.length > 0 && (
             <>

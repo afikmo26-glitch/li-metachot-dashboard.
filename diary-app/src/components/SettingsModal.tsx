@@ -6,10 +6,13 @@ import { AiConfig, aiTest, EMPTY_AI, loadAiConfig, saveAiConfig } from '../lib/a
 import { biometricAvailable, biometricLabel, biometricUnlock } from '../lib/biometric';
 import { maskContact, normalizeContact } from '../lib/recovery';
 import { pad } from '../lib/dates';
-import { scheduleBedtime, scheduleMorningRecap, sendTestNotification } from '../lib/notifications';
+import { scheduleBedtime, scheduleMorningRecap, schedulePhotoReminder, sendTestNotification } from '../lib/notifications';
 import { useStore } from '../lib/store';
 import { usePrefs } from '../lib/prefs';
-import { colors, gradients, ThemeName, THEMES } from '../lib/theme';
+import { colors, gradients, THEME_UNLOCK, ThemeName, THEMES } from '../lib/theme';
+import { levelInfo } from '../lib/game';
+import { exportBackup, importBackup, MIN_BACKUP_PASSWORD } from '../lib/backup';
+import { shareYearBook } from '../lib/yearbook';
 import type { Settings } from '../lib/types';
 import { Card, Chip, GhostButton, GradientButton, Input, Row, SectionTitle, T, tap } from './ui';
 import { LANGS, t } from '../i18n';
@@ -31,6 +34,7 @@ export default function SettingsModal({ visible, onClose, account, onAccountChan
     updateSettings(draft);
     await scheduleBedtime(draft).catch(() => {});
     await scheduleMorningRecap(draft, entries[0], people).catch(() => {});
+    await schedulePhotoReminder(draft).catch(() => {});
     onClose();
   };
 
@@ -106,7 +110,21 @@ export default function SettingsModal({ visible, onClose, account, onAccountChan
             )}
           </Card>
 
+          <SectionTitle>{t('📸 תמונה יומית')}</SectionTitle>
+          <Card>
+            <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+              <T style={{ flex: 1 }}>{t('תזכורת בערב לצרף תמונה של היום (לא חובה)')}</T>
+              <Switch value={!!draft.photoReminder} onValueChange={(photoReminder) => setDraft({ ...draft, photoReminder })} trackColor={{ true: colors.primary, false: colors.border }} />
+            </Row>
+          </Card>
+
           <GradientButton title={t('שמור הגדרות')} icon="💾" colors={gradients.primary} onPress={save} style={{ marginTop: 24 }} />
+
+          <SectionTitle>{t('💾 גיבוי וספר השנה')}</SectionTitle>
+          <BackupCard />
+
+          <SectionTitle>{t('💎 פרימיום')}</SectionTitle>
+          <PremiumCard />
           <GhostButton
             title={t('🔔 שלח התראת ניסיון')}
             style={{ marginTop: 10 }}
@@ -126,6 +144,8 @@ export default function SettingsModal({ visible, onClose, account, onAccountChan
 
 function DisplayCard() {
   const { prefs, setPrefs } = usePrefs();
+  const { game } = useStore();
+  const level = levelInfo(game.xp).level;
   return (
     <Card>
       <T bold size={14} style={{ marginBottom: 8 }}>
@@ -143,8 +163,19 @@ function DisplayCard() {
         {(Object.keys(THEMES) as ThemeName[]).map((name) => {
           const th = THEMES[name];
           const active = prefs.theme === name;
+          const need = THEME_UNLOCK[name] ?? 1;
+          const locked = level < need;
           return (
-            <Pressable key={name} onPress={() => setPrefs({ theme: name }, true)} style={{ alignItems: 'center', width: 64 }} accessibilityLabel={t(th.label)}>
+            <Pressable
+              key={name}
+              onPress={() =>
+                locked
+                  ? Alert.alert(t('🔒 נפתח ברמה {n}', { n: need }), t('שחק במשחק הזיכרון ועשה את האתגרים השבועיים כדי לעלות רמה'))
+                  : setPrefs({ theme: name }, true)
+              }
+              style={{ alignItems: 'center', width: 64, opacity: locked ? 0.45 : 1 }}
+              accessibilityLabel={t(th.label)}
+            >
               <View
                 style={{
                   width: 46,
@@ -157,7 +188,11 @@ function DisplayCard() {
                   justifyContent: 'center',
                 }}
               >
-                <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: th.swatch === th.palette.bg ? th.palette.primary : th.swatch }} />
+                {locked ? (
+                  <T size={18}>🔒</T>
+                ) : (
+                  <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: th.swatch === th.palette.bg ? th.palette.primary : th.swatch }} />
+                )}
               </View>
               <T size={11} bold={active} style={{ textAlign: 'center', marginTop: 4 }}>
                 {t(th.label)}
@@ -436,3 +471,95 @@ function Stepper({ onUp, onDown }: { onUp: () => void; onDown: () => void }) {
     </View>
   );
 }
+
+/** Encrypted backup file (export / restore) and the printable year book. */
+function BackupCard() {
+  const store = useStore();
+  const [pass, setPass] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const year = new Date().getFullYear();
+
+  const run = async (fn: () => Promise<void>) => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      await fn();
+    } catch (e) {
+      setMsg({ text: e instanceof Error ? e.message : t('שגיאה'), ok: false });
+    }
+    setBusy(false);
+  };
+
+  const doExport = () =>
+    run(async () => {
+      if (pass.length < MIN_BACKUP_PASSWORD) throw new Error(t('סיסמת גיבוי של לפחות {n} תווים', { n: MIN_BACKUP_PASSWORD }));
+      const { entries, people, events, settings, game, profile, followUps, goals } = store;
+      await exportBackup({ entries, people, events, settings, game, profile, followUps, goals }, pass);
+      setMsg({ text: t('הגיבוי נוצר ✓ שמור אותו במקום בטוח, ואל תשכח את הסיסמה'), ok: true });
+    });
+
+  const doImport = () =>
+    run(async () => {
+      if (!pass) throw new Error(t('כתוב את סיסמת הגיבוי'));
+      const data = await importBackup(pass);
+      if (!data) return;
+      Alert.alert(t('לשחזר את הגיבוי?'), t('{n} רשומות. כל מה שיש עכשיו באפליקציה יוחלף.', { n: data.entries.length }), [
+        { text: t('ביטול'), style: 'cancel' },
+        {
+          text: t('שחזר'),
+          onPress: () => {
+            store.restoreAll(data);
+            setMsg({ text: t('השחזור הושלם ✓'), ok: true });
+          },
+        },
+      ]);
+    });
+
+  return (
+    <Card>
+      <T dim size={14} style={{ lineHeight: 20 }}>
+        {t('קובץ גיבוי מוצפן של כל היומן. אפשר לשמור אותו בדרייב, במייל או לשלוח לעצמך, ולשחזר בטלפון חדש. תמונות והקלטות לא נכללות.')}
+      </T>
+      <Input value={pass} onChangeText={setPass} placeholder={t('סיסמת גיבוי')} secureTextEntry style={{ marginTop: 10 }} />
+      <Row style={{ gap: 10, marginTop: 10 }}>
+        <GhostButton title={busy ? t('רגע…') : t('⬆️ צור גיבוי')} onPress={doExport} style={{ flex: 1 }} />
+        <GhostButton title={t('⬇️ שחזר מגיבוי')} onPress={doImport} style={{ flex: 1 }} />
+      </Row>
+      {msg && (
+        <T size={14} style={{ marginTop: 8, color: msg.ok ? colors.green : colors.red }}>
+          {msg.text}
+        </T>
+      )}
+      <GradientButton
+        title={t('📖 ספר השנה שלי {year} (PDF)', { year })}
+        colors={gradients.calm}
+        style={{ marginTop: 14 }}
+        onPress={() => run(() => shareYearBook(year, store.entries, store.people, store.settings.userName))}
+      />
+      <T dim size={12} style={{ marginTop: 6, lineHeight: 18 }}>
+        {t('כל הימים, האנשים והתמונות של השנה, מוכן להדפסה או לשליחה')}
+      </T>
+    </Card>
+  );
+}
+
+function PremiumCard() {
+  const perks = ['✨ צ׳אט AI מלא עם יומי', '☁️ גיבוי אוטומטי בענן', '📖 ספר שנה מודפס בהנחה', '🎨 כל ערכות הצבע', '📊 תובנות מתקדמות'];
+  return (
+    <Card style={{ borderColor: colors.yellow }}>
+      <T bold size={17}>
+        {t('💎 היומן שלי פרימיום — בקרוב')}
+      </T>
+      {perks.map((p) => (
+        <T key={p} dim size={14} style={{ marginTop: 4 }}>
+          {t(p)}
+        </T>
+      ))}
+      <T dim size={12} style={{ marginTop: 8 }}>
+        {t('כל מה שיש עכשיו באפליקציה נשאר חינמי')}
+      </T>
+    </Card>
+  );
+}
+

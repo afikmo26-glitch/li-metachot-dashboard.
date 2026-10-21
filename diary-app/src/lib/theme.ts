@@ -138,3 +138,6 @@ export function applyDirection(isRTL: boolean) {
   layout.row = isRTL ? 'row-reverse' : 'row';
   layout.flip = isRTL ? -1 : 1;
 }
+
+/** Game level needed to use each theme; the rest are free. */
+export const THEME_UNLOCK: Partial<Record<ThemeName, number>> = { sunset: 2, forest: 3, rose: 4 };

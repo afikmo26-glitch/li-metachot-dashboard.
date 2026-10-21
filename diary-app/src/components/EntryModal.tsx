@@ -1,8 +1,9 @@
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import React, { useEffect, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Image, Modal, Pressable, ScrollView, Share, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { deleteRecording } from '../lib/audio';
+import { deletePhoto } from '../lib/photos';
 import { formatDuration, formatLongDate, formatTimeSeconds } from '../lib/dates';
 import { extractQuotes, findKnownPeople } from '../lib/names';
 import { personName, useStore } from '../lib/store';
@@ -32,11 +33,25 @@ export default function EntryModal({ entryId, onClose }: { entryId: string | nul
         style: 'destructive',
         onPress: () => {
           deleteRecording(entry.audioUri);
+          deletePhoto(entry.photoUri);
           deleteEntry(entry.id);
           onClose();
         },
       },
     ]);
+
+  // A memory as a short message for whoever was there
+  const share = () => {
+    const names = entry.people.map((p) => personName(people, p)).join(', ');
+    const lines = [
+      `📔 ${formatLongDate(entry.createdAt)} ${MOODS[entry.mood - 1]}`,
+      entry.text,
+      ...entry.quotes.map((q) => `💬 ${personName(people, q.personId)}: "${q.text}"`),
+      names ? `💞 ${names}` : '',
+      t('— נשמר ב"היומן שלי"'),
+    ].filter(Boolean);
+    Share.share({ message: lines.join('\n') }).catch(() => {});
+  };
 
   const saveEdit = () => {
     const ids = [...new Set([...entry.people, ...findKnownPeople(draft, people)])];
@@ -64,7 +79,29 @@ export default function EntryModal({ entryId, onClose }: { entryId: string | nul
             🕐 {t('בשעה {time}', { time: formatTimeSeconds(entry.createdAt) })} · {t(MOOD_LABELS[entry.mood - 1])}
           </T>
 
+          {entry.photoUri ? <Image source={{ uri: entry.photoUri }} style={{ width: '100%', aspectRatio: 3 / 4, borderRadius: 18, marginTop: 14 }} /> : null}
+
           {entry.audioUri ? <AudioPlayerCard uri={entry.audioUri} durationMs={entry.durationMs} /> : null}
+
+          {(entry.sleep !== undefined || entry.workout !== undefined) && (
+            <Row style={{ gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+              {entry.sleep !== undefined && <Chip label={t('😴 {n} שעות שינה', { n: entry.sleep })} />}
+              {entry.workout !== undefined && <Chip label={entry.workout ? t('🏃 התאמנתי') : t('🛋️ יום מנוחה')} />}
+            </Row>
+          )}
+
+          {entry.gratitude?.length ? (
+            <Card style={{ marginTop: 12, borderColor: colors.green }}>
+              <T bold style={{ marginBottom: 6 }}>
+                {t('🙏 דברים טובים מהיום')}
+              </T>
+              {entry.gratitude.map((g, i) => (
+                <T key={i} dim style={{ marginBottom: 2 }}>
+                  • {g}
+                </T>
+              ))}
+            </Card>
+          ) : null}
 
           <Card style={{ marginTop: 14 }}>
             {editing ? (
@@ -141,7 +178,8 @@ export default function EntryModal({ entryId, onClose }: { entryId: string | nul
             </>
           )}
 
-          <GhostButton title={t('🗑️ מחק רשומה')} color={colors.red} onPress={remove} style={{ marginTop: 24, borderColor: colors.red }} />
+          <GhostButton title={t('📤 שתף את הזיכרון')} onPress={share} style={{ marginTop: 24 }} />
+          <GhostButton title={t('🗑️ מחק רשומה')} color={colors.red} onPress={remove} style={{ marginTop: 10, borderColor: colors.red }} />
         </ScrollView>
       </SafeAreaView>
     </Modal>

@@ -10,7 +10,7 @@ import SettingsModal from './src/components/SettingsModal';
 import { T, tap } from './src/components/ui';
 import { t } from './src/i18n';
 import { Account, loadAccount } from './src/lib/account';
-import { scheduleBedtime } from './src/lib/notifications';
+import { scheduleBedtime, schedulePhotoReminder } from './src/lib/notifications';
 import { PrefsProvider, usePrefs } from './src/lib/prefs';
 import { StoreProvider, useStore } from './src/lib/store';
 import { colors, gradients, layout } from './src/lib/theme';
@@ -52,7 +52,10 @@ function Root() {
 
   // Make sure the nightly reminder is scheduled (in the current language) once settings are loaded
   useEffect(() => {
-    if (ready) scheduleBedtime(settings).catch(() => {});
+    if (ready) {
+      scheduleBedtime(settings).catch(() => {});
+      schedulePhotoReminder(settings).catch(() => {});
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, version]);
 

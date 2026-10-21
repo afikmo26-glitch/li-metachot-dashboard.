@@ -3,37 +3,41 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, ScrollView, Text, View } from 'react-native';
 import { Card, GhostButton, GradientButton, notify, Row, T, tap } from '../components/ui';
 import { achievements } from '../lib/achievements';
-import { buildQuestions, demoData, levelInfo, Question, QUESTION_SECONDS, ROUND_SIZE } from '../lib/game';
+import { buildFriendQuiz, buildQuestions, demoData, levelInfo, Question, QUESTION_SECONDS, ROUND_SIZE } from '../lib/game';
+import { newlyCompleted, weekKey, weeklyChallenges } from '../lib/insights';
 import { play } from '../lib/sound';
 import { useStore } from '../lib/store';
 import { colors, gradients, layout } from '../lib/theme';
 import { t } from '../i18n';
 
 type Phase = 'menu' | 'playing' | 'result';
-type Result = { score: number; correct: number; total: number; bestCombo: number; xp: number; demo: boolean; newBest: boolean };
+type Mode = 'me' | 'demo' | 'friend';
+type Result = { score: number; correct: number; total: number; bestCombo: number; xp: number; mode: Mode; newBest: boolean };
 
 const MAX_LIVES = 3;
 
 export default function GameScreen() {
-  const { entries, people, game, updateGame } = useStore();
+  const { entries, people, game, updateGame, profile, settings } = useStore();
   const [phase, setPhase] = useState<Phase>('menu');
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [demo, setDemo] = useState(false);
+  const [mode, setMode] = useState<Mode>('me');
+  const demo = mode !== 'me';
+  const friendQs = useMemo(() => buildFriendQuiz(profile, people, entries, settings.userName).length, [profile, people, entries, settings.userName]);
   const [result, setResult] = useState<Result | null>(null);
 
   const available = useMemo(() => buildQuestions(entries, people).length, [entries, people]);
   const lvl = levelInfo(game.xp);
 
-  const start = (useDemo: boolean) => {
-    const src = useDemo ? demoData() : { entries, people };
-    const qs = buildQuestions(src.entries, src.people);
+  const start = (m: Mode) => {
+    const src = m === 'demo' ? demoData() : { entries, people };
+    const qs = m === 'friend' ? buildFriendQuiz(profile, people, entries, settings.userName) : buildQuestions(src.entries, src.people);
     if (!qs.length) return;
-    setDemo(useDemo);
+    setMode(m);
     setQuestions(qs);
     setPhase('playing');
   };
 
-  const finish = (r: Omit<Result, 'xp' | 'newBest' | 'demo'>) => {
+  const finish = (r: Omit<Result, 'xp' | 'newBest' | 'mode'>) => {
     const xp = demo ? 0 : Math.round(r.score / 10);
     const newBest = !demo && r.score > game.bestScore;
     if (!demo) {
@@ -47,7 +51,7 @@ export default function GameScreen() {
         totalAnswered: game.totalAnswered + r.total,
       });
     }
-    setResult({ ...r, xp, demo, newBest });
+    setResult({ ...r, xp, mode, newBest });
     setPhase('result');
   };
 
@@ -78,7 +82,11 @@ export default function GameScreen() {
           <BigStat label={t('נכונות')} value={`${result.correct}/${result.total}`} />
           <BigStat label={t('קומבו')} value={`x${result.bestCombo}`} />
         </Row>
-        {result.demo ? (
+        {result.mode === 'friend' ? (
+          <T bold size={20} style={{ textAlign: 'center', marginTop: 16, color: colors.pink }}>
+            {t('החבר/ה מכיר/ה אותך ב-{n}% 💞', { n: Math.round(acc * 100) })}
+          </T>
+        ) : result.mode === 'demo' ? (
           <T dim style={{ textAlign: 'center', marginTop: 16 }}>
             {t('זה היה משחק דמו 🙂 תקליט כמה ימים עם שמות והמשחק יהיה על החיים שלך!')}
           </T>
@@ -87,7 +95,7 @@ export default function GameScreen() {
             +{result.xp} XP
           </T>
         )}
-        <GradientButton title={t('שחק שוב')} icon="🔄" colors={gradients.game} onPress={() => start(result.demo)} style={{ marginTop: 24 }} />
+        <GradientButton title={t('שחק שוב')} icon="🔄" colors={gradients.game} onPress={() => start(result.mode)} style={{ marginTop: 24 }} />
         <GhostButton title={t('חזרה לתפריט')} onPress={() => setPhase('menu')} style={{ marginTop: 10 }} />
       </ScrollView>
     );
@@ -134,7 +142,7 @@ export default function GameScreen() {
           title={t('שחק! ({n} שאלות)', { n: Math.min(available, ROUND_SIZE) })}
           icon="▶️"
           colors={gradients.primary}
-          onPress={() => start(false)}
+          onPress={() => start('me')}
           style={{ marginTop: 18 }}
         />
       ) : (
@@ -145,7 +153,25 @@ export default function GameScreen() {
           </T>
         </Card>
       )}
-      <GhostButton title={t('🎲 נסה משחק דמו')} onPress={() => start(true)} style={{ marginTop: 10 }} />
+      <GhostButton title={t('🎲 נסה משחק דמו')} onPress={() => start('demo')} style={{ marginTop: 10 }} />
+
+      <Card style={{ marginTop: 18, borderColor: colors.pink }}>
+        <T bold size={17}>
+          {t('👫 מי מכיר אותי יותר?')}
+        </T>
+        <T dim size={14} style={{ marginTop: 6, lineHeight: 20 }}>
+          {t('תן/י את הטלפון לחבר/ה, והוא/היא יענו על שאלות עליך: מי במשפחה, איפה את/ה גר/ה, מה את/ה אוהב/ת…')}
+        </T>
+        {friendQs >= 3 ? (
+          <GradientButton title={t('התחל ({n} שאלות)', { n: friendQs })} icon="💞" colors={gradients.game} onPress={() => start('friend')} style={{ marginTop: 12 }} />
+        ) : (
+          <T dim size={13} style={{ marginTop: 8 }}>
+            {t('🔒 מלא/י את "ספר לי על עצמך" כדי לפתוח את המשחק הזה')}
+          </T>
+        )}
+      </Card>
+
+      <Challenges />
 
       <Badges />
 
@@ -154,11 +180,56 @@ export default function GameScreen() {
           {t('איך משחקים?')}
         </T>
         <T dim size={14} style={{ lineHeight: 22 }}>
-          {t('💬 מי אמר את המשפט?')}{'\n'}{t('🧩 השלם את השם החסר מהיומן')}{'\n'}{t('📅 את מי פגשת באותו יום?')}{'\n'}{t('⏳ מתי הזכרת מישהו לאחרונה?')}{'\n\n'}
+          {t('💬 מי אמר את המשפט?')}{'\n'}{t('✍️ השלם את המשפט שמישהו אמר')}{'\n'}{t('🧩 השלם את השם החסר מהיומן')}{'\n'}{t('📅 את מי פגשת באותו יום?')}{'\n'}{t('⏳ מתי הזכרת מישהו לאחרונה?')}{'\n\n'}
           {t('❤️ יש לך 3 חיים · ⚡ ענה מהר לבונוס · 🔥 תשובות ברצף מכפילות ניקוד')}
         </T>
       </Card>
     </ScrollView>
+  );
+}
+
+/** This week's challenges; finishing one pays XP once. */
+function Challenges() {
+  const { entries, people, game, updateGame } = useStore();
+  const list = useMemo(() => weeklyChallenges(entries, people), [entries, people]);
+
+  useEffect(() => {
+    const done = newlyCompleted(list, game);
+    if (!done.length) return;
+    const wk = weekKey();
+    updateGame({ xp: game.xp + done.reduce((a, c) => a + c.xp, 0), challengesDone: [...(game.challengesDone ?? []), ...done.map((c) => `${wk}:${c.id}`)] });
+    notify('success');
+    setTimeout(() => play('levelup', 0.6), 300);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [list]);
+
+  return (
+    <Card style={{ marginTop: 18 }}>
+      <Row style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <T bold>{t('🎯 האתגרים של השבוע')}</T>
+        <T dim size={12}>
+          {t('מתחדש כל יום ראשון')}
+        </T>
+      </Row>
+      {list.map((c) => {
+        const done = c.progress >= c.goal;
+        return (
+          <View key={c.id} style={{ marginBottom: 12 }}>
+            <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+              <T size={14} bold={done} style={{ flex: 1, color: done ? colors.green : colors.text }}>
+                {c.emoji} {c.title} {done ? '✓' : ''}
+              </T>
+              <T dim size={12}>
+                {c.progress}/{c.goal} · +{c.xp} XP
+              </T>
+            </Row>
+            <View style={{ height: 8, backgroundColor: colors.bgDeep, borderRadius: 4, marginTop: 6, overflow: 'hidden', transform: [{ scaleX: layout.flip }] }}>
+              <View style={{ width: `${(c.progress / c.goal) * 100}%`, height: '100%', backgroundColor: done ? colors.green : colors.primary, borderRadius: 4 }} />
+            </View>
+          </View>
+        );
+      })}
+    </Card>
   );
 }
 

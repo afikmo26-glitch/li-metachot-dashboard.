@@ -1,6 +1,7 @@
 import { dayKey, formatShortDate } from './dates';
 import { maskName, mentionsName, randomCommonNames } from './names';
-import type { Entry, Person } from './types';
+import { circleOf } from './circles';
+import type { Entry, Person, UserProfile } from './types';
 import { t } from '../i18n';
 
 export type Question = {
@@ -157,6 +158,29 @@ export function buildQuestions(entries: Entry[], people: Person[]): Question[] {
     });
   }
 
+  // 6. Complete the sentence someone said: one word is hidden
+  const quoteWords = entries.flatMap((e) => e.quotes.flatMap((q) => q.text.split(/\s+/))).map(cleanWord).filter((w) => w.length >= 3);
+  for (const e of entries) {
+    for (const q of e.quotes) {
+      const p = byId.get(q.personId);
+      const words = q.text.split(/\s+/);
+      if (!p || words.length < 3) continue;
+      const candidates = words.map((w, i) => [cleanWord(w), i] as const).filter(([w]) => w.length >= 3);
+      if (!candidates.length) continue;
+      const [word, idx] = pick(candidates);
+      const distractors = shuffle([...new Set(quoteWords.filter((w) => w !== word))]).slice(0, 3);
+      if (distractors.length < 3) continue;
+      pool.push({
+        id: id(),
+        emoji: '✍️',
+        prompt: t('השלם את המשפט של {name}', { name: p.name }),
+        context: `"${words.map((w, i) => (i === idx ? w.replace(word, '____') : w)).join(' ')}"`,
+        options: shuffle([word, ...distractors]),
+        answer: word,
+      });
+    }
+  }
+
   // Keep a variety: shuffle then limit repeats of the same answer
   const out: Question[] = [];
   const answerCount = new Map<string, number>();
@@ -168,6 +192,41 @@ export function buildQuestions(entries: Entry[], people: Person[]): Question[] {
     if (out.length >= ROUND_SIZE) break;
   }
   return out;
+}
+
+const cleanWord = (w: string) => w.replace(/[.,!?;:"'״׳()\-–—…]/g, '');
+
+const CITIES = ['תל אביב', 'ירושלים', 'חיפה', 'באר שבע', 'אילת', 'נתניה', 'ראשון לציון', 'נצרת', 'אשדוד', 'הרצליה'];
+const JOBS = ['סטודנט/ית', 'שכיר/ה', 'עצמאי/ת', 'חייל/ת', 'מורה', 'מתכנת/ת', 'אחות', 'מעצב/ת'];
+const HOBBIES = ['כדורגל', 'בישול', 'מוזיקה', 'קריאה', 'טיולים', 'ריקוד', 'גיימינג', 'צילום', 'ים', 'יוגה'];
+
+/** "Who knows me better?": questions about the user, for a friend to answer on the user's phone. */
+export function buildFriendQuiz(profile: UserProfile, people: Person[], entries: Entry[], userName: string): Question[] {
+  const me = userName || t('החבר/ה שלך');
+  const qs: Question[] = [];
+  let n = 0;
+  const id = () => `f${n++}`;
+  const fromList = (answer: string, list: string[]) => shuffle([answer, ...shuffle(list.filter((x) => x !== answer)).slice(0, 3)]);
+  const role = (p: Person) => p.note?.split(' · ')[0] ?? '';
+  const mom = people.find((p) => /אמא|mom|أم/i.test(role(p)));
+  const dad = people.find((p) => /אבא|dad|أب/i.test(role(p)));
+  if (mom) qs.push({ id: id(), emoji: '👩', prompt: t('איך קוראים לאמא של {me}?', { me }), options: nameOptions(mom.name, people), answer: mom.name });
+  if (dad) qs.push({ id: id(), emoji: '👨', prompt: t('איך קוראים לאבא של {me}?', { me }), options: nameOptions(dad.name, people), answer: dad.name });
+  if (profile.city?.trim()) qs.push({ id: id(), emoji: '🏙️', prompt: t('איפה {me} גר/ה?', { me }), options: fromList(profile.city.trim(), CITIES), answer: profile.city.trim() });
+  if (profile.job?.trim()) qs.push({ id: id(), emoji: '💼', prompt: t('במה {me} עוסק/ת?', { me }), options: fromList(profile.job.trim(), JOBS.map((j) => t(j))), answer: profile.job.trim() });
+  const hobby = profile.hobbies?.split(/[,،]/)[0]?.trim();
+  if (hobby) qs.push({ id: id(), emoji: '🎯', prompt: t('מה {me} אוהב/ת לעשות?', { me }), options: fromList(hobby, HOBBIES), answer: hobby });
+  // Most mentioned friend
+  const counts = new Map<string, number>();
+  entries.forEach((e) => e.people.forEach((p) => counts.set(p, (counts.get(p) ?? 0) + 1)));
+  const friends = people.filter((p) => circleOf(p) === 'friends').sort((a, b) => (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0));
+  if (friends[0]) qs.push({ id: id(), emoji: '🫶', prompt: t('על איזה חבר/ה {me} מדבר/ת הכי הרבה?', { me }), options: nameOptions(friends[0].name, people), answer: friends[0].name });
+  if (entries.length >= 3) {
+    const avgMood = Math.round(entries.reduce((a, e) => a + e.mood, 0) / entries.length);
+    const moods = ['😞', '😕', '😐', '🙂', '🤩'];
+    qs.push({ id: id(), emoji: '🌈', prompt: t('מה מצב הרוח הכי נפוץ של {me}?', { me }), options: fromList(moods[avgMood - 1], moods), answer: moods[avgMood - 1] });
+  }
+  return shuffle(qs);
 }
 
 /** A sample diary so the game can be tried before the user has real data. */

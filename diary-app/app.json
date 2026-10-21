@@ -53,6 +53,24 @@
         {
           "faceIDPermission": "אפשר לפתוח את היומן עם Face ID."
         }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "האפליקציה מקשיבה כשאתה מכתיב את היומן.",
+          "speechRecognitionPermission": "האפליקציה הופכת את הדיבור שלך לטקסט ביומן.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
+        }
+      ],
+      "expo-sharing",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "כדי לצרף תמונה לרשומה ביומן, רק כשתבחר.",
+          "cameraPermission": "כדי לצלם תמונה יומית, רק כשתבחר."
+        }
       ]
     ],
     "backgroundColor": "#14102B"

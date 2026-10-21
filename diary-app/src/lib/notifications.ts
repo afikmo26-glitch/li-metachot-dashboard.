@@ -8,7 +8,7 @@ import { t } from '../i18n';
 const CHANNEL = 'diary';
 const IDS_KEY = 'diary.notifIds.v1';
 
-type ScheduledIds = { bedtime?: string; recap?: string; todo?: string };
+type ScheduledIds = { bedtime?: string; recap?: string; todo?: string; photo?: string };
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -76,6 +76,21 @@ export async function scheduleBedtime(settings: Settings) {
         minute: settings.bedtimeMinute,
         channelId: CHANNEL,
       },
+    });
+  }
+  await setIds(ids);
+}
+
+/** Optional daily nudge to add a photo of the day (off unless the user turns it on). */
+export async function schedulePhotoReminder(settings: Settings) {
+  if (Platform.OS === 'web') return;
+  const ids = await getIds();
+  await cancel(ids.photo);
+  ids.photo = undefined;
+  if (settings.photoReminder && (await ensurePermissions())) {
+    ids.photo = await Notifications.scheduleNotificationAsync({
+      content: { title: t('📸 תמונה של היום?'), body: t('תמונה אחת ביום, ובעוד חודש תראה כמה דברים השתנו'), data: { screen: 'record' } },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DAILY, hour: 19, minute: 0, channelId: CHANNEL },
     });
   }
   await setIds(ids);

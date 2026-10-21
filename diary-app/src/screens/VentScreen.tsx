@@ -4,7 +4,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
 import { AppState, Platform, Pressable, ScrollView, ScrollViewInstance, Text, TextInput, View } from 'react-native';
 import { BotAvatar, Bubble } from '../components/ChatModal';
+import Breathing from '../components/Breathing';
 import CrisisCard from '../components/CrisisCard';
+import DictateButton from '../components/DictateButton';
 import { GhostButton, GradientButton, Input, Row, T, tap } from '../components/ui';
 import { aiChat, aiReady, loadAiConfig } from '../lib/ai';
 import { formatShortDate, formatTime } from '../lib/dates';
@@ -198,6 +200,7 @@ function Room({ ventKey, onLock, onWiped }: { ventKey: Uint8Array; onLock: () =>
   const [useAi, setUseAi] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [confirmWipe, setConfirmWipe] = useState(false);
+  const [breathe, setBreathe] = useState(false);
   const scroll = useRef<ScrollViewInstance>(null);
   const aiRef = useRef<Awaited<ReturnType<typeof loadAiConfig>> | null>(null);
 
@@ -292,6 +295,9 @@ function Room({ ventKey, onLock, onWiped }: { ventKey: Uint8Array; onLock: () =>
           </View>
         </Row>
         <Row style={{ gap: 14, alignItems: 'center' }}>
+          <Pressable onPress={() => setBreathe(true)} hitSlop={10} accessibilityLabel={t('תרגיל נשימה')}>
+            <Ionicons name="leaf-outline" size={23} color={colors.textDim} />
+          </Pressable>
           <Pressable onPress={() => setShowHistory((v) => !v)} hitSlop={10} accessibilityLabel={t('שיחות קודמות')}>
             <Ionicons name="folder-open-outline" size={23} color={colors.textDim} />
           </Pressable>
@@ -304,7 +310,11 @@ function Room({ ventKey, onLock, onWiped }: { ventKey: Uint8Array; onLock: () =>
         </Row>
       </Row>
 
+      <Breathing visible={breathe} onClose={() => setBreathe(false)} />
       <ScrollView ref={scroll} contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: 24 }} keyboardShouldPersistTaps="handled">
+        <Pressable onPress={() => setBreathe(true)} style={{ alignSelf: 'center', backgroundColor: colors.card, borderRadius: 999, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 16, paddingVertical: 8 }}>
+          <T size={14}>{t('🌬️ צריך רגע להירגע? תרגיל נשימה של דקה')}</T>
+        </Pressable>
         {showHistory && (
           <View style={{ backgroundColor: colors.card, borderRadius: 16, padding: 12, borderWidth: 1, borderColor: colors.border, marginBottom: 6 }}>
             <T bold style={{ marginBottom: 8 }}>
@@ -377,8 +387,9 @@ function Room({ ventKey, onLock, onWiped }: { ventKey: Uint8Array; onLock: () =>
               ...rtl,
             }}
           />
+          <DictateButton size={19} onText={(said) => setInput((cur) => (cur.trim() ? `${cur.trim()} ${said}` : said))} />
           <Pressable
-                  accessibilityLabel={t('שלח')}
+            accessibilityLabel={t('שלח')}
             onPress={send}
             disabled={!input.trim() || typing}
             style={{
