@@ -13,6 +13,8 @@ import {
   ActiveShift,
   Shift,
   Workplace,
+  SavingsGoal,
+  SavingsTx,
   Person,
   Settings,
   EMPTY_PROFILE,
@@ -31,6 +33,8 @@ const KEYS = {
   workplaces: 'diary.workplaces.v1',
   shifts: 'diary.shifts.v1',
   activeShift: 'diary.activeshift.v1',
+  savingsGoals: 'diary.savings.v1',
+  savingsTx: 'diary.savingstx.v1',
 };
 
 export const newId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
@@ -67,6 +71,12 @@ type Store = {
   deleteShift: (id: string) => void;
   activeShift: ActiveShift | null;
   setActiveShift: (a: ActiveShift | null) => void;
+  savingsGoals: SavingsGoal[];
+  saveSavingsGoal: (g: SavingsGoal) => void;
+  deleteSavingsGoal: (id: string) => void;
+  savingsTx: SavingsTx[];
+  saveSavingsTx: (x: SavingsTx) => void;
+  deleteSavingsTx: (id: string) => void;
   /** Replace everything at once (restoring a backup) */
   restoreAll: (data: BackupData) => void;
   /** Forget everything in memory (after the storage was wiped) */
@@ -84,6 +94,8 @@ export type BackupData = {
   goals: Goal[];
   workplaces?: Workplace[];
   shifts?: Shift[];
+  savingsGoals?: SavingsGoal[];
+  savingsTx?: SavingsTx[];
 };
 
 const Ctx = createContext<Store | null>(null);
@@ -140,6 +152,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [goals, setGoals, saveGoal, deleteGoal] = useList<Goal>(KEYS.goals);
   const [workplaces, setWorkplaces, saveWorkplace, deleteWorkplace] = useList<Workplace>(KEYS.workplaces);
   const [shifts, setShifts, saveShift, deleteShift] = useList<Shift>(KEYS.shifts);
+  const [savingsGoals, setSavingsGoals, saveSavingsGoal, deleteSavingsGoal] = useList<SavingsGoal>(KEYS.savingsGoals);
+  const [savingsTx, setSavingsTx, saveSavingsTx, deleteSavingsTx] = useList<SavingsTx>(KEYS.savingsTx);
   const [activeShift, setActive] = useState<ActiveShift | null>(null);
   const setActiveShift = useCallback((a: ActiveShift | null) => {
     setActive(a);
@@ -154,7 +168,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     (async () => {
-      const [e, p, ev, s, g, pr, fu, go, wp, sh, as] = await Promise.all([
+      const [e, p, ev, s, g, pr, fu, go, wp, sh, as, sg, st] = await Promise.all([
         load<Entry[]>(KEYS.entries, []),
         load<Person[]>(KEYS.people, []),
         load<CalendarEvent[]>(KEYS.events, []),
@@ -166,7 +180,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         load<Workplace[]>(KEYS.workplaces, []),
         load<Shift[]>(KEYS.shifts, []),
         load<ActiveShift | null>(KEYS.activeShift, null),
+        load<SavingsGoal[]>(KEYS.savingsGoals, []),
+        load<SavingsTx[]>(KEYS.savingsTx, []),
       ]);
+      setSavingsGoals(sg);
+      setSavingsTx(st);
       setWorkplaces(wp);
       setShifts(sh);
       setActive(as);
@@ -302,7 +320,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setWorkplaces([]);
     setShifts([]);
     setActive(null);
-  }, [setFollowUps, setGoals, setWorkplaces, setShifts]);
+    setSavingsGoals([]);
+    setSavingsTx([]);
+  }, [setFollowUps, setGoals, setWorkplaces, setShifts, setSavingsGoals, setSavingsTx]);
 
   const restoreAll = useCallback(
     (d: BackupData) => {
@@ -310,6 +330,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         [KEYS.entries, d.entries], [KEYS.people, d.people], [KEYS.events, d.events], [KEYS.settings, d.settings],
         [KEYS.game, d.game], [KEYS.profile, d.profile], [KEYS.followUps, d.followUps], [KEYS.goals, d.goals],
         [KEYS.workplaces, d.workplaces ?? []], [KEYS.shifts, d.shifts ?? []],
+        [KEYS.savingsGoals, d.savingsGoals ?? []], [KEYS.savingsTx, d.savingsTx ?? []],
       ];
       all.forEach(([k, v]) => persist(k, v));
       setEntries(d.entries);
@@ -323,8 +344,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setGoals(d.goals ?? []);
       setWorkplaces(d.workplaces ?? []);
       setShifts(d.shifts ?? []);
+      setSavingsGoals(d.savingsGoals ?? []);
+      setSavingsTx(d.savingsTx ?? []);
     },
-    [setFollowUps, setGoals, setWorkplaces, setShifts],
+    [setFollowUps, setGoals, setWorkplaces, setShifts, setSavingsGoals, setSavingsTx],
   );
 
   const value = useMemo<Store>(
@@ -360,10 +383,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       deleteShift,
       activeShift,
       setActiveShift,
+      savingsGoals,
+      saveSavingsGoal,
+      deleteSavingsGoal,
+      savingsTx,
+      saveSavingsTx,
+      deleteSavingsTx,
       restoreAll,
       clearAll,
     }),
-    [ready, entries, people, events, settings, game, profile, updateProfile, saveEntry, deleteEntry, addPerson, updatePerson, deletePerson, saveEvent, deleteEvent, updateSettings, updateGame, followUps, saveFollowUp, deleteFollowUp, goals, saveGoal, deleteGoal, workplaces, saveWorkplace, deleteWorkplace, shifts, saveShift, deleteShift, activeShift, setActiveShift, restoreAll, clearAll],
+    [ready, entries, people, events, settings, game, profile, updateProfile, saveEntry, deleteEntry, addPerson, updatePerson, deletePerson, saveEvent, deleteEvent, updateSettings, updateGame, followUps, saveFollowUp, deleteFollowUp, goals, saveGoal, deleteGoal, workplaces, saveWorkplace, deleteWorkplace, shifts, saveShift, deleteShift, activeShift, setActiveShift, savingsGoals, saveSavingsGoal, deleteSavingsGoal, savingsTx, saveSavingsTx, deleteSavingsTx, restoreAll, clearAll],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

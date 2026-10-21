@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Modal, Platform, Pressable, ScrollView, Share, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { TimePicker } from '../components/SettingsModal';
+import SavingsScreen from './SavingsScreen';
 import { Card, Chip, Empty, GhostButton, GradientButton, Input, notify, Row, ScreenTitle, SectionTitle, T, tap } from '../components/ui';
 import { isRTL, t } from '../i18n';
 import { formatShortDate, formatTime, monthName } from '../lib/dates';
@@ -36,6 +37,49 @@ import {
  * Hours add up per month, with an estimated pay and a report to send the employer.
  */
 export default function WorkScreen() {
+  const [section, setSection] = useState<'hours' | 'save'>('hours');
+  const toggle = (
+    <Row style={{ gap: 8, marginBottom: 12 }}>
+      {(
+        [
+          ['hours', t('⏱️ שעות עבודה')],
+          ['save', t('🐷 בוא נחסוך')],
+        ] as const
+      ).map(([key, label]) => (
+        <Pressable
+          key={key}
+          onPress={() => {
+            tap();
+            setSection(key);
+          }}
+          style={{
+            flex: 1,
+            paddingVertical: 10,
+            borderRadius: 14,
+            alignItems: 'center',
+            backgroundColor: section === key ? colors.primary : colors.card,
+            borderWidth: 1,
+            borderColor: section === key ? colors.primary : colors.border,
+          }}
+        >
+          <T bold style={{ color: section === key ? colors.onPrimary : colors.text, textAlign: 'center' }}>
+            {label}
+          </T>
+        </Pressable>
+      ))}
+    </Row>
+  );
+  if (section === 'save')
+    return (
+      <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
+        {toggle}
+        <SavingsScreen />
+      </ScrollView>
+    );
+  return <Hours toggle={toggle} />;
+}
+
+function Hours({ toggle }: { toggle: React.ReactNode }) {
   const { workplaces, shifts, activeShift, setActiveShift, saveShift, settings, profile } = useStore();
   const now = new Date();
   const [ym, setYm] = useState({ y: now.getFullYear(), m: now.getMonth() });
@@ -112,6 +156,7 @@ export default function WorkScreen() {
   if (!workplaces.length) {
     return (
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
+        {toggle}
         <ScreenTitle title={t('⏱️ השעות שלי')} subtitle={t('שעון משמרות: כניסה ויציאה בלחיצה, וסיכום שעות ושכר לכל חודש')} />
         <Card style={{ marginTop: 10 }}>
           <T bold size={17}>
@@ -128,6 +173,7 @@ export default function WorkScreen() {
 
   return (
     <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
+      {toggle}
       <ScreenTitle
         title={t('⏱️ השעות שלי')}
         subtitle={settings.userName ? t('{name} · {n} מקומות עבודה', { name: settings.userName, n: workplaces.length }) : undefined}

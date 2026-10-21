@@ -8,7 +8,7 @@ import { t } from '../i18n';
 const CHANNEL = 'diary';
 const IDS_KEY = 'diary.notifIds.v1';
 
-type ScheduledIds = { bedtime?: string; recap?: string; todo?: string; photo?: string };
+type ScheduledIds = { bedtime?: string; recap?: string; todo?: string; photo?: string; savings?: string };
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -93,6 +93,21 @@ export async function scheduleShiftReminder(place: string): Promise<string | und
 export async function cancelShiftReminder(id?: string) {
   if (Platform.OS === 'web' || !id) return;
   await Notifications.cancelScheduledNotificationAsync(id).catch(() => {});
+}
+
+/** Weekly "time to save" nudge on Sunday evening, when the user turns it on. */
+export async function scheduleSavingsReminder(settings: Settings) {
+  if (Platform.OS === 'web') return;
+  const ids = await getIds();
+  await cancel(ids.savings);
+  ids.savings = undefined;
+  if (settings.savingsReminder && (await ensurePermissions())) {
+    ids.savings = await Notifications.scheduleNotificationAsync({
+      content: { title: t('🐷 בוא נחסוך!'), body: t('שבוע חדש — כמה תוסיף לחיסכון השבוע?'), data: { screen: 'work' } },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.WEEKLY, weekday: 1, hour: 18, minute: 0, channelId: CHANNEL },
+    });
+  }
+  await setIds(ids);
 }
 
 /** Optional daily nudge to add a photo of the day (off unless the user turns it on). */

@@ -10,7 +10,7 @@ import SettingsModal from './src/components/SettingsModal';
 import { T, tap } from './src/components/ui';
 import { t } from './src/i18n';
 import { Account, loadAccount } from './src/lib/account';
-import { scheduleBedtime, schedulePhotoReminder } from './src/lib/notifications';
+import { scheduleBedtime, schedulePhotoReminder, scheduleSavingsReminder } from './src/lib/notifications';
 import { PrefsProvider, usePrefs } from './src/lib/prefs';
 import { StoreProvider, useStore } from './src/lib/store';
 import { colors, gradients, layout } from './src/lib/theme';
@@ -36,7 +36,7 @@ const TABS: { key: Tab; label: string; icon: IconName; active: IconName }[] = [
   { key: 'archive', label: 'ארכיון', icon: 'library-outline', active: 'library' },
   { key: 'calendar', label: 'לוח שנה', icon: 'calendar-outline', active: 'calendar' },
   { key: 'people', label: 'אנשים', icon: 'people-outline', active: 'people' },
-  { key: 'work', label: 'עבודה', icon: 'time-outline', active: 'time' },
+  { key: 'work', label: 'עבודה', icon: 'wallet-outline', active: 'wallet' },
   { key: 'vent', label: 'לפרוק', icon: 'lock-closed-outline', active: 'lock-closed' },
   { key: 'game', label: 'משחק', icon: 'game-controller-outline', active: 'game-controller' },
 ];
@@ -57,6 +57,7 @@ function Root() {
     if (ready) {
       scheduleBedtime(settings).catch(() => {});
       schedulePhotoReminder(settings).catch(() => {});
+      scheduleSavingsReminder(settings).catch(() => {});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, version]);

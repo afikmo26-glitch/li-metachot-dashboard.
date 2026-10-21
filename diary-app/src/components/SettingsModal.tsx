@@ -496,8 +496,8 @@ function BackupCard() {
   const doExport = () =>
     run(async () => {
       if (pass.length < MIN_BACKUP_PASSWORD) throw new Error(t('סיסמת גיבוי של לפחות {n} תווים', { n: MIN_BACKUP_PASSWORD }));
-      const { entries, people, events, settings, game, profile, followUps, goals, workplaces, shifts } = store;
-      await exportBackup({ entries, people, events, settings, game, profile, followUps, goals, workplaces, shifts }, pass);
+      const { entries, people, events, settings, game, profile, followUps, goals, workplaces, shifts, savingsGoals, savingsTx } = store;
+      await exportBackup({ entries, people, events, settings, game, profile, followUps, goals, workplaces, shifts, savingsGoals, savingsTx }, pass);
       setMsg({ text: t('הגיבוי נוצר ✓ שמור אותו במקום בטוח, ואל תשכח את הסיסמה'), ok: true });
     });
 

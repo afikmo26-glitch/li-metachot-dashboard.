@@ -68,6 +68,28 @@ export type Shift = {
 /** The shift that is running right now (clocked in, not out yet). */
 export type ActiveShift = { workplaceId: string; start: string; notificationId?: string };
 
+/** "Let's save": something the user is saving money for. */
+export type SavingsGoal = {
+  id: string;
+  name: string;
+  emoji: string;
+  target: number;
+  /** "YYYY-MM-DD", optional */
+  deadline?: string;
+  createdAt: string;
+  done?: boolean;
+};
+
+/** Money added to (or taken out of, when negative) a savings goal. */
+export type SavingsTx = {
+  id: string;
+  goalId: string;
+  amount: number;
+  at: string; // ISO
+  method: 'bank' | 'cash' | 'other';
+  note?: string;
+};
+
 /** A personal goal with weekly check-ins. */
 export type Goal = {
   id: string;
@@ -130,6 +152,8 @@ export type Settings = {
   morningHour: number;
   /** Daily reminder to add a photo of the day; off unless the user turns it on */
   photoReminder: boolean;
+  /** Weekly "time to save" reminder */
+  savingsReminder?: boolean;
 };
 
 export type GameStats = {
