@@ -97,6 +97,11 @@
       "expo-apple-authentication",
       "expo-status-bar"
     ],
-    "backgroundColor": "#14102B"
+    "backgroundColor": "#14102B",
+    "extra": {
+      "eas": {
+        "projectId": "c36adb0b-4730-4c7b-b506-a56f25607a82"
+      }
+    }
   }
 }
