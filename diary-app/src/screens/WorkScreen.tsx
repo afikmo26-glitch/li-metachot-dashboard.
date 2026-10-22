@@ -5,6 +5,7 @@ import { Alert, Modal, Platform, Pressable, ScrollView, Share, Switch, Text, Vie
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { TimePicker } from '../components/SettingsModal';
 import SavingsScreen from './SavingsScreen';
+import StudyScreen from './StudyScreen';
 import { Card, Chip, Empty, GhostButton, GradientButton, Input, notify, Row, ScreenTitle, SectionTitle, T, tap } from '../components/ui';
 import { isRTL, t } from '../i18n';
 import { formatShortDate, formatTime, monthName } from '../lib/dates';
@@ -36,14 +37,18 @@ import {
  * Shift clock: clock in and out with one button (or add a shift by hand), for one or more workplaces.
  * Hours add up per month, with an estimated pay and a report to send the employer.
  */
-export default function WorkScreen() {
-  const [section, setSection] = useState<'hours' | 'save'>('hours');
+export default function WorkScreen({ initial }: { initial?: 'hours' | 'save' | 'study' }) {
+  const [section, setSection] = useState<'hours' | 'save' | 'study'>(initial ?? 'hours');
+  useEffect(() => {
+    if (initial) setSection(initial);
+  }, [initial]);
   const toggle = (
     <Row style={{ gap: 8, marginBottom: 12 }}>
       {(
         [
           ['hours', t('⏱️ שעות עבודה')],
           ['save', t('🐷 בוא נחסוך')],
+          ['study', t('📚 לימודים')],
         ] as const
       ).map(([key, label]) => (
         <Pressable
@@ -69,6 +74,13 @@ export default function WorkScreen() {
       ))}
     </Row>
   );
+  if (section === 'study')
+    return (
+      <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
+        {toggle}
+        <StudyScreen />
+      </ScrollView>
+    );
   if (section === 'save')
     return (
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 120 }} keyboardShouldPersistTaps="handled">

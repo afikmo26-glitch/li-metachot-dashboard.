@@ -46,7 +46,7 @@ export function normalizeContact(raw: unknown): { kind: 'email' | 'phone'; value
   return null;
 }
 
-async function sendEmail(env: RecoverEnv, to: string, subject: string, text: string) {
+export async function sendEmail(env: RecoverEnv, to: string, subject: string, text: string) {
   if (!env.RESEND_API_KEY || !env.MAIL_FROM) throw new Error('email not configured');
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -56,7 +56,7 @@ async function sendEmail(env: RecoverEnv, to: string, subject: string, text: str
   if (!res.ok) throw new Error(`email failed ${res.status}`);
 }
 
-async function sendSms(env: RecoverEnv, to: string, text: string) {
+export async function sendSms(env: RecoverEnv, to: string, text: string) {
   if (!env.TWILIO_ACCOUNT_SID || !env.TWILIO_AUTH_TOKEN || !env.TWILIO_FROM) throw new Error('sms not configured');
   const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${env.TWILIO_ACCOUNT_SID}/Messages.json`, {
     method: 'POST',

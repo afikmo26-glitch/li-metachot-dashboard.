@@ -400,6 +400,20 @@ export function Hat({ id, size }: { id?: string; size: number }) {
           <Path d="M36 64 Q100 86 164 64 Q154 78 100 80 Q46 78 36 64 Z" fill="#975A16" />
         </G>
       )}
+      {id === 'strawhat' && (
+        <G>
+          <Ellipse cx="100" cy="66" rx="62" ry="13" fill="#E9C46A" />
+          <Path d="M66 64 C66 36 134 36 134 64 Z" fill="#F4D58D" />
+          <Rect x="66" y="54" width="68" height="9" fill="#E76F51" />
+          <Path d="M48 66 Q100 76 152 66" stroke="#D4A84B" strokeWidth={2} fill="none" />
+        </G>
+      )}
+      {id === 'halo' && (
+        <G>
+          <Ellipse cx="100" cy="36" rx="34" ry="9" stroke="#FFE45C" strokeWidth={6} fill="none" />
+          <Ellipse cx="100" cy="36" rx="34" ry="9" stroke="#FFFFFF" strokeWidth={1.5} fill="none" opacity={0.7} />
+        </G>
+      )}
       {id === 'crown' && (
         <G>
           <Path d="M64 70 L64 36 L82 54 L100 26 L118 54 L136 36 L136 70 Z" fill="url(#goldHat)" />
@@ -458,6 +472,14 @@ export function Glasses({ id, size }: { id?: string; size: number }) {
           <Rect x="106" y="99" width="34" height="18" rx="2" fill="#22D3EE" opacity={0.75} />
         </G>
       )}
+      {id === 'aviator' && (
+        <G>
+          <Path d="M56 100 Q76 94 94 100 Q94 122 76 124 Q58 122 56 100 Z" fill="#7C5A2E" opacity={0.85} stroke="#D4AF37" strokeWidth={2.5} />
+          <Path d="M106 100 Q124 94 144 100 Q142 122 124 124 Q106 122 106 100 Z" fill="#7C5A2E" opacity={0.85} stroke="#D4AF37" strokeWidth={2.5} />
+          <Path d="M94 101 Q100 97 106 101" stroke="#D4AF37" strokeWidth={2.5} fill="none" />
+          <Line x1="62" y1="104" x2="72" y2="104" stroke="#FFFFFF" strokeWidth={2.5} strokeLinecap="round" opacity={0.5} />
+        </G>
+      )}
       {id === 'pixel' && (
         <G fill="#000000">
           <Rect x="50" y="98" width="100" height="6" />
@@ -507,6 +529,25 @@ export function Neck({ id, size }: { id?: string; size: number }) {
           </G>
         </G>
       )}
+      {id === 'lei' && (
+        <G>
+          {[[50, 144], [62, 152], [75, 158], [88, 162], [100, 163], [112, 162], [125, 158], [138, 152], [150, 144]].map(([x, y], i) => (
+            <G key={x}>
+              {[0, 72, 144, 216, 288].map((a) => (
+                <Circle key={a} cx={x + 4.5 * Math.cos((a * Math.PI) / 180)} cy={y + 4.5 * Math.sin((a * Math.PI) / 180)} r={4} fill={['#FF5C9A', '#FFB547', '#C084FC'][i % 3]} />
+              ))}
+              <Circle cx={x} cy={y} r={2.5} fill="#FFE45C" />
+            </G>
+          ))}
+        </G>
+      )}
+      {id === 'cape' && (
+        <G>
+          <Path d="M44 140 Q100 162 156 140 L150 150 Q100 170 50 150 Z" fill="#B91C1C" />
+          <Circle cx="100" cy="156" r="6" fill="#FFD66B" />
+          <Path d="M97 153 L100 159 L103 153" stroke="#B45309" strokeWidth={1.5} fill="none" />
+        </G>
+      )}
       {id === 'chain' && (
         <G>
           <Path d="M54 142 Q100 178 146 142" stroke="#FACC15" strokeWidth={4.5} fill="none" strokeDasharray="5 3" />
@@ -548,6 +589,14 @@ export function Face({ id, size }: { id?: string; size: number }) {
         <Path d="M100 123 C92 114 76 116 72 128 C82 122 90 129 100 125 C110 129 118 122 128 128 C124 116 108 114 100 123 Z" fill="#3B2A20" />
       )}
       {id === 'starsticker' && <Polygon points={STAR} transform="translate(142 92) scale(0.55)" fill="#FACC15" />}
+      {id === 'sparkle' && (
+        <G fill="#FFFFFF">
+          <Polygon points={STAR} transform="translate(150 84) scale(0.4)" />
+          <Polygon points={STAR} transform="translate(48 90) scale(0.3)" />
+          <Polygon points={STAR} transform="translate(160 116) scale(0.25)" fill="#FFE45C" />
+          <Polygon points={STAR} transform="translate(40 120) scale(0.22)" fill="#FFE45C" />
+        </G>
+      )}
     </Layer>
   );
 }

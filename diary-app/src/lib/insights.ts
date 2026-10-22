@@ -120,3 +120,69 @@ export function newlyCompleted(challenges: Challenge[], game: GameStats, now = n
   const wk = weekKey(now);
   return challenges.filter((c) => c.progress >= c.goal && !(game.challengesDone ?? []).includes(`${wk}:${c.id}`));
 }
+
+// ---- Mood over time ----
+
+export type DayMood = { key: string; mood: number };
+
+/** Average mood per day (days with entries only), oldest first. */
+export function moodByDay(entries: Entry[]): DayMood[] {
+  const map = new Map<string, number[]>();
+  for (const e of entries) map.set(dayKey(e.createdAt), [...(map.get(dayKey(e.createdAt)) ?? []), e.mood]);
+  return [...map.entries()].map(([key, m]) => ({ key, mood: m.reduce((a, b) => a + b, 0) / m.length })).sort((a, b) => a.key.localeCompare(b.key));
+}
+
+const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+
+/**
+ * What goes with better days, in plain words: working out, sleep, studying, topics and people.
+ * Only says something when both sides have at least 3 days and the gap is real (≥ 0.4 on the 1–5 scale).
+ */
+export function moodLinks(entries: Entry[], people: Person[], studyDays: Set<string>, topicOf: (e: Entry) => string[], topicLabel: (k: string) => string): string[] {
+  const days = moodByDay(entries);
+  if (days.length < 6) return [];
+  const all = mean(days.map((d) => d.mood));
+  const byKey = new Map(days.map((d) => [d.key, d.mood]));
+  const dayEntries = new Map<string, Entry[]>();
+  for (const e of entries) dayEntries.set(dayKey(e.createdAt), [...(dayEntries.get(dayKey(e.createdAt)) ?? []), e]);
+  const out: { gap: number; text: string }[] = [];
+  const split = (test: (key: string, es: Entry[]) => boolean | undefined, text: (gap: number) => string) => {
+    const yes: number[] = [];
+    const no: number[] = [];
+    for (const [key, es] of dayEntries) {
+      const r = test(key, es);
+      if (r === true) yes.push(byKey.get(key)!);
+      else if (r === false) no.push(byKey.get(key)!);
+    }
+    if (yes.length >= 3 && no.length >= 3) {
+      const gap = mean(yes) - mean(no);
+      if (Math.abs(gap) >= 0.4) out.push({ gap: Math.abs(gap), text: text(gap) });
+    }
+  };
+  split((_, es) => (es.some((e) => e.workout === true) ? true : es.some((e) => e.workout === false) ? false : undefined), (g) =>
+    g > 0 ? t('🏃 בימים שהתאמנת, מצב הרוח היה טוב יותר') : t('🏃 דווקא בימי מנוחה מצב הרוח היה טוב יותר'),
+  );
+  split((_, es) => {
+    const s = es.find((e) => e.sleep !== undefined)?.sleep;
+    return s === undefined ? undefined : s >= 7;
+  }, (g) => (g > 0 ? t('😴 אחרי לילה של 7+ שעות שינה, הימים שלך טובים יותר') : t('😴 מעניין: שינה ארוכה לא שיפרה את מצב הרוח')));
+  split((key) => studyDays.has(key), (g) => (g > 0 ? t('📚 בימים שלמדת עם הטיימר הרגשת טוב יותר') : t('📚 ימי לימוד היו קצת יותר קשים — זה בסדר, אל תשכח הפסקות')));
+  const topics = new Set(entries.flatMap(topicOf));
+  for (const k of topics) split((_, es) => es.some((e) => topicOf(e).includes(k)), (g) => (g > 0 ? t('{topic}: הימים האלה הם מהטובים שלך', { topic: topicLabel(k) }) : t('{topic}: הימים האלה קשים יותר', { topic: topicLabel(k) })));
+  for (const p of people) {
+    const withP = [...dayEntries.entries()].filter(([, es]) => es.some((e) => e.people.includes(p.id))).map(([k]) => byKey.get(k)!);
+    if (withP.length >= 3 && mean(withP) - all >= 0.5) out.push({ gap: mean(withP) - all, text: t('💛 ימים עם {name} הם מהשמחים שלך', { name: p.name }) });
+  }
+  // Best day of the week
+  const byWeekday = new Map<number, number[]>();
+  for (const d of days) {
+    const w = new Date(`${d.key}T12:00:00`).getDay();
+    byWeekday.set(w, [...(byWeekday.get(w) ?? []), d.mood]);
+  }
+  const best = [...byWeekday.entries()].filter(([, m]) => m.length >= 2).sort((a, b) => mean(b[1]) - mean(a[1]))[0];
+  if (best && mean(best[1]) - all >= 0.3) {
+    const names = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+    out.push({ gap: 0.3, text: t('📅 היום הכי טוב שלך בשבוע: יום {day}', { day: t(names[best[0]]) }) });
+  }
+  return out.sort((a, b) => b.gap - a.gap).slice(0, 5).map((x) => x.text);
+}

@@ -226,3 +226,38 @@ export async function sendTestNotification() {
   });
   return true;
 }
+
+/** Exam reminders: the evening before (19:00) and that morning (7:30). Returns the ids to cancel later. */
+export async function scheduleExamReminders(subject: string, date: string): Promise<string[]> {
+  if (Platform.OS === 'web' || !(await ensurePermissions())) return [];
+  const day = parseDayKey(date);
+  const eve = new Date(day.getFullYear(), day.getMonth(), day.getDate() - 1, 19, 0);
+  const morning = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 7, 30);
+  const ids: string[] = [];
+  for (const [when, title, body] of [
+    [eve, t('📚 מחר מבחן ב{subject}', { subject }), t('עוד חזרה קטנה ושינה טובה — אתה מוכן! 💪')],
+    [morning, t('🍀 בהצלחה במבחן ב{subject}!', { subject }), t('נשום עמוק. אתה יודע יותר ממה שאתה חושב.')],
+  ] as const) {
+    if (when.getTime() <= Date.now()) continue;
+    ids.push(
+      await Notifications.scheduleNotificationAsync({
+        content: { title, body, data: { screen: 'work' } },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: when, channelId: CHANNEL },
+      }),
+    );
+  }
+  return ids;
+}
+
+/** "Time's up" when a study timer ends while the app is closed. */
+export async function scheduleStudyEnd(seconds: number, petName: string): Promise<string | undefined> {
+  if (Platform.OS === 'web' || !(await ensurePermissions())) return;
+  return Notifications.scheduleNotificationAsync({
+    content: { title: t('⏰ סיימת לימוד!'), body: t('{name} גאה בך 🤓 זמן להפסקה קטנה', { name: petName || t('יומי') }), data: { screen: 'work' } },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: Math.max(1, Math.round(seconds)), channelId: CHANNEL },
+  });
+}
+
+export async function cancelNotifications(ids?: (string | undefined)[]) {
+  for (const id of ids ?? []) await cancel(id);
+}

@@ -31,6 +31,8 @@ import { useStore } from '../lib/store';
 import { colors, gradients } from '../lib/theme';
 import { useLevel } from '../lib/useLevel';
 import GameScreen from './GameScreen';
+import { StudyTimer } from './StudyScreen';
+import { Friends, ShareCardModal, Shop, usePublishPet } from './PetSocial';
 
 /** "My pet": hatch it, name it, pet it, hug it, feed it, dress it up, and watch it grow with your levels. */
 export default function PetScreen() {
@@ -44,9 +46,13 @@ export default function PetScreen() {
   const wroteToday = entries.some((e) => dayKey(e.createdAt) === dayKey(new Date()));
   const treats = treatsLeft(pet, entries);
   const [line, setLine] = useState('');
-  const [tabSel, setTabSel] = useState<'closet' | 'levels'>('closet');
+  const [tabSel, setTabSel] = useState<'closet' | 'levels' | 'shop' | 'friends'>('closet');
+  const [shareOpen, setShareOpen] = useState(false);
+  const todayMood = entries.find((e) => dayKey(e.createdAt) === dayKey(new Date()))?.mood;
+  usePublishPet(lvl.level, stage);
   const [naming, setNaming] = useState(false);
   const [gameOpen, setGameOpen] = useState(false);
+  const [studyOpen, setStudyOpen] = useState(false);
   const [boom, setBoom] = useState(0);
   const lastCare = useRef(0);
   const sleeping = isNight();
@@ -54,9 +60,10 @@ export default function PetScreen() {
   // Say hello when the screen opens, then something new every so often
   useEffect(() => {
     if (!pet.hatched) return;
-    setLine((cur) => cur || petLine(pet, settings.userName, wroteToday, love));
-    const hi = setTimeout(() => ref.current?.wave(), 500);
-    const timer = setInterval(() => setLine(petLine(pet, settings.userName, wroteToday, currentLove(pet))), 20000);
+    setLine((cur) => cur || petLine(pet, settings.userName, wroteToday, love, new Date(), todayMood));
+    // It read today's diary: a hug after a hard day, a happy dance after a great one
+    const hi = setTimeout(() => (todayMood !== undefined && todayMood <= 2 ? ref.current?.hug() : todayMood !== undefined && todayMood >= 4 ? ref.current?.celebrate() : ref.current?.wave()), 600);
+    const timer = setInterval(() => setLine(petLine(pet, settings.userName, wroteToday, currentLove(pet), new Date(), todayMood)), 20000);
     return () => {
       clearTimeout(hi);
       clearInterval(timer);
@@ -120,7 +127,12 @@ export default function PetScreen() {
             {pet.hatched ? `${t(STAGE_LABELS[stage])} · ${t('רמה {n} · {title}', { n: lvl.level, title: lvl.title })}` : t('תקיש עליה כדי לעזור לה לבקוע')}
           </T>
         </View>
-        {pet.hatched && <Chip label={t('✏️ שם')} onPress={() => setNaming(true)} />}
+        {pet.hatched && (
+          <Row style={{ gap: 4 }}>
+            <Chip label={t('📤')} onPress={() => setShareOpen(true)} />
+            <Chip label={t('✏️ שם')} onPress={() => setNaming(true)} />
+          </Row>
+        )}
       </Row>
 
       {/* Stage */}
@@ -176,7 +188,7 @@ export default function PetScreen() {
           <Row style={{ gap: 8, marginTop: 12 }}>
             <Action emoji="🤗" label={t('חיבוק')} onPress={() => { ref.current?.hug(); careFor(5, 2, 'hugs', true); say(t('גם אני אוהב אותך! 🤗💜')); }} />
             <Action emoji="🍪" label={t('פינוק ({n})', { n: treats })} onPress={feed} />
-            <Action emoji="👅" label={t('פרצוף')} onPress={() => { ref.current?.tongue(); say(t('בלה! 😜')); }} />
+            <Action emoji="📚" label={t('ללמוד')} onPress={() => setStudyOpen(true)} />
             <Action emoji="🎮" label={t('לשחק')} onPress={() => setGameOpen(true)} />
           </Row>
           <T dim size={12} style={{ textAlign: 'center', marginTop: 8 }}>
@@ -187,8 +199,14 @@ export default function PetScreen() {
           <Row style={{ gap: 8, marginTop: 18 }}>
             <Chip label={t('👕 הארון')} active={tabSel === 'closet'} onPress={() => setTabSel('closet')} />
             <Chip label={t('🏆 שלבים')} active={tabSel === 'levels'} onPress={() => setTabSel('levels')} />
+            <Chip label={t('💎 חנות')} active={tabSel === 'shop'} onPress={() => setTabSel('shop')} />
+            <Chip label={t('👫 חברים')} active={tabSel === 'friends'} onPress={() => setTabSel('friends')} />
           </Row>
-          {tabSel === 'closet' ? <Closet level={lvl.level} /> : <Levels xp={lvl.xp} level={lvl.level} />}
+          {tabSel === 'closet' && <Closet level={lvl.level} onShop={() => setTabSel('shop')} />}
+          {tabSel === 'levels' && <Levels xp={lvl.xp} level={lvl.level} />}
+          {tabSel === 'shop' && <Shop />}
+          {tabSel === 'friends' && <Friends level={lvl.level} stage={stage} />}
+          <ShareCardModal visible={shareOpen} onClose={() => setShareOpen(false)} level={lvl.level} levelTitle={lvl.title} stage={stage} />
         </>
       )}
 
@@ -217,6 +235,20 @@ export default function PetScreen() {
           <GameScreen />
         </SafeAreaView>
       </Modal>
+      <Modal visible={studyOpen} animationType="slide" onRequestClose={() => setStudyOpen(false)}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
+          <ScrollView contentContainerStyle={{ padding: 18 }}>
+            <Row style={{ justifyContent: 'flex-end', marginBottom: 10 }}>
+              <Pressable onPress={() => setStudyOpen(false)} hitSlop={12}>
+                <T bold style={{ color: colors.primaryHi }}>
+                  {t('סגור ✕')}
+                </T>
+              </Pressable>
+            </Row>
+            <StudyTimer />
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
       <Confetti fire={boom} pieces={50} />
     </ScrollView>
   );
@@ -241,12 +273,17 @@ function Action({ emoji, label, onPress }: { emoji: string; label: string; onPre
 
 const NO_REMOVE: Slot[] = ['color', 'bg'];
 
-function Closet({ level }: { level: number }) {
+function Closet({ level, onShop }: { level: number; onShop: () => void }) {
   const { pet, updatePet } = useStore();
   const [slot, setSlot] = useState<Slot | 'species'>('color');
   const items = slot === 'species' ? SPECIES.map((s) => ({ ...s, slot: 'species' as const })) : itemsFor(slot);
   const worn = (id: string) => (slot === 'species' ? pet.species === id : pet.wear[slot] === id);
   const pick = (id: string, need: number) => {
+    const pack = itemsFor(slot as Slot).find((i) => i.id === id)?.pack;
+    if (pack && !(pet.packs ?? []).includes(pack)) {
+      onShop();
+      return;
+    }
     if (need > level) {
       notify('error');
       return;
@@ -264,7 +301,9 @@ function Closet({ level }: { level: number }) {
       </ScrollView>
       <Row style={{ flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
         {items.map((it) => {
-          const locked = it.level > level;
+          const pack = 'pack' in it ? it.pack : undefined;
+          const forSale = !!pack && !(pet.packs ?? []).includes(pack);
+          const locked = it.level > level || forSale;
           const on = worn(it.id);
           return (
             <Pressable
@@ -282,13 +321,13 @@ function Closet({ level }: { level: number }) {
                 transform: [{ scale: pressed ? 0.96 : 1 }],
               })}
             >
-              <Text style={{ fontSize: 28 }}>{locked ? '🔒' : it.emoji}</Text>
+              <Text style={{ fontSize: 28 }}>{forSale ? it.emoji : locked ? '🔒' : it.emoji}</Text>
               <T size={12} bold style={{ textAlign: 'center', marginTop: 2 }}>
                 {t(it.label)}
               </T>
               {locked && (
                 <T dim size={11}>
-                  {t('רמה {n}', { n: it.level })}
+                  {forSale ? t('💎 בחנות') : t('רמה {n}', { n: it.level })}
                 </T>
               )}
             </Pressable>

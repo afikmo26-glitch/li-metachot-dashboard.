@@ -6,6 +6,8 @@ import { Platform } from 'react-native';
 import { decryptFromStorage, encryptForStorage } from './crypto';
 import type { ChatMessage, Entry, Person, UserProfile } from './types';
 import { langName, getGender, t } from '../i18n';
+import { SERVER } from '../config';
+import { loadSession } from './cloud';
 import { topTopics } from './topics';
 
 /**
@@ -23,8 +25,12 @@ export const EMPTY_AI: AiConfig = { claudeKey: '', geminiKey: '', url: '', appKe
 
 /** A Gemini key baked into this build (from .env, never committed); a key typed in Settings takes precedence. */
 const BUILT_IN_GEMINI = process.env.EXPO_PUBLIC_GEMINI_API_KEY ?? '';
-const geminiKeyOf = (c: AiConfig) => c.geminiKey?.trim() || BUILT_IN_GEMINI;
-export const hasBuiltInAi = () => !!BUILT_IN_GEMINI || inClaudeViewer();
+/** The app's server: one typed in Settings, else the one built into the app (src/config.ts). */
+const serverOf = (c: AiConfig): { url: string; appKey: string } | null =>
+  c.url && c.appKey ? { url: c.url, appKey: c.appKey } : SERVER.url && SERVER.appKey ? SERVER : null;
+/** A Gemini key to call directly: one typed in Settings, or (only when there is no server) the build's own key. */
+const geminiKeyOf = (c: AiConfig) => c.geminiKey?.trim() || (serverOf(c) ? '' : BUILT_IN_GEMINI);
+export const hasBuiltInAi = () => !!BUILT_IN_GEMINI || !!(SERVER.url && SERVER.appKey) || inClaudeViewer();
 
 // ---- Inside a claude.ai page (the web preview) ----
 // The page's network is blocked there, so Gemini/Claude can't be reached; the viewer's own Claude answers instead.
@@ -67,7 +73,7 @@ export async function saveAiConfig(c: AiConfig) {
   await AsyncStorage.setItem(KEY, await encryptForStorage(JSON.stringify(c)));
 }
 
-const hasServer = (c: AiConfig) => !!c.url && !!c.appKey;
+const hasServer = (c: AiConfig) => !!serverOf(c);
 export const aiReady = (c: AiConfig, mode: 'diary' | 'vent') => (inClaudeViewer() || !!c.claudeKey || !!geminiKeyOf(c) || hasServer(c)) && c[mode];
 
 /** A one-line description of the user for Yomi, built from the intro answers. */
@@ -157,14 +163,17 @@ async function post<T>(c: AiConfig, path: string, body: unknown): Promise<T> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {
-    const res = await fetch(c.url.replace(/\/+$/, '') + path, {
+    const srv = serverOf(c);
+    if (!srv) throw new Error(t('אין חיבור ל-AI'));
+    const session = await loadSession();
+    const res = await fetch(srv.url.replace(/\/+$/, '') + path, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-app-key': c.appKey },
+      headers: { 'content-type': 'application/json', 'x-app-key': srv.appKey, ...(session ? { authorization: `Bearer ${session.token}` } : {}) },
       body: JSON.stringify(body),
       signal: ctrl.signal,
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data?.error || t('שגיאה {code}', { code: res.status }));
+    if (!res.ok) throw new Error(res.status === 429 ? t('הגעת למכסה היומית של ה-AI. נמשיך מחר 🙂') : data?.error || t('שגיאה {code}', { code: res.status }));
     return data as T;
   } finally {
     clearTimeout(timer);
@@ -218,7 +227,7 @@ export async function aiSummarize(c: AiConfig, messages: ChatMessage[], profile?
 }
 
 /** True when a recording can be turned into text here (needs Gemini: Claude doesn't take audio). */
-export const canTranscribe = (c: AiConfig) => !inClaudeViewer() && !!geminiKeyOf(c);
+export const canTranscribe = (c: AiConfig) => !inClaudeViewer() && (!!geminiKeyOf(c) || hasServer(c));
 
 const AUDIO_TYPES: Record<string, string> = { m4a: 'audio/mp4', mp4: 'audio/mp4', aac: 'audio/aac', webm: 'audio/webm', ogg: 'audio/ogg', wav: 'audio/wav', mp3: 'audio/mp3', caf: 'audio/x-caf' };
 
@@ -239,10 +248,12 @@ async function audioBase64(uri: string): Promise<{ data: string; mimeType: strin
 
 /** The user's spoken words from a recording, plus what the day was about. */
 export async function aiTranscribe(c: AiConfig, uri: string, profile?: AiProfile): Promise<Transcript> {
+  if (inClaudeViewer()) throw new Error(t('אין חיבור ל-AI'));
   const gk = geminiKeyOf(c);
-  if (!gk || inClaudeViewer()) throw new Error(t('אין חיבור ל-AI'));
   const { data, mimeType } = await audioBase64(uri);
-  return withTimeout((signal) => transcribeWithGemini(gk, data, mimeType, profile, signal));
+  if (gk) return withTimeout((signal) => transcribeWithGemini(gk, data, mimeType, profile, signal));
+  if (hasServer(c)) return post<Transcript>(c, '/transcribe', { audio: data, mimeType, profile });
+  throw new Error(t('אין חיבור ל-AI'));
 }
 
 /** Quick connection check used by the settings screen. */

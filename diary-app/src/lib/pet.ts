@@ -1,6 +1,7 @@
 import { t } from '../i18n';
 import { dayKey } from './dates';
-import type { Entry, GameStats, Person, SavingsTx } from './types';
+import { studyXp } from './study';
+import type { Entry, GameStats, Person, SavingsTx, StudySession } from './types';
 
 /**
  * The pet: a little creature that hatches, gets a name, grows with the user's levels and wears what they unlock.
@@ -32,6 +33,10 @@ export type PetState = {
   bornAt?: string;
   /** The highest level already celebrated */
   seenLevel: number;
+  /** Outfit packs bought in the shop */
+  packs?: string[];
+  /** Friends' pets visited by code */
+  friends?: { code: string; name: string }[];
 };
 
 export const DEFAULT_PET: PetState = {
@@ -58,7 +63,8 @@ const CARE_XP_PER_DAY = 10;
 
 // ---- Catalog ----
 
-export type Item = { id: string; slot: Slot; label: string; emoji: string; level: number };
+/** `pack`: an outfit pack bought in the shop (looks only, nothing else changes). */
+export type Item = { id: string; slot: Slot; label: string; emoji: string; level: number; pack?: string };
 
 export const SLOTS: { slot: Slot; label: string; emoji: string }[] = [
   { slot: 'color', label: 'צבע', emoji: '🎨' },
@@ -127,6 +133,13 @@ export const ITEMS: Item[] = [
   { id: 'forest', slot: 'bg', label: 'יער', emoji: '🌲', level: 4 },
   { id: 'space', slot: 'bg', label: 'חלל', emoji: '🚀', level: 6 },
   { id: 'disco', slot: 'bg', label: 'דיסקו', emoji: '🪩', level: 9 },
+  // Shop packs
+  { id: 'strawhat', slot: 'hat', label: 'כובע קש', emoji: '👒', level: 1, pack: 'pack_summer' },
+  { id: 'aviator', slot: 'glasses', label: 'משקפי טייס', emoji: '🕶️', level: 1, pack: 'pack_summer' },
+  { id: 'lei', slot: 'neck', label: 'שרשרת פרחים', emoji: '🌺', level: 1, pack: 'pack_summer' },
+  { id: 'halo', slot: 'hat', label: 'הילה', emoji: '😇', level: 1, pack: 'pack_magic' },
+  { id: 'cape', slot: 'neck', label: 'גלימה', emoji: '🦸', level: 1, pack: 'pack_magic' },
+  { id: 'sparkle', slot: 'face', label: 'נצנוצים', emoji: '✨', level: 1, pack: 'pack_magic' },
 ];
 
 export const SPECIES: { id: Species; label: string; emoji: string; level: number }[] = [
@@ -140,7 +153,7 @@ export const SPECIES: { id: Species; label: string; emoji: string; level: number
 
 export const itemsFor = (slot: Slot) => ITEMS.filter((i) => i.slot === slot);
 export const itemById = (id?: string) => ITEMS.find((i) => i.id === id);
-export const unlockedAt = (level: number) => [...ITEMS, ...SPECIES.map((s) => ({ ...s, slot: 'species' as const }))].filter((i) => i.level === level);
+export const unlockedAt = (level: number) => [...ITEMS.filter((i) => !i.pack), ...SPECIES.map((s) => ({ ...s, slot: 'species' as const }))].filter((i) => i.level === level);
 
 // ---- Levels ----
 
@@ -191,8 +204,8 @@ export function habitXp(entries: Entry[], people: Person[], savingsTx: SavingsTx
   return days.size * 20 + recDays.size * 10 + weeks * 50 + Math.min(people.length, 40) * 5 + saveDays.size * 5;
 }
 
-export const totalXp = (game: GameStats, pet: PetState, entries: Entry[], people: Person[], savingsTx: SavingsTx[]) =>
-  game.xp + pet.careXp + habitXp(entries, people, savingsTx);
+export const totalXp = (game: GameStats, pet: PetState, entries: Entry[], people: Person[], savingsTx: SavingsTx[], study: StudySession[] = []) =>
+  game.xp + pet.careXp + habitXp(entries, people, savingsTx) + studyXp(study);
 
 /** Love fades by 1 point an hour, down to 20 (the pet misses you, it never gets sick). */
 export function currentLove(pet: PetState, now = Date.now()): number {
@@ -222,10 +235,12 @@ export const treatsLeft = (pet: PetState, entries: Entry[]) => Math.max(0, new S
 export const isNight = (d = new Date()) => d.getHours() >= 23 || d.getHours() < 6;
 
 /** What the pet says: depends on the time, love, whether the user wrote today and the streak. */
-export function petLine(pet: PetState, userName: string, wroteToday: boolean, love: number, d = new Date()): string {
+export function petLine(pet: PetState, userName: string, wroteToday: boolean, love: number, d = new Date(), todayMood?: number): string {
   const name = userName || '';
   const h = d.getHours();
   if (isNight(d)) return t('זזז… 😴 (לילה טוב{name})', { name: name ? `, ${name}` : '' });
+  if (todayMood !== undefined && todayMood <= 2) return t('ראיתי שהיה לך יום קשה… אני פה. בא לך חיבוק? 🫂');
+  if (todayMood === 5 && d.getMinutes() % 2 === 0) return t('איזה יום מעולה היה לך! אני כל כך שמח 🎉');
   if (love < 35) return t('התגעגעתי אליך 🥺 בוא נשב קצת ביחד?');
   if (!wroteToday && h >= 18) return t('ספרת לי כבר איך היה היום? אני סקרן! 👀');
   const pool = [

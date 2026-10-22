@@ -13,6 +13,10 @@ import { colors, gradients, THEME_UNLOCK, ThemeName, THEMES } from '../lib/theme
 import { useLevel } from '../lib/useLevel';
 import { GenderPicker } from '../screens/AuthScreens';
 import { exportBackup, importBackup, MIN_BACKUP_PASSWORD } from '../lib/backup';
+import { backupNow, loadSession, setCloudPassword } from '../lib/cloud';
+import { useBackupData } from '../lib/useCloudSync';
+import CloudCard from './CloudCard';
+import LegalModal from './LegalModal';
 import { shareYearBook } from '../lib/yearbook';
 import type { Settings } from '../lib/types';
 import { Card, Chip, GhostButton, GradientButton, Input, Row, SectionTitle, T, tap } from './ui';
@@ -30,6 +34,7 @@ type Props = {
 export default function SettingsModal({ visible, onClose, account, onAccountChange, onLock, onOpenIntro }: Props) {
   const { settings, updateSettings, entries, people } = useStore();
   const [draft, setDraft] = useState<Settings>(settings);
+  const [legal, setLegal] = useState<'privacy' | 'terms' | null>(null);
 
   const save = async () => {
     updateSettings(draft);
@@ -59,6 +64,9 @@ export default function SettingsModal({ visible, onClose, account, onAccountChan
           <AccountCard account={account} onAccountChange={onAccountChange} onLock={onLock} />
           <GhostButton title={t('👋 ההיכרות שלי (משפחה, חברים, עבודה)')} onPress={onOpenIntro} style={{ marginTop: 10 }} />
 
+          <SectionTitle>{t('☁️ גיבוי בענן')}</SectionTitle>
+          <CloudCard account={account} />
+
           <SectionTitle>{t('✨ צ\'אט חכם (AI)')}</SectionTitle>
           <AiCard />
 
@@ -68,11 +76,17 @@ export default function SettingsModal({ visible, onClose, account, onAccountChan
             <T size={14}>{t('🔑 הסיסמה נשמרת כ-hash חזק (PBKDF2) ולא כטקסט')}</T>
             <T size={14}>{t('⛔ 5 ניסיונות כניסה שגויים חוסמים ל-30 שניות')}</T>
             <T size={14}>{t('🫂 "המקום לפרוק" מוצפן בסיסמה נפרדת, ננעל ביציאה ואי אפשר לצלם בו מסך')}</T>
-            <T size={14}>{t('📵 אין גיבוי אוטומטי של היומן לענן של גוגל, כדי שלא ייצא מהטלפון')}</T>
+            <T size={14}>{t('☁️ הגיבוי בענן מוצפן מקצה לקצה: הוא ננעל בסיסמת היומן לפני שהוא יוצא מהטלפון')}</T>
+            <T size={14}>{t('📵 אין גיבוי של אנדרואיד/אייקלאוד ליומן — רק הגיבוי המוצפן שלנו, אם תפעיל')}</T>
             <T dim size={12} style={{ marginTop: 4, lineHeight: 18 }}>
-              {t('כשה-AI מופעל, ההודעות שלך בצ\'אט נשלחות לשרת שלך ול-Claude כדי לקבל תשובה. בלי AI שום דבר לא יוצא מהטלפון.')}
+              {t('כשה-AI מופעל, ההודעות שלך בצ\'אט נשלחות לשרת ולספק ה-AI כדי לקבל תשובה, ולא נשמרות שם.')}
             </T>
+            <Row style={{ gap: 8, marginTop: 6 }}>
+              <GhostButton title={t('📄 מדיניות פרטיות')} onPress={() => setLegal('privacy')} style={{ flex: 1 }} />
+              <GhostButton title={t('📜 תנאי שימוש')} onPress={() => setLegal('terms')} style={{ flex: 1 }} />
+            </Row>
           </Card>
+          <LegalModal doc={legal} onClose={() => setLegal(null)} />
 
           <SectionTitle>{t('איך לקרוא לך?')}</SectionTitle>
           <Input value={draft.userName} onChangeText={(userName) => setDraft({ ...draft, userName })} placeholder={t('השם שלך')} />
@@ -135,7 +149,7 @@ export default function SettingsModal({ visible, onClose, account, onAccountChan
             }}
           />
           <T dim size={12} style={{ textAlign: 'center', marginTop: 20, lineHeight: 18 }}>
-            {t('🔒 כל המידע נשמר רק על הטלפון שלך — שום דבר לא נשלח לשרת.')}
+            {t('🔒 היומן מוצפן. גם כשהוא מגובה בענן, רק את/ה יכול/ה לפתוח אותו.')}
           </T>
         </ScrollView>
       </SafeAreaView>
@@ -318,6 +332,7 @@ function AiCard() {
 }
 
 function AccountCard({ account, onAccountChange, onLock }: { account: Account; onAccountChange: (a: Account) => void; onLock: () => void }) {
+  const backupData = useBackupData();
   const [changing, setChanging] = useState(false);
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
@@ -367,6 +382,11 @@ function AccountCard({ account, onAccountChange, onLock }: { account: Account; o
       return;
     }
     onAccountChange(res);
+    // Re-lock the cloud copy with the new password
+    if ((await loadSession())?.key) {
+      await setCloudPassword(next, true).catch(() => {});
+      backupNow(backupData).catch(() => {});
+    }
     setMsg({ text: t('הסיסמה עודכנה ✓'), ok: true });
     setCurrent('');
     setNext('');
@@ -500,6 +520,7 @@ function Stepper({ onUp, onDown }: { onUp: () => void; onDown: () => void }) {
 /** Encrypted backup file (export / restore) and the printable year book. */
 function BackupCard() {
   const store = useStore();
+  const backupData = useBackupData();
   const [pass, setPass] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
@@ -519,8 +540,7 @@ function BackupCard() {
   const doExport = () =>
     run(async () => {
       if (pass.length < MIN_BACKUP_PASSWORD) throw new Error(t('סיסמת גיבוי של לפחות {n} תווים', { n: MIN_BACKUP_PASSWORD }));
-      const { entries, people, events, settings, game, profile, followUps, goals, workplaces, shifts, savingsGoals, savingsTx, pet } = store;
-      await exportBackup({ entries, people, events, settings, game, profile, followUps, goals, workplaces, shifts, savingsGoals, savingsTx, pet }, pass);
+      await exportBackup(backupData, pass);
       setMsg({ text: t('הגיבוי נוצר ✓ שמור אותו במקום בטוח, ואל תשכח את הסיסמה'), ok: true });
     });
 

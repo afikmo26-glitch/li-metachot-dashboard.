@@ -11,7 +11,8 @@
       "bundleIdentifier": "com.mylifediary.app",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "האפליקציה מקליטה את היומן היומי שלך."
-      }
+      },
+      "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {
@@ -71,7 +72,30 @@
           "photosPermission": "כדי לצרף תמונה לרשומה ביומן, רק כשתבחר.",
           "cameraPermission": "כדי לצלם תמונה יומית, רק כשתבחר."
         }
-      ]
+      ],
+      "@react-native-google-signin/google-signin",
+      "expo-iap",
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "Pet",
+              "label": "החבר שלי",
+              "description": "החבר שלך על מסך הבית",
+              "minWidth": "250dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 2,
+              "previewImage": "./assets/widget-preview.png",
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            }
+          ]
+        }
+      ],
+      "expo-apple-authentication",
+      "expo-status-bar"
     ],
     "backgroundColor": "#14102B"
   }

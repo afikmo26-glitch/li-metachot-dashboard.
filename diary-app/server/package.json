@@ -6,13 +6,15 @@
   "scripts": {
     "deploy": "wrangler deploy",
     "dev": "wrangler dev",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test test/*.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261019.1",
+    "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "wrangler": "^4.151.2"
   }

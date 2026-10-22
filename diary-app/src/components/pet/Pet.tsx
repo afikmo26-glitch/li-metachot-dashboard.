@@ -51,7 +51,7 @@ export default function Pet({ pet, stage, size, sleeping, interactive = true, on
   const reduced = useReducedMotion();
   const S = size * STAGE_SCALE[stage];
   const u = S / 200;
-  const uid = useRef(`p${Math.random().toString(36).slice(2, 8)}`).current;
+  const [uid] = useState(() => `p${Math.random().toString(36).slice(2, 8)}`);
   const p = palette(pet.wear.color, uid);
   const [awake, setAwake] = useState(false);
   const dozing = !!sleeping && !awake;
@@ -70,6 +70,10 @@ export default function Pet({ pet, stage, size, sleeping, interactive = true, on
   const chomp = useSharedValue(0);
   const dist = useSharedValue(0);
   const petting = useSharedValue(0);
+
+  const blep = useCallback(() => {
+    tongue.set(withSequence(withTiming(1, { duration: 180, easing: EASE_OUT }), withDelay(900, withTiming(0, { duration: 220, easing: EASE_IN_OUT }))));
+  }, [tongue]);
 
   // Breathing and a gentle sway, always on (slower and deeper while asleep)
   useEffect(() => {
@@ -126,10 +130,6 @@ export default function Pet({ pet, stage, size, sleeping, interactive = true, on
     const t = setTimeout(() => setAwake(false), 20000);
     return () => clearTimeout(t);
   }, [awake]);
-
-  const blep = useCallback(() => {
-    tongue.set(withSequence(withTiming(1, { duration: 180, easing: EASE_OUT }), withDelay(900, withTiming(0, { duration: 220, easing: EASE_IN_OUT }))));
-  }, [tongue]);
 
   // ---- Hearts ----
   const [hearts, setHearts] = useState<{ id: number; x: number; emoji: string }[]>([]);

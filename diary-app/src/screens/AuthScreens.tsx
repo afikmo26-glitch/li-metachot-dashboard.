@@ -3,8 +3,8 @@ import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { TimePicker } from '../components/SettingsModal';
-import { Chip, FadeIn, GhostButton, GradientButton, Input, Row, T, tap } from '../components/ui';
-import { Account, AuthProvider, checkLogin, createLocalAccount, resetPassword, validateSignup, wipeAllData } from '../lib/account';
+import { Chip, FadeIn, GhostButton, GradientButton, Input, notify, Row, T } from '../components/ui';
+import { Account, checkLogin, createLocalAccount, resetPassword, validateSignup, wipeAllData } from '../lib/account';
 import { maskContact, normalizeContact, sendRecoveryCode, verifyRecoveryCode } from '../lib/recovery';
 import { scheduleBedtime } from '../lib/notifications';
 import { usePrefs } from '../lib/prefs';
@@ -15,6 +15,9 @@ import { play } from '../lib/sound';
 import { biometricAvailable, biometricLabel, biometricUnlock } from '../lib/biometric';
 import { colors, gradients, layout } from '../lib/theme';
 import { LANGS, t } from '../i18n';
+import LegalModal from '../components/LegalModal';
+import { cloudConfigured, cloudMeta, CloudSession, restoreFromCloud, setCloudPassword } from '../lib/cloud';
+import { AgeStep, ConnectStep, RestoreStep } from './CloudScreens';
 
 const SLIDES = [
   {
@@ -44,7 +47,7 @@ const SLIDES = [
   },
 ];
 
-function Screen({ children }: { children: React.ReactNode }) {
+export function Screen({ children }: { children: React.ReactNode }) {
   return (
     <LinearGradient colors={gradients.app} style={{ flex: 1 }}>
       <SafeAreaView style={{ flex: 1 }}>
@@ -73,9 +76,61 @@ function Dots({ count, index }: { count: number; index: number }) {
 
 /** First run: tutorial → create account → pick reminder time. */
 export function Onboarding({ onDone }: { onDone: (a: Account) => void }) {
-  const [step, setStep] = useState<'welcome' | 'slides' | 'signup' | 'intro' | 'reminder'>('welcome');
+  const [step, setStep] = useState<'welcome' | 'slides' | 'age' | 'connect' | 'restore' | 'signup' | 'intro' | 'reminder'>('welcome');
   const [slide, setSlide] = useState(0);
   const [account, setAccount] = useState<Account | null>(null);
+  const [cloud, setCloud] = useState<CloudSession | null>(null);
+  const [cloudUpdated, setCloudUpdated] = useState<string | undefined>();
+  const { updateProfile, restoreAll } = useStore();
+
+  if (step === 'age') {
+    return (
+      <AgeStep
+        onDone={async (age) => {
+          updateProfile({ age: String(age), birthYear: new Date().getFullYear() - age });
+          setStep((await cloudConfigured()) ? 'connect' : 'signup');
+        }}
+      />
+    );
+  }
+
+  if (step === 'connect') {
+    return (
+      <ConnectStep
+        onSkip={() => setStep('signup')}
+        onDone={async (s) => {
+          setCloud(s);
+          const meta = await cloudMeta().catch(() => null);
+          if (meta?.exists) {
+            setCloudUpdated(meta.updatedAt);
+            setStep('restore');
+          } else setStep('signup');
+        }}
+      />
+    );
+  }
+
+  if (step === 'restore' && cloud) {
+    return (
+      <RestoreStep
+        updatedAt={cloudUpdated}
+        onFresh={() => setStep('signup')}
+        onRestore={async (password) => {
+          try {
+            const data = await restoreFromCloud(password);
+            restoreAll(data);
+            const contact = cloud.provider === 'email' || cloud.provider === 'phone' ? cloud.label : undefined;
+            const a = await createLocalAccount(data.settings.userName || t('אני'), usernameFrom(cloud.label), password, contact);
+            notify('success');
+            onDone(a);
+            return null;
+          } catch (e) {
+            return (e as Error).message;
+          }
+        }}
+      />
+    );
+  }
 
   if (step === 'welcome') {
     return (
@@ -84,7 +139,7 @@ export function Onboarding({ onDone }: { onDone: (a: Account) => void }) {
           play('whoosh', 0.5);
           setStep('slides');
         }}
-        onSkip={() => setStep('signup')}
+        onSkip={() => setStep('age')}
       />
     );
   }
@@ -95,7 +150,7 @@ export function Onboarding({ onDone }: { onDone: (a: Account) => void }) {
     return (
       <Screen>
         <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-          <Pressable onPress={() => setStep('signup')} hitSlop={12}>
+          <Pressable onPress={() => setStep('age')} hitSlop={12}>
             <T dim>{t('דלג')}</T>
           </Pressable>
           <LanguagePicker />
@@ -128,7 +183,7 @@ export function Onboarding({ onDone }: { onDone: (a: Account) => void }) {
         <GradientButton
           title={last ? t('בוא נתחיל') : t('הבא')}
           colors={gradients.primary}
-          onPress={() => (last ? setStep('signup') : setSlide(slide + 1))}
+          onPress={() => (last ? setStep('age') : setSlide(slide + 1))}
         />
         {slide > 0 && <GhostButton title={t('הקודם')} onPress={() => setSlide(slide - 1)} style={{ marginTop: 10, borderWidth: 0 }} />}
       </Screen>
@@ -138,6 +193,7 @@ export function Onboarding({ onDone }: { onDone: (a: Account) => void }) {
   if (step === 'signup' || !account) {
     return (
       <Signup
+        cloud={cloud}
         onCreated={(a) => {
           setAccount(a);
           setStep('intro');
@@ -197,35 +253,40 @@ function Welcome({ onStart, onSkip }: { onStart: () => void; onSkip: () => void 
   );
 }
 
-function Signup({ onCreated }: { onCreated: (a: Account) => void }) {
+/** The cloud login's email/phone → a username for the lock screen ("dana.cohen", "user4567"). */
+function usernameFrom(label: string): string {
+  const base = label.includes('@') ? label.split('@')[0].replace(/[^a-zA-Z0-9_.]/g, '').slice(0, 20) : '';
+  return base.length >= 3 ? base.toLowerCase() : `user${label.replace(/\D/g, '').slice(-4) || Math.floor(Math.random() * 9000 + 1000)}`;
+}
+
+function Signup({ onCreated, cloud }: { onCreated: (a: Account) => void; cloud?: CloudSession | null }) {
   const { updateSettings } = useStore();
   const { prefs, setPrefs } = usePrefs();
   const [displayName, setDisplayName] = useState('');
-  const [username, setUsername] = useState('');
+  const [username, setUsername] = useState(cloud ? usernameFrom(cloud.label) : '');
+  const [agreed, setAgreed] = useState(false);
+  const [legal, setLegal] = useState<'privacy' | 'terms' | null>(null);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [recovery, setRecovery] = useState('');
-
-  const social = (p: AuthProvider) => {
-    tap();
-    setError(null);
-    setInfo(
-      t('התחברות עם {provider} תופעל בגרסה הבאה. בינתיים צור חשבון עם שם משתמש וסיסמה, ואפשר יהיה לחבר אותו אחר כך.', { provider: p === 'google' ? 'Google' : 'Apple' }),
-    );
-  };
+  const [recovery, setRecovery] = useState(cloud && (cloud.provider === 'email' || cloud.provider === 'phone') ? cloud.label : '');
 
   const create = async () => {
     const contact = normalizeContact(recovery);
-    const err = validateSignup(displayName, username, password, confirm) ?? (contact ? null : t('כתוב אימייל או מספר טלפון תקין, כדי שאפשר יהיה לשחזר את הסיסמה'));
+    const err =
+      validateSignup(displayName, username, password, confirm) ??
+      (contact || cloud ? null : t('כתוב אימייל או מספר טלפון תקין, כדי שאפשר יהיה לשחזר את הסיסמה')) ??
+      (agreed ? null : t('צריך לאשר את תנאי השימוש ומדיניות הפרטיות'));
     setError(err);
     setInfo(null);
     if (err) return;
     setBusy(true);
     const a = await createLocalAccount(displayName, username, password, contact ?? undefined);
     updateSettings({ userName: a.displayName });
+    // The cloud copy is locked with the same password (the first backup runs right after)
+    if (cloud) await setCloudPassword(password).catch(() => {});
     setBusy(false);
     onCreated(a);
   };
@@ -236,19 +297,8 @@ function Signup({ onCreated }: { onCreated: (a: Account) => void }) {
         {t('יצירת חשבון')}
       </T>
       <T dim style={{ textAlign: 'center', marginTop: 6, marginBottom: 22 }}>
-        {t('היומן שלך מוגן בסיסמה ונשמר רק על הטלפון')}
+        {cloud ? t('מחובר כ-{who} ☁️ · בחר סיסמה ליומן: היא גם המפתח לגיבוי המוצפן', { who: `\u2066${cloud.label}\u2069` }) : t('היומן שלך מוגן בסיסמה ונשמר רק על הטלפון')}
       </T>
-
-      <SocialButton label={t('המשך עם Google')} icon="G" bg="#FFFFFF" fg="#1F1F1F" onPress={() => social('google')} />
-      <SocialButton label={t('המשך עם Apple')} icon={Platform.OS === 'ios' ? '\uF8FF' : ''} bg="#000000" fg="#FFFFFF" onPress={() => social('apple')} />
-
-      <Row style={{ alignItems: 'center', gap: 10, marginVertical: 18 }}>
-        <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
-        <T dim size={13}>
-          {t('או עם שם משתמש')}
-        </T>
-        <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
-      </Row>
 
       <View style={{ gap: 10 }}>
         <Input value={displayName} onChangeText={setDisplayName} placeholder={t('השם שלך (איך לקרוא לך)')} autoComplete="name" />
@@ -279,6 +329,23 @@ function Signup({ onCreated }: { onCreated: (a: Account) => void }) {
           {t('משמש רק לשליחת קוד אם תשכח את הסיסמה')}
         </T>
       </View>
+
+      <Pressable onPress={() => setAgreed(!agreed)} style={{ flexDirection: layout.row, alignItems: 'center', gap: 10, marginTop: 16 }} accessibilityRole="checkbox" accessibilityState={{ checked: agreed }}>
+        <View style={{ width: 24, height: 24, borderRadius: 7, borderWidth: 2, borderColor: agreed ? colors.primaryHi : colors.border, backgroundColor: agreed ? colors.primary : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+          {agreed && <Text style={{ color: '#fff', fontWeight: '800' }}>✓</Text>}
+        </View>
+        <T size={14} style={{ flex: 1, lineHeight: 20 }}>
+          {t('קראתי ואני מסכים/ה ל')}
+          <T size={14} bold style={{ color: colors.primaryHi }} onPress={() => setLegal('terms')}>
+            {t('תנאי השימוש')}
+          </T>
+          {t(' ול')}
+          <T size={14} bold style={{ color: colors.primaryHi }} onPress={() => setLegal('privacy')}>
+            {t('מדיניות הפרטיות')}
+          </T>
+        </T>
+      </Pressable>
+      <LegalModal doc={legal} onClose={() => setLegal(null)} />
 
       {error && <Notice text={error} color={colors.red} />}
       {info && <Notice text={info} color={colors.yellow} />}
@@ -587,7 +654,7 @@ function LanguagePicker() {
   );
 }
 
-function SocialButton({ label, icon, bg, fg, onPress }: { label: string; icon: string; bg: string; fg: string; onPress: () => void }) {
+export function SocialButton({ label, icon, bg, fg, onPress }: { label: string; icon: string; bg: string; fg: string; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
@@ -611,7 +678,7 @@ function SocialButton({ label, icon, bg, fg, onPress }: { label: string; icon: s
   );
 }
 
-function Notice({ text, color }: { text: string; color: string }) {
+export function Notice({ text, color }: { text: string; color: string }) {
   return (
     <View style={{ marginTop: 12, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: color }}>
       <T size={14} style={{ color, lineHeight: 20 }}>

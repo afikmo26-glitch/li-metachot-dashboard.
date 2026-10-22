@@ -19,6 +19,9 @@ import {
   Settings,
   EMPTY_PROFILE,
   UserProfile,
+  Exam,
+  Homework,
+  StudySession,
 } from './types';
 import { DEFAULT_PET, type PetState } from './pet';
 
@@ -37,6 +40,9 @@ const KEYS = {
   savingsGoals: 'diary.savings.v1',
   savingsTx: 'diary.savingstx.v1',
   pet: 'diary.pet.v1',
+  exams: 'diary.exams.v1',
+  homework: 'diary.homework.v1',
+  studySessions: 'diary.study.v1',
 };
 
 export const newId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
@@ -78,6 +84,14 @@ type Store = {
   deleteSavingsGoal: (id: string) => void;
   savingsTx: SavingsTx[];
   pet: PetState;
+  exams: Exam[];
+  saveExam: (x: Exam) => void;
+  deleteExam: (id: string) => void;
+  homework: Homework[];
+  saveHomework: (x: Homework) => void;
+  deleteHomework: (id: string) => void;
+  studySessions: StudySession[];
+  saveStudySession: (x: StudySession) => void;
   updatePet: (patch: Partial<PetState> | ((p: PetState) => PetState)) => void;
   saveSavingsTx: (x: SavingsTx) => void;
   deleteSavingsTx: (id: string) => void;
@@ -101,6 +115,9 @@ export type BackupData = {
   savingsGoals?: SavingsGoal[];
   savingsTx?: SavingsTx[];
   pet?: PetState;
+  exams?: Exam[];
+  homework?: Homework[];
+  studySessions?: StudySession[];
 };
 
 const Ctx = createContext<Store | null>(null);
@@ -159,6 +176,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [shifts, setShifts, saveShift, deleteShift] = useList<Shift>(KEYS.shifts);
   const [savingsGoals, setSavingsGoals, saveSavingsGoal, deleteSavingsGoal] = useList<SavingsGoal>(KEYS.savingsGoals);
   const [savingsTx, setSavingsTx, saveSavingsTx, deleteSavingsTx] = useList<SavingsTx>(KEYS.savingsTx);
+  const [exams, setExams, saveExam, deleteExam] = useList<Exam>(KEYS.exams);
+  const [homework, setHomework, saveHomework, deleteHomework] = useList<Homework>(KEYS.homework);
+  const [studySessions, setStudySessions, saveStudySession] = useList<StudySession>(KEYS.studySessions);
   const [activeShift, setActive] = useState<ActiveShift | null>(null);
   const [pet, setPet] = useState<PetState>(DEFAULT_PET);
   const updatePet = useCallback((patch: Partial<PetState> | ((p: PetState) => PetState)) => {
@@ -181,7 +201,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     (async () => {
-      const [e, p, ev, s, g, pr, fu, go, wp, sh, as, sg, st, pt] = await Promise.all([
+      const [e, p, ev, s, g, pr, fu, go, wp, sh, as, sg, st, pt, ex, hw, ss] = await Promise.all([
         load<Entry[]>(KEYS.entries, []),
         load<Person[]>(KEYS.people, []),
         load<CalendarEvent[]>(KEYS.events, []),
@@ -196,7 +216,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         load<SavingsGoal[]>(KEYS.savingsGoals, []),
         load<SavingsTx[]>(KEYS.savingsTx, []),
         load<PetState>(KEYS.pet, DEFAULT_PET),
+        load<Exam[]>(KEYS.exams, []),
+        load<Homework[]>(KEYS.homework, []),
+        load<StudySession[]>(KEYS.studySessions, []),
       ]);
+      setExams(ex);
+      setHomework(hw);
+      setStudySessions(ss);
       setPet({ ...DEFAULT_PET, ...pt });
       setSavingsGoals(sg);
       setSavingsTx(st);
@@ -338,7 +364,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setSavingsGoals([]);
     setSavingsTx([]);
     setPet(DEFAULT_PET);
-  }, [setFollowUps, setGoals, setWorkplaces, setShifts, setSavingsGoals, setSavingsTx]);
+    setExams([]);
+    setHomework([]);
+    setStudySessions([]);
+  }, [setExams, setHomework, setStudySessions, setFollowUps, setGoals, setWorkplaces, setShifts, setSavingsGoals, setSavingsTx]);
 
   const restoreAll = useCallback(
     (d: BackupData) => {
@@ -347,6 +376,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         [KEYS.game, d.game], [KEYS.profile, d.profile], [KEYS.followUps, d.followUps], [KEYS.goals, d.goals],
         [KEYS.workplaces, d.workplaces ?? []], [KEYS.shifts, d.shifts ?? []],
         [KEYS.savingsGoals, d.savingsGoals ?? []], [KEYS.savingsTx, d.savingsTx ?? []], [KEYS.pet, d.pet ?? DEFAULT_PET],
+        [KEYS.exams, d.exams ?? []], [KEYS.homework, d.homework ?? []], [KEYS.studySessions, d.studySessions ?? []],
       ];
       all.forEach(([k, v]) => persist(k, v));
       setEntries(d.entries);
@@ -363,8 +393,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setSavingsGoals(d.savingsGoals ?? []);
       setSavingsTx(d.savingsTx ?? []);
       setPet({ ...DEFAULT_PET, ...d.pet });
+      setExams(d.exams ?? []);
+      setHomework(d.homework ?? []);
+      setStudySessions(d.studySessions ?? []);
     },
-    [setFollowUps, setGoals, setWorkplaces, setShifts, setSavingsGoals, setSavingsTx],
+    [setExams, setHomework, setStudySessions, setFollowUps, setGoals, setWorkplaces, setShifts, setSavingsGoals, setSavingsTx],
   );
 
   const value = useMemo<Store>(
@@ -406,12 +439,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       savingsTx,
       pet,
       updatePet,
+      exams,
+      saveExam,
+      deleteExam,
+      homework,
+      saveHomework,
+      deleteHomework,
+      studySessions,
+      saveStudySession,
       saveSavingsTx,
       deleteSavingsTx,
       restoreAll,
       clearAll,
     }),
-    [ready, entries, people, events, settings, game, profile, updateProfile, saveEntry, deleteEntry, addPerson, updatePerson, deletePerson, saveEvent, deleteEvent, updateSettings, updateGame, followUps, saveFollowUp, deleteFollowUp, goals, saveGoal, deleteGoal, workplaces, saveWorkplace, deleteWorkplace, shifts, saveShift, deleteShift, activeShift, setActiveShift, savingsGoals, saveSavingsGoal, deleteSavingsGoal, savingsTx, saveSavingsTx, deleteSavingsTx, pet, updatePet, restoreAll, clearAll],
+    [ready, entries, people, events, settings, game, profile, updateProfile, saveEntry, deleteEntry, addPerson, updatePerson, deletePerson, saveEvent, deleteEvent, updateSettings, updateGame, followUps, saveFollowUp, deleteFollowUp, goals, saveGoal, deleteGoal, workplaces, saveWorkplace, deleteWorkplace, shifts, saveShift, deleteShift, activeShift, setActiveShift, savingsGoals, saveSavingsGoal, deleteSavingsGoal, savingsTx, saveSavingsTx, deleteSavingsTx, pet, updatePet, exams, saveExam, deleteExam, homework, saveHomework, deleteHomework, studySessions, saveStudySession, restoreAll, clearAll],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

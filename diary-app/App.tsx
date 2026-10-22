@@ -14,6 +14,9 @@ import { t } from './src/i18n';
 import { Account, ensurePreviewAccount } from './src/lib/account';
 import { scheduleBedtime, schedulePhotoReminder, scheduleSavingsReminder } from './src/lib/notifications';
 import { PrefsProvider, usePrefs } from './src/lib/prefs';
+import { useCloudSync } from './src/lib/useCloudSync';
+import { useWidgetSync } from './src/widget/widgetSync';
+import ErrorBoundary, { installCrashReporting } from './src/components/ErrorBoundary';
 import { StoreProvider, useStore } from './src/lib/store';
 import { colors, gradients, layout } from './src/lib/theme';
 import ArchiveScreen from './src/screens/ArchiveScreen';
@@ -28,6 +31,7 @@ import WorkScreen from './src/screens/WorkScreen';
 
 // The native layout is pinned LTR; screens lay themselves out through `layout`/`rtl`,
 // so Hebrew and Arabic read right-to-left and English left-to-right, whatever the phone's language.
+installCrashReporting();
 I18nManager.allowRTL(false);
 I18nManager.forceRTL(false);
 
@@ -38,7 +42,7 @@ const TABS: { key: Tab; label: string; icon: IconName; active: IconName }[] = [
   { key: 'archive', label: 'ארכיון', icon: 'library-outline', active: 'library' },
   { key: 'calendar', label: 'לוח שנה', icon: 'calendar-outline', active: 'calendar' },
   { key: 'people', label: 'אנשים', icon: 'people-outline', active: 'people' },
-  { key: 'work', label: 'עבודה', icon: 'wallet-outline', active: 'wallet' },
+  { key: 'work', label: 'עבודה ולימודים', icon: 'briefcase-outline', active: 'briefcase' },
   { key: 'vent', label: 'לפרוק', icon: 'lock-closed-outline', active: 'lock-closed' },
   { key: 'pet', label: 'החבר שלי', icon: 'paw-outline', active: 'paw' },
 ];
@@ -118,8 +122,11 @@ function Root() {
 
 function Main({ account, setAccount, onLock }: { account: Account; setAccount: (a: Account) => void; onLock: () => void }) {
   const { profile, pet } = useStore();
+  useCloudSync();
+  useWidgetSync();
   const { takeReopenSettings } = usePrefs();
   const [tab, setTab] = useState<Tab>('today');
+  const [workSection, setWorkSection] = useState<'hours' | 'save' | 'study' | undefined>();
   const [entryId, setEntryId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(takeReopenSettings);
   const [introOpen, setIntroOpen] = useState(false);
@@ -164,6 +171,10 @@ function Main({ account, setAccount, onLock }: { account: Account; setAccount: (
             {tab === 'today' && (
               <TodayScreen
                 onOpenPet={() => go('pet')}
+                onOpenStudy={() => {
+                  setWorkSection('study');
+                  go('work');
+                }}
                 onOpenSettings={() => setSettingsOpen(true)}
                 onOpenEntry={open}
                 onOpenIntro={profile.done ? undefined : () => setIntroOpen(true)}
@@ -172,7 +183,7 @@ function Main({ account, setAccount, onLock }: { account: Account; setAccount: (
             {tab === 'archive' && <ArchiveScreen onOpenEntry={open} />}
             {tab === 'calendar' && <CalendarScreen onOpenEntry={open} />}
             {tab === 'people' && <PeopleScreen onOpenEntry={open} />}
-            {tab === 'work' && <WorkScreen />}
+            {tab === 'work' && <WorkScreen initial={workSection} />}
             {tab === 'vent' && <VentScreen />}
             {tab === 'pet' && <PetScreen />}
           </Animated.View>
@@ -204,7 +215,7 @@ function Main({ account, setAccount, onLock }: { account: Account; setAccount: (
               >
                 <Ionicons name={active ? tb.active : tb.icon} size={24} color={active ? colors.primaryHi : colors.textMute} />
               </View>
-              <T size={11} bold={active} numberOfLines={1} style={{ textAlign: 'center', marginTop: 2, color: active ? colors.text : colors.textMute }}>
+              <T size={11} bold={active} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={{ textAlign: 'center', marginTop: 2, color: active ? colors.text : colors.textMute }}>
                 {label}
               </T>
             </Pressable>
@@ -240,7 +251,9 @@ export default function App() {
     <SafeAreaProvider>
       <PrefsProvider>
         <StoreProvider>
-          <Root />
+          <ErrorBoundary>
+            <Root />
+          </ErrorBoundary>
         </StoreProvider>
       </PrefsProvider>
     </SafeAreaProvider>

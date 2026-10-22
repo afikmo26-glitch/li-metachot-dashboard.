@@ -30,6 +30,7 @@ import { colors, gradients, layout, MOODS, rtl } from '../lib/theme';
 import type { ChatMessage, Circle, Entry, Person } from '../lib/types';
 import { Chip, GhostButton, GradientButton, notify, Row, T, tap } from './ui';
 import { t } from '../i18n';
+import Pet from './pet/Pet';
 
 /** `transcript`: what the browser heard while recording (the app itself asks the AI to transcribe the file). */
 export type PendingRecording = { uri: string; durationMs: number; startedAt: Date; transcript?: string };
@@ -37,6 +38,8 @@ export type PendingRecording = { uri: string; durationMs: number; startedAt: Dat
 type Props = {
   visible: boolean;
   recording: PendingRecording | null;
+  /** Start the chat with this question (the question of the day) */
+  opening?: string;
   onClose: () => void;
   onSaved: (entry: Entry) => void;
 };
@@ -54,8 +57,8 @@ type Draft = {
 /** Hebrew key; translate with t() at render so a language change applies. */
 export const BOT_NAME = 'יומי';
 
-export default function ChatModal({ visible, recording, onClose, onSaved }: Props) {
-  const { people, entries, settings, profile: me, addPerson, updatePerson, saveEntry, followUps, saveFollowUp, goals } = useStore();
+export default function ChatModal({ visible, recording, opening, onClose, onSaved }: Props) {
+  const { people, entries, settings, profile: me, addPerson, updatePerson, saveEntry, followUps, saveFollowUp, goals, pet } = useStore();
   const [ai, setAi] = useState<AiConfig>(EMPTY_AI);
   const [useAi, setUseAi] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -71,7 +74,7 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
   const heardTopics = useRef<Topic[]>([]);
 
   const profile = () => {
-    const p = buildProfile(settings.userName, people, entries, me);
+    const p = { ...buildProfile(settings.userName, people, entries, me), ...(pet.hatched && pet.name ? { botName: pet.name } : {}) };
     // Let Yomi ask about news people shared and about the user's goals
     const pending = dueFollowUps(followUps).slice(0, 3).map((f) => `${personName(people, f.personId)}: "${f.text}"`);
     const extra = [
@@ -98,49 +101,25 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
     }, 700);
   };
 
-  // Fresh conversation every time the chat opens
-  useEffect(() => {
-    if (!visible) return;
-    setMessages([]);
-    heardTopics.current = [];
-    setAnswers([]);
-    setDraft(null);
-    setInput('');
-    setQuestion(null);
-    setCrisis(false);
-    loadAiConfig().then(async (c) => {
-      setAi(c);
-      const on = aiReady(c, 'diary');
-      setUseAi(on);
-      if (recording && (await startFromRecording(c, on))) return;
-      if (recording) say(t('🎙️ ההקלטה שלך נשמרה. בוא נדבר עליה קצת.'));
-      const first = openingQuestion(settings.userName || undefined);
-      // A friend remembers: ask about something a person shared a few days ago
-      const fu = dueFollowUps(followUps)[0];
-      if (fu && !on) {
-        first.text += `\n\n${t('ודרך אגב, {q}', { q: followUpQuestion(fu, personName(people, fu.personId)) })}`;
-        saveFollowUp({ ...fu, done: true });
-      }
-      if (on) {
-        say(first.text);
-      } else {
-        ask(first, undefined, []);
-      }
-    });
-    return () => {
-      if (timer.current) clearTimeout(timer.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible]);
-
-  useEffect(() => {
-    setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 50);
-  }, [messages, typing, draft]);
-
-  const knownWith = (extra: { name: string }[]): Person[] => [
-    ...people,
-    ...extra.filter((n) => !people.some((p) => p.name === n.name)).map((n) => ({ id: `new:${n.name}`, name: n.name, firstSeen: '' })),
-  ];
+  const sendAi = async (history: ChatMessage[], cfg: AiConfig = ai) => {
+    setTyping(true);
+    try {
+      say(await aiChat(cfg, 'diary', history, profile()));
+    } catch (e) {
+      // Fall back to the offline interviewer, treating everything said so far as the opening answer
+      say(t('⚠️ אין חיבור ל-AI ({err}). ממשיך במצב רגיל.', { err: (e as Error).message }));
+      setUseAi(false);
+      const opening: Answer = {
+        question: openingQuestion(),
+        text: history.filter((m) => m.from === 'me').map((m) => m.text).join('\n'),
+      };
+      setAnswers([opening]);
+      ask(nextQuestion([opening], people), undefined, [opening]);
+      return;
+    } finally {
+      setTyping(false);
+    }
+  };
 
   /**
    * Turns the recording into the user's own words and answers them, as if they had typed it.
@@ -179,25 +158,50 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
     return true;
   };
 
-  const sendAi = async (history: ChatMessage[], cfg: AiConfig = ai) => {
-    setTyping(true);
-    try {
-      say(await aiChat(cfg, 'diary', history, profile()));
-    } catch (e) {
-      // Fall back to the offline interviewer, treating everything said so far as the opening answer
-      say(t('⚠️ אין חיבור ל-AI ({err}). ממשיך במצב רגיל.', { err: (e as Error).message }));
-      setUseAi(false);
-      const opening: Answer = {
-        question: openingQuestion(),
-        text: history.filter((m) => m.from === 'me').map((m) => m.text).join('\n'),
-      };
-      setAnswers([opening]);
-      ask(nextQuestion([opening], people), undefined, [opening]);
-      return;
-    } finally {
-      setTyping(false);
-    }
-  };
+  // Fresh conversation every time the chat opens
+  useEffect(() => {
+    if (!visible) return;
+    setMessages([]);
+    heardTopics.current = [];
+    setAnswers([]);
+    setDraft(null);
+    setInput('');
+    setQuestion(null);
+    setCrisis(false);
+    loadAiConfig().then(async (c) => {
+      setAi(c);
+      const on = aiReady(c, 'diary');
+      setUseAi(on);
+      if (recording && (await startFromRecording(c, on))) return;
+      if (recording) say(t('🎙️ ההקלטה שלך נשמרה. בוא נדבר עליה קצת.'));
+      const first = openingQuestion(settings.userName || undefined);
+      if (opening) first.text = opening;
+      // A friend remembers: ask about something a person shared a few days ago
+      const fu = dueFollowUps(followUps)[0];
+      if (fu && !on) {
+        first.text += `\n\n${t('ודרך אגב, {q}', { q: followUpQuestion(fu, personName(people, fu.personId)) })}`;
+        saveFollowUp({ ...fu, done: true });
+      }
+      if (on) {
+        say(first.text);
+      } else {
+        ask(first, undefined, []);
+      }
+    });
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
+
+  useEffect(() => {
+    setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 50);
+  }, [messages, typing, draft]);
+
+  const knownWith = (extra: { name: string }[]): Person[] => [
+    ...people,
+    ...extra.filter((n) => !people.some((p) => p.name === n.name)).map((n) => ({ id: `new:${n.name}`, name: n.name, firstSeen: '' })),
+  ];
 
   const send = (text: string) => {
     const msg = text.trim();
@@ -325,7 +329,7 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
               <BotAvatar />
               <View>
                 <T bold size={18}>
-                  {t(BOT_NAME)}
+                  {(pet.hatched && pet.name) || t(BOT_NAME)}
                 </T>
                 <T dim size={12}>
                   {typing ? t('מקליד…') : useAi ? t('✨ AI · החבר שזוכר הכל') : t('החבר שזוכר הכל')}
@@ -438,7 +442,16 @@ function offlineDraft(answers: Answer[]): Draft {
   };
 }
 
+/** Yomi's face: the user's pet once it hatched (the vent space keeps its calm emoji). */
 export function BotAvatar({ size = 40, emoji = '💜' }: { size?: number; emoji?: string }) {
+  const { pet } = useStore();
+  if (pet.hatched && emoji === '💜') {
+    return (
+      <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors.cardHi, alignItems: 'center', justifyContent: 'flex-end', overflow: 'hidden' }}>
+        <Pet pet={pet} stage="teen" size={size * 1.05} interactive={false} />
+      </View>
+    );
+  }
   return (
     <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
       <Text style={{ fontSize: size * 0.5 }}>{emoji}</Text>

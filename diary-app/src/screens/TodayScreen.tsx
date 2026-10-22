@@ -6,7 +6,7 @@ import ChatModal, { BotAvatar, BOT_NAME, PendingRecording } from '../components/
 import Recorder from '../components/Recorder';
 import { Card, Chip, GradientButton, Input, notify, Row, SectionTitle, T, tap } from '../components/ui';
 import { persistRecording } from '../lib/audio';
-import { computeStreak, dayKey, dayNamesShort, formatLongDate, formatShortDate, formatTime, formatTimeSeconds, greeting, parseDayKey } from '../lib/dates';
+import { computeStreak, dayKey, dayNamesShort, formatLongDate, formatTime, formatTimeSeconds, greeting, parseDayKey } from '../lib/dates';
 import { extractQuotes, findKnownPeople, suggestNewNames } from '../lib/names';
 import { scheduleMorningRecap } from '../lib/notifications';
 import { newId, personName, useStore } from '../lib/store';
@@ -25,15 +25,26 @@ import { t } from '../i18n';
 import Pet, { PetHandle } from '../components/pet/Pet';
 import { currentLove, isNight, petLine, stageOf } from '../lib/pet';
 import { useLevel } from '../lib/useLevel';
+import MoodInsights from '../components/MoodInsights';
+import { promptOfTheDay } from '../lib/prompts';
+import { daysUntil, openHomework, upcomingExams, whenLabel } from '../lib/study';
 
-type Props = { onOpenPet: () => void; onOpenSettings: () => void; onOpenEntry: (id: string) => void; onOpenIntro?: () => void };
+type Props = {
+  onOpenPet: () => void;
+  onOpenStudy: () => void;
+  onOpenSettings: () => void;
+  onOpenEntry: (id: string) => void;
+  onOpenIntro?: () => void;
+};
 
-export default function TodayScreen({ onOpenPet, onOpenSettings, onOpenEntry, onOpenIntro }: Props) {
-  const { entries, people, events, settings, saveEntry, addPerson, activeShift, workplaces } = useStore();
+export default function TodayScreen({ onOpenPet, onOpenStudy, onOpenSettings, onOpenEntry, onOpenIntro }: Props) {
+  const { entries, people, events, settings, saveEntry, addPerson, activeShift, workplaces, pet } = useStore();
   const [text, setText] = useState('');
   const [mood, setMood] = useState(3);
   const [recording, setRecording] = useState<PendingRecording | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
+  const [chatOpening, setChatOpening] = useState<string | undefined>();
+  const [moodOpen, setMoodOpen] = useState(false);
   const [recapOpen, setRecapOpen] = useState(false);
   const { prefs, setPrefs } = usePrefs();
   const [goalsOpen, setGoalsOpen] = useState(false);
@@ -46,10 +57,7 @@ export default function TodayScreen({ onOpenPet, onOpenSettings, onOpenEntry, on
   const [newName, setNewName] = useState('');
 
   const detected = useMemo(() => findKnownPeople(text, people), [text, people]);
-  const tagged = useMemo(
-    () => [...new Set([...detected, ...manual])].filter((id) => !excluded.has(id)),
-    [detected, manual, excluded],
-  );
+  const tagged = useMemo(() => [...new Set([...detected, ...manual])].filter((id) => !excluded.has(id)), [detected, manual, excluded]);
   const suggestions = useMemo(() => suggestNewNames(text, people), [text, people]);
   const quotes = useMemo(() => extractQuotes(text, people, tagged), [text, people, tagged]);
 
@@ -147,6 +155,24 @@ export default function TodayScreen({ onOpenPet, onOpenSettings, onOpenEntry, on
       </Row>
 
       <PetHello onOpen={onOpenPet} />
+      <StudySoon onOpen={onOpenStudy} />
+      <Card style={{ marginTop: 12 }}>
+        <T dim size={13}>
+          {t('💭 שאלת היום')}
+        </T>
+        <T bold size={17} style={{ marginTop: 4, lineHeight: 24 }}>
+          {promptOfTheDay()}
+        </T>
+        <Chip
+          label={t('לענות ל{name} 💬', {
+            name: (pet.hatched && pet.name) || t('יומי'),
+          })}
+          onPress={() => {
+            setChatOpening(promptOfTheDay());
+            setChatOpen(true);
+          }}
+        />
+      </Card>
 
       <Row style={{ marginTop: 14, gap: 10 }}>
         <Stat emoji="🔥" value={streak} label={t('ימים ברצף')} />
@@ -155,7 +181,13 @@ export default function TodayScreen({ onOpenPet, onOpenSettings, onOpenEntry, on
       </Row>
 
       {onOpenIntro && (
-        <Pressable onPress={onOpenIntro} style={({ pressed }) => ({ marginTop: 14, opacity: pressed ? 0.85 : 1 })}>
+        <Pressable
+          onPress={onOpenIntro}
+          style={({ pressed }) => ({
+            marginTop: 14,
+            opacity: pressed ? 0.85 : 1,
+          })}
+        >
           <Card style={{ borderColor: colors.yellow }}>
             <Row style={{ alignItems: 'center', gap: 12 }}>
               <Text style={{ fontSize: 34 }}>👋</Text>
@@ -179,7 +211,13 @@ export default function TodayScreen({ onOpenPet, onOpenSettings, onOpenEntry, on
       )}
 
       {activeShift && (
-        <Card style={{ marginTop: 14, borderColor: colors.green, paddingVertical: 12 }}>
+        <Card
+          style={{
+            marginTop: 14,
+            borderColor: colors.green,
+            paddingVertical: 12,
+          }}
+        >
           <T bold style={{ color: colors.green }}>
             {t('🟢 במשמרת ב{place} · התחלת ב-{time}', {
               place: workplaces.find((w) => w.id === activeShift.workplaceId)?.name ?? t('מקום עבודה'),
@@ -190,7 +228,13 @@ export default function TodayScreen({ onOpenPet, onOpenSettings, onOpenEntry, on
       )}
 
       {recentEntries(entries).length >= 3 && (
-        <Pressable onPress={() => setRecapOpen(true)} style={({ pressed }) => ({ marginTop: 14, opacity: pressed ? 0.85 : 1 })}>
+        <Pressable
+          onPress={() => setRecapOpen(true)}
+          style={({ pressed }) => ({
+            marginTop: 14,
+            opacity: pressed ? 0.85 : 1,
+          })}
+        >
           <LinearGradient colors={['#6D28D9', '#A855F7', '#EC4899']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: 20, padding: 16 }}>
             <Row style={{ alignItems: 'center', gap: 12 }}>
               <Text style={{ fontSize: 34 }}>✨</Text>
@@ -210,9 +254,15 @@ export default function TodayScreen({ onOpenPet, onOpenSettings, onOpenEntry, on
         </Pressable>
       )}
 
-      <WeekStrip />
+      <WeekStrip onOpen={() => setMoodOpen(true)} />
 
-      <Pressable onPress={() => setChatOpen(true)} style={({ pressed }) => ({ marginTop: 14, opacity: pressed ? 0.85 : 1 })}>
+      <Pressable
+        onPress={() => setChatOpen(true)}
+        style={({ pressed }) => ({
+          marginTop: 14,
+          opacity: pressed ? 0.85 : 1,
+        })}
+      >
         <Card style={{ borderColor: colors.primary }}>
           <Row style={{ alignItems: 'center', gap: 12 }}>
             <BotAvatar size={46} />
@@ -259,9 +309,21 @@ export default function TodayScreen({ onOpenPet, onOpenSettings, onOpenEntry, on
             value={interim ? `${text}${text ? ' ' : ''}${interim}` : text}
             onChangeText={setText}
             placeholder={t('ספר מה קרה היום, מי פגשת ומה אמרו לך… או לחץ על המיקרופון ודבר')}
-            style={{ minHeight: 120, textAlignVertical: 'top', marginTop: 10, lineHeight: 22, paddingBottom: 52 }}
+            style={{
+              minHeight: 120,
+              textAlignVertical: 'top',
+              marginTop: 10,
+              lineHeight: 22,
+              paddingBottom: 52,
+            }}
           />
-          <View style={{ position: 'absolute', bottom: 8, [layout.isRTL ? 'left' : 'right']: 8 }}>
+          <View
+            style={{
+              position: 'absolute',
+              bottom: 8,
+              [layout.isRTL ? 'left' : 'right']: 8,
+            }}
+          >
             <DictateButton onText={(said) => setText((cur) => (cur.trim() ? `${cur.trim()} ${said}` : said))} onInterim={setInterim} />
           </View>
         </View>
@@ -348,10 +410,15 @@ export default function TodayScreen({ onOpenPet, onOpenSettings, onOpenEntry, on
       <GoalsModal visible={goalsOpen} onClose={() => setGoalsOpen(false)} />
       <PhotoTimeline visible={photosOpen} onClose={() => setPhotosOpen(false)} onOpenEntry={onOpenEntry} />
       <RecapModal visible={recapOpen} onClose={() => setRecapOpen(false)} />
+      <MoodInsights visible={moodOpen} onClose={() => setMoodOpen(false)} />
       <ChatModal
         visible={chatOpen}
+        opening={chatOpening}
         recording={recording}
-        onClose={() => setChatOpen(false)}
+        onClose={() => {
+          setChatOpen(false);
+          setChatOpening(undefined);
+        }}
         onSaved={(entry) => {
           setChatOpen(false);
           setRecording(null);
@@ -362,25 +429,79 @@ export default function TodayScreen({ onOpenPet, onOpenSettings, onOpenEntry, on
   );
 }
 
+/** An exam this week or homework due soon, one tap from studying. */
+function StudySoon({ onOpen }: { onOpen: () => void }) {
+  const { exams, homework } = useStore();
+  const exam = upcomingExams(exams).find((e) => daysUntil(e.date) <= 7);
+  const hw = openHomework(homework).filter((h) => daysUntil(h.due) <= 1);
+  if (!exam && !hw.length) return null;
+  return (
+    <Pressable
+      onPress={onOpen}
+      style={({ pressed }) => ({
+        marginTop: 12,
+        transform: [{ scale: pressed ? 0.98 : 1 }],
+      })}
+    >
+      <Card style={{ borderColor: colors.orange }}>
+        <Row style={{ alignItems: 'center', gap: 12 }}>
+          <Text style={{ fontSize: 30 }}>📚</Text>
+          <View style={{ flex: 1 }}>
+            {exam && (
+              <T bold size={16}>
+                {t('מבחן ב{subject} {when}', {
+                  subject: t(exam.subject),
+                  when: whenLabel(exam.date),
+                })}
+              </T>
+            )}
+            {hw.length > 0 && (
+              <T dim size={13}>
+                {t('{n} משימות להגשה עד מחר', { n: hw.length })}
+              </T>
+            )}
+            <T size={12} style={{ color: colors.primaryHi, marginTop: 2 }}>
+              {t('לחץ כדי ללמוד ביחד 🤓')}
+            </T>
+          </View>
+        </Row>
+      </Card>
+    </Pressable>
+  );
+}
+
 /** The pet says hi (and waves) every time the app opens; tap to go play with it. */
 function PetHello({ onOpen }: { onOpen: () => void }) {
   const { pet, entries, settings } = useStore();
   const { level } = useLevel();
   const ref = useRef<PetHandle>(null);
   const wrote = entries.some((e) => dayKey(e.createdAt) === dayKey(new Date()));
+  const todayMood = entries.find((e) => dayKey(e.createdAt) === dayKey(new Date()))?.mood;
   useEffect(() => {
     const hi = setTimeout(() => ref.current?.wave(), 700);
     return () => clearTimeout(hi);
   }, []);
   return (
-    <Pressable onPress={onOpen} style={({ pressed }) => ({ marginTop: 14, transform: [{ scale: pressed ? 0.98 : 1 }] })}>
+    <Pressable
+      onPress={onOpen}
+      style={({ pressed }) => ({
+        marginTop: 14,
+        transform: [{ scale: pressed ? 0.98 : 1 }],
+      })}
+    >
       <Card style={{ paddingVertical: 8, borderColor: colors.primary }}>
         <Row style={{ alignItems: 'center', gap: 6 }}>
           <Pet ref={ref} pet={pet} stage={stageOf(pet, level)} size={104} sleeping={isNight()} interactive={false} onTap={onOpen} onEggTap={onOpen} />
           <View style={{ flex: 1 }}>
-            <View style={{ backgroundColor: colors.cardHi, borderRadius: 16, padding: 10 }}>
+            <View
+              style={{
+                backgroundColor: colors.cardHi,
+                borderRadius: 16,
+                padding: 10,
+              }}
+            >
               <T size={15} style={{ lineHeight: 21 }}>
-                {pet.hatched ? petLine(pet, settings.userName, wrote, currentLove(pet)) : t('🥚 יש לך ביצה! בוא נבקע אותה ביחד')}
+                {pet.hatched ? petLine(pet, settings.userName, wrote, currentLove(pet), new Date(), todayMood) : t('🥚 יש לך ביצה! בוא נבקע אותה ביחד')}
               </T>
             </View>
             <T dim size={12} style={{ marginTop: 6 }}>
@@ -394,10 +515,15 @@ function PetHello({ onOpen }: { onOpen: () => void }) {
 }
 
 /** Mood of each of the last 7 days, today on the left (RTL: oldest on the right). */
-function WeekStrip() {
+function WeekStrip({ onOpen }: { onOpen: () => void }) {
   const { entries } = useStore();
   const days = useMemo(() => {
-    const out: { key: string; label: string; mood: number | null; today: boolean }[] = [];
+    const out: {
+      key: string;
+      label: string;
+      mood: number | null;
+      today: boolean;
+    }[] = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
@@ -413,35 +539,55 @@ function WeekStrip() {
     return out;
   }, [entries]);
   return (
-    <Card style={{ marginTop: 14, paddingVertical: 12 }}>
-      <T bold size={15} style={{ marginBottom: 10 }}>
-        {t('השבוע שלך')}
-      </T>
-      <Row style={{ justifyContent: 'space-between', alignItems: 'flex-end' }}>
-        {days.map((d) => (
-          <View key={d.key} style={{ alignItems: 'center', flex: 1 }}>
-            <View
-              style={{
-                width: 18,
-                height: d.mood ? 14 + d.mood * 9 : 6,
-                borderRadius: 9,
-                backgroundColor: d.mood ? [colors.red, colors.orange, colors.yellow, colors.green, colors.primaryHi][d.mood - 1] : colors.border,
-              }}
-            />
-            <Text style={{ fontSize: 16, marginTop: 6 }}>{d.mood ? MOODS[d.mood - 1] : '·'}</Text>
-            <T dim={!d.today} bold={d.today} size={11} style={{ textAlign: 'center' }}>
-              {d.label}
-            </T>
-          </View>
-        ))}
-      </Row>
-    </Card>
+    <Pressable onPress={onOpen}>
+      <Card style={{ marginTop: 14, paddingVertical: 12 }}>
+        <Row
+          style={{
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 10,
+          }}
+        >
+          <T bold size={15}>
+            {t('השבוע שלך')}
+          </T>
+          <T size={12} style={{ color: colors.primaryHi }}>
+            {t('📊 לגרף החודש')}
+          </T>
+        </Row>
+        <Row style={{ justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          {days.map((d) => (
+            <View key={d.key} style={{ alignItems: 'center', flex: 1 }}>
+              <View
+                style={{
+                  width: 18,
+                  height: d.mood ? 14 + d.mood * 9 : 6,
+                  borderRadius: 9,
+                  backgroundColor: d.mood ? [colors.red, colors.orange, colors.yellow, colors.green, colors.primaryHi][d.mood - 1] : colors.border,
+                }}
+              />
+              <Text style={{ fontSize: 16, marginTop: 6 }}>{d.mood ? MOODS[d.mood - 1] : '·'}</Text>
+              <T dim={!d.today} bold={d.today} size={11} style={{ textAlign: 'center' }}>
+                {d.label}
+              </T>
+            </View>
+          ))}
+        </Row>
+      </Card>
+    </Pressable>
   );
 }
 
 function Stat({ emoji, value, label }: { emoji: string; value: number; label: string }) {
   return (
-    <Card style={{ flex: 1, alignItems: 'center', paddingVertical: 12, paddingHorizontal: 6 }}>
+    <Card
+      style={{
+        flex: 1,
+        alignItems: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 6,
+      }}
+    >
       <Text style={{ fontSize: 22 }}>{emoji}</Text>
       <T bold size={22} style={{ textAlign: 'center' }}>
         {value}
@@ -456,7 +602,13 @@ function Stat({ emoji, value, label }: { emoji: string; value: number; label: st
 export function MiniEntry({ entry, onPress }: { entry: Entry; onPress: () => void }) {
   const { people } = useStore();
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1, marginBottom: 10 })}>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({
+        opacity: pressed ? 0.8 : 1,
+        marginBottom: 10,
+      })}
+    >
       <Card>
         <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
           <T bold size={15}>

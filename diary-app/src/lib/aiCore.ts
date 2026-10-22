@@ -15,7 +15,7 @@ export type ApiMessage = { role: 'user' | 'assistant'; content: string };
 export const TOPICS = ['friends', 'family', 'work', 'studies', 'love', 'health', 'hobbies'] as const;
 export type Topic = (typeof TOPICS)[number];
 type Circle = 'family' | 'friends' | 'work' | 'other';
-export type Profile = { name?: string; lang?: string; gender?: 'm' | 'f'; people?: string[]; recent?: string[]; about?: string };
+export type Profile = { botName?: string; name?: string; lang?: string; gender?: 'm' | 'f'; people?: string[]; recent?: string[]; about?: string };
 
 export type Summary = {
   entry: string;
@@ -108,6 +108,7 @@ function profileText(p: Profile | undefined) {
   const lines: string[] = [];
   if (p.lang) lines.push(`Always reply in ${p.lang}.`);
   if (p.gender) lines.push(`The user is ${p.gender === 'm' ? 'male' : 'female'}: use ${p.gender === 'm' ? 'masculine' : 'feminine'} forms when addressing them (Hebrew/Arabic).`);
+  if (p.botName) lines.push(`The user named you "${p.botName}" (you are their little pet companion in the app) — call yourself ${p.botName}, not Yomi.`);
   if (p.name) lines.push(`User's name: ${p.name}`);
   if (p.about) lines.push(`About the user (from their intro): ${p.about.slice(0, 1200)}`);
   if (p.people?.length) lines.push(`People they've mentioned before: ${p.people.slice(0, 60).join(', ')}`);

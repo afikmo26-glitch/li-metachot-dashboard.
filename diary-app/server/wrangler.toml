@@ -3,17 +3,31 @@ main = "src/index.ts"
 compatibility_date = "2026-10-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Secrets (set in the Cloudflare dashboard → Settings → Variables and Secrets):
-#   ANTHROPIC_API_KEY  – from console.anthropic.com (Claude), or
-#   GEMINI_API_KEY     – from aistudio.google.com (used when there is no Claude key)
-#   APP_KEY            – any long random password; type the same one in the app settings
-
-# Password recovery (optional). Create a KV namespace in the dashboard (Storage & Databases → KV),
-# then bind it to this Worker as CODES (Settings → Bindings), or uncomment and fill in its id:
+# Storage: one KV namespace bound as DATA holds accounts' encrypted backups, pets, login codes,
+# rate limits and crash reports. Create it with `npx wrangler kv namespace create DATA`
+# and paste the id it prints below (then remove the leading #):
+# [[kv_namespaces]]
+# binding = "DATA"
+# id = "<your KV namespace id>"
+#
+# Optional: an older CODES namespace (password recovery) keeps working; without it codes go to DATA.
 # [[kv_namespaces]]
 # binding = "CODES"
 # id = "<your KV namespace id>"
+
+# Secrets: set each with `npx wrangler secret put <NAME>` (or dashboard → Settings → Variables and Secrets).
+# They survive deploys and never appear in this file.
 #
-# Recovery secrets:
-#   RESEND_API_KEY, MAIL_FROM                          – email codes (resend.com)
-#   TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM – SMS codes (twilio.com)
+#   APP_KEY            – any long random password; the same value goes in the app's src/config.ts (appKey)
+#   SESSION_SECRET     – another long random string; signs the sign-in tokens (changing it signs everyone out)
+#   GOOGLE_CLIENT_IDS  – Google OAuth client IDs, comma separated (web, Android, iOS)
+#   APPLE_BUNDLE_ID    – the iOS bundle id, for Sign in with Apple (optional)
+#   GEMINI_API_KEY     – aistudio.google.com; voice transcription, and chat when there is no Claude key
+#   ANTHROPIC_API_KEY  – console.anthropic.com (Claude) for chat / summaries (optional)
+#
+# Codes by email / SMS (optional; sign-in by code and password recovery):
+#   RESEND_API_KEY, MAIL_FROM                          – email (resend.com)
+#   TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM – SMS (twilio.com)
+#
+# Testing only: DEV_CODES = "1" returns login codes in the API response instead of needing email / SMS.
+# Never leave it on in production (anyone could sign in as anyone).

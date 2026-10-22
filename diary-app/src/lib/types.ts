@@ -102,6 +102,13 @@ export type Goal = {
   done?: boolean;
 };
 
+/** A test coming up; reminders the evening before and that morning. */
+export type Exam = { id: string; subject: string; date: string; time?: string; note?: string; notificationIds?: string[]; grade?: string };
+/** Homework with a due date. */
+export type Homework = { id: string; subject: string; title: string; due: string; done: boolean };
+/** A finished study timer session. */
+export type StudySession = { id: string; subject?: string; start: string; minutes: number };
+
 export type ChatMessage = { from: 'bot' | 'me'; text: string };
 
 /** Which part of the user's life someone belongs to. */
@@ -124,6 +131,8 @@ export type Person = {
 export type UserProfile = {
   done: boolean;
   age?: string;
+  /** From the age question at sign-up (age is kept current from it) */
+  birthYear?: number;
   city?: string;
   job?: string;
   workplace?: string;
