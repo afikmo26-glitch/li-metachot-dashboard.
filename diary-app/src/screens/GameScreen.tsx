@@ -3,7 +3,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, ScrollView, Text, View } from 'react-native';
 import { Card, GhostButton, GradientButton, notify, Row, T, tap } from '../components/ui';
 import { achievements } from '../lib/achievements';
-import { buildFriendQuiz, buildQuestions, demoData, levelInfo, Question, QUESTION_SECONDS, ROUND_SIZE } from '../lib/game';
+import { levelOf } from '../lib/pet';
+import { useLevel } from '../lib/useLevel';
+import { buildFriendQuiz, buildQuestions, demoData, Question, QUESTION_SECONDS, ROUND_SIZE } from '../lib/game';
 import { newlyCompleted, weekKey, weeklyChallenges } from '../lib/insights';
 import { play } from '../lib/sound';
 import { useStore } from '../lib/store';
@@ -26,7 +28,7 @@ export default function GameScreen() {
   const [result, setResult] = useState<Result | null>(null);
 
   const available = useMemo(() => buildQuestions(entries, people).length, [entries, people]);
-  const lvl = levelInfo(game.xp);
+  const lvl = useLevel();
 
   const start = (m: Mode) => {
     const src = m === 'demo' ? demoData() : { entries, people };
@@ -41,7 +43,7 @@ export default function GameScreen() {
     const xp = demo ? 0 : Math.round(r.score / 10);
     const newBest = !demo && r.score > game.bestScore;
     if (!demo) {
-      if (levelInfo(game.xp + xp).level > lvl.level) setTimeout(() => play('levelup', 0.6), 400);
+      if (levelOf(lvl.xp + xp).level > lvl.level) setTimeout(() => play('levelup', 0.6), 400);
       updateGame({
         xp: game.xp + xp,
         bestScore: Math.max(game.bestScore, r.score),
@@ -116,17 +118,17 @@ export default function GameScreen() {
         <View style={{ marginTop: 18, backgroundColor: '#0003', borderRadius: 18, padding: 14 }}>
           <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
             <T bold style={{ color: '#fff' }}>
-              {t('רמה {n} · {title}', { n: lvl.level, title: t(lvl.title) })}
+              {t('רמה {n} · {title}', { n: lvl.level, title: lvl.title })}
             </T>
             <T size={13} style={{ color: '#fff' }}>
-              {game.xp} XP
+              {lvl.xp} XP
             </T>
           </Row>
           <View style={{ height: 10, backgroundColor: '#0004', borderRadius: 5, marginTop: 8, overflow: 'hidden', transform: [{ scaleX: layout.flip }] }}>
             <View style={{ width: `${lvl.progress * 100}%`, height: '100%', backgroundColor: colors.yellow, borderRadius: 5 }} />
           </View>
           <T size={12} style={{ color: '#fff', opacity: 0.85, marginTop: 6 }}>
-            {t('עוד {n} XP לרמה הבאה', { n: lvl.toNext })}
+            {lvl.max ? t('👑 הגעת לרמה הכי גבוהה!') : t('עוד {n} XP לרמה הבאה', { n: lvl.toNext })}
           </T>
         </View>
       </LinearGradient>

@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Easing, I18nManager, KeyboardAvoidingView, Modal, Platform, Pressable, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import EntryModal from './src/components/EntryModal';
 import SettingsModal from './src/components/SettingsModal';
@@ -18,8 +19,8 @@ import { colors, gradients, layout } from './src/lib/theme';
 import ArchiveScreen from './src/screens/ArchiveScreen';
 import { Login, Onboarding } from './src/screens/AuthScreens';
 import CalendarScreen from './src/screens/CalendarScreen';
-import GameScreen from './src/screens/GameScreen';
 import IntroScreen from './src/screens/IntroScreen';
+import PetScreen from './src/screens/PetScreen';
 import PeopleScreen from './src/screens/PeopleScreen';
 import TodayScreen from './src/screens/TodayScreen';
 import VentScreen from './src/screens/VentScreen';
@@ -30,7 +31,7 @@ import WorkScreen from './src/screens/WorkScreen';
 I18nManager.allowRTL(false);
 I18nManager.forceRTL(false);
 
-type Tab = 'today' | 'archive' | 'calendar' | 'people' | 'work' | 'vent' | 'game';
+type Tab = 'today' | 'archive' | 'calendar' | 'people' | 'work' | 'vent' | 'pet';
 type IconName = keyof typeof Ionicons.glyphMap;
 const TABS: { key: Tab; label: string; icon: IconName; active: IconName }[] = [
   { key: 'today', label: 'היום', icon: 'mic-outline', active: 'mic' },
@@ -39,7 +40,7 @@ const TABS: { key: Tab; label: string; icon: IconName; active: IconName }[] = [
   { key: 'people', label: 'אנשים', icon: 'people-outline', active: 'people' },
   { key: 'work', label: 'עבודה', icon: 'wallet-outline', active: 'wallet' },
   { key: 'vent', label: 'לפרוק', icon: 'lock-closed-outline', active: 'lock-closed' },
-  { key: 'game', label: 'משחק', icon: 'game-controller-outline', active: 'game-controller' },
+  { key: 'pet', label: 'החבר שלי', icon: 'paw-outline', active: 'paw' },
 ];
 
 /** Account and lock state live here, above the part that redraws when the theme or language changes. */
@@ -116,7 +117,7 @@ function Root() {
 }
 
 function Main({ account, setAccount, onLock }: { account: Account; setAccount: (a: Account) => void; onLock: () => void }) {
-  const { profile } = useStore();
+  const { profile, pet } = useStore();
   const { takeReopenSettings } = usePrefs();
   const [tab, setTab] = useState<Tab>('today');
   const [entryId, setEntryId] = useState<string | null>(null);
@@ -162,6 +163,7 @@ function Main({ account, setAccount, onLock }: { account: Account; setAccount: (
           >
             {tab === 'today' && (
               <TodayScreen
+                onOpenPet={() => go('pet')}
                 onOpenSettings={() => setSettingsOpen(true)}
                 onOpenEntry={open}
                 onOpenIntro={profile.done ? undefined : () => setIntroOpen(true)}
@@ -172,7 +174,7 @@ function Main({ account, setAccount, onLock }: { account: Account; setAccount: (
             {tab === 'people' && <PeopleScreen onOpenEntry={open} />}
             {tab === 'work' && <WorkScreen />}
             {tab === 'vent' && <VentScreen />}
-            {tab === 'game' && <GameScreen />}
+            {tab === 'pet' && <PetScreen />}
           </Animated.View>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -189,8 +191,9 @@ function Main({ account, setAccount, onLock }: { account: Account; setAccount: (
       >
         {TABS.map((tb) => {
           const active = tb.key === tab;
+          const label = tb.key === 'pet' && pet.hatched && pet.name ? pet.name : t(tb.label);
           return (
-            <Pressable key={tb.key} onPress={() => go(tb.key)} style={{ flex: 1, alignItems: 'center' }} accessibilityLabel={t(tb.label)}>
+            <Pressable key={tb.key} onPress={() => go(tb.key)} style={{ flex: 1, alignItems: 'center' }} accessibilityLabel={label}>
               <View
                 style={{
                   paddingHorizontal: 10,
@@ -201,8 +204,8 @@ function Main({ account, setAccount, onLock }: { account: Account; setAccount: (
               >
                 <Ionicons name={active ? tb.active : tb.icon} size={24} color={active ? colors.primaryHi : colors.textMute} />
               </View>
-              <T size={11} bold={active} style={{ textAlign: 'center', marginTop: 2, color: active ? colors.text : colors.textMute }}>
-                {t(tb.label)}
+              <T size={11} bold={active} numberOfLines={1} style={{ textAlign: 'center', marginTop: 2, color: active ? colors.text : colors.textMute }}>
+                {label}
               </T>
             </Pressable>
           );
@@ -233,6 +236,7 @@ function Main({ account, setAccount, onLock }: { account: Account; setAccount: (
 
 export default function App() {
   return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <SafeAreaProvider>
       <PrefsProvider>
         <StoreProvider>
@@ -240,5 +244,6 @@ export default function App() {
         </StoreProvider>
       </PrefsProvider>
     </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

@@ -10,7 +10,7 @@ import { scheduleBedtime, scheduleMorningRecap, schedulePhotoReminder, sendTestN
 import { useStore } from '../lib/store';
 import { usePrefs } from '../lib/prefs';
 import { colors, gradients, THEME_UNLOCK, ThemeName, THEMES } from '../lib/theme';
-import { levelInfo } from '../lib/game';
+import { useLevel } from '../lib/useLevel';
 import { GenderPicker } from '../screens/AuthScreens';
 import { exportBackup, importBackup, MIN_BACKUP_PASSWORD } from '../lib/backup';
 import { shareYearBook } from '../lib/yearbook';
@@ -145,8 +145,7 @@ export default function SettingsModal({ visible, onClose, account, onAccountChan
 
 function DisplayCard() {
   const { prefs, setPrefs } = usePrefs();
-  const { game } = useStore();
-  const level = levelInfo(game.xp).level;
+  const { level } = useLevel();
   return (
     <Card>
       <T bold size={14} style={{ marginBottom: 8 }}>
@@ -520,8 +519,8 @@ function BackupCard() {
   const doExport = () =>
     run(async () => {
       if (pass.length < MIN_BACKUP_PASSWORD) throw new Error(t('סיסמת גיבוי של לפחות {n} תווים', { n: MIN_BACKUP_PASSWORD }));
-      const { entries, people, events, settings, game, profile, followUps, goals, workplaces, shifts, savingsGoals, savingsTx } = store;
-      await exportBackup({ entries, people, events, settings, game, profile, followUps, goals, workplaces, shifts, savingsGoals, savingsTx }, pass);
+      const { entries, people, events, settings, game, profile, followUps, goals, workplaces, shifts, savingsGoals, savingsTx, pet } = store;
+      await exportBackup({ entries, people, events, settings, game, profile, followUps, goals, workplaces, shifts, savingsGoals, savingsTx, pet }, pass);
       setMsg({ text: t('הגיבוי נוצר ✓ שמור אותו במקום בטוח, ואל תשכח את הסיסמה'), ok: true });
     });
 

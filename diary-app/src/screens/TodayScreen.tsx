@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Keyboard, Pressable, ScrollView, Text, View } from 'react-native';
 import ChatModal, { BotAvatar, BOT_NAME, PendingRecording } from '../components/ChatModal';
 import Recorder from '../components/Recorder';
@@ -22,10 +22,13 @@ import { GenderPicker } from './AuthScreens';
 import { colors, gradients, layout, MOOD_LABELS, MOODS } from '../lib/theme';
 import type { Entry } from '../lib/types';
 import { t } from '../i18n';
+import Pet, { PetHandle } from '../components/pet/Pet';
+import { currentLove, isNight, petLine, stageOf } from '../lib/pet';
+import { useLevel } from '../lib/useLevel';
 
-type Props = { onOpenSettings: () => void; onOpenEntry: (id: string) => void; onOpenIntro?: () => void };
+type Props = { onOpenPet: () => void; onOpenSettings: () => void; onOpenEntry: (id: string) => void; onOpenIntro?: () => void };
 
-export default function TodayScreen({ onOpenSettings, onOpenEntry, onOpenIntro }: Props) {
+export default function TodayScreen({ onOpenPet, onOpenSettings, onOpenEntry, onOpenIntro }: Props) {
   const { entries, people, events, settings, saveEntry, addPerson, activeShift, workplaces } = useStore();
   const [text, setText] = useState('');
   const [mood, setMood] = useState(3);
@@ -142,6 +145,8 @@ export default function TodayScreen({ onOpenSettings, onOpenEntry, onOpenIntro }
           <Ionicons name="settings-outline" size={26} color={colors.textDim} />
         </Pressable>
       </Row>
+
+      <PetHello onOpen={onOpenPet} />
 
       <Row style={{ marginTop: 14, gap: 10 }}>
         <Stat emoji="🔥" value={streak} label={t('ימים ברצף')} />
@@ -354,6 +359,37 @@ export default function TodayScreen({ onOpenSettings, onOpenEntry, onOpenIntro }
         }}
       />
     </ScrollView>
+  );
+}
+
+/** The pet says hi (and waves) every time the app opens; tap to go play with it. */
+function PetHello({ onOpen }: { onOpen: () => void }) {
+  const { pet, entries, settings } = useStore();
+  const { level } = useLevel();
+  const ref = useRef<PetHandle>(null);
+  const wrote = entries.some((e) => dayKey(e.createdAt) === dayKey(new Date()));
+  useEffect(() => {
+    const hi = setTimeout(() => ref.current?.wave(), 700);
+    return () => clearTimeout(hi);
+  }, []);
+  return (
+    <Pressable onPress={onOpen} style={({ pressed }) => ({ marginTop: 14, transform: [{ scale: pressed ? 0.98 : 1 }] })}>
+      <Card style={{ paddingVertical: 8, borderColor: colors.primary }}>
+        <Row style={{ alignItems: 'center', gap: 6 }}>
+          <Pet ref={ref} pet={pet} stage={stageOf(pet, level)} size={104} sleeping={isNight()} interactive={false} onTap={onOpen} onEggTap={onOpen} />
+          <View style={{ flex: 1 }}>
+            <View style={{ backgroundColor: colors.cardHi, borderRadius: 16, padding: 10 }}>
+              <T size={15} style={{ lineHeight: 21 }}>
+                {pet.hatched ? petLine(pet, settings.userName, wrote, currentLove(pet)) : t('🥚 יש לך ביצה! בוא נבקע אותה ביחד')}
+              </T>
+            </View>
+            <T dim size={12} style={{ marginTop: 6 }}>
+              {pet.hatched ? t('{name} · לחץ כדי לשחק איתו 🐾', { name: pet.name }) : t('לחץ כדי לבקר אותה 🐾')}
+            </T>
+          </View>
+        </Row>
+      </Card>
+    </Pressable>
   );
 }
 
