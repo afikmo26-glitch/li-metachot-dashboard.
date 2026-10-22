@@ -21,6 +21,8 @@ type Palette = {
   green: string;
   red: string;
   blue: string;
+  /** Neon highlight, used for glows next to the accent */
+  cyan: string;
   /** Text drawn on top of `primary` and on bubbles */
   onPrimary: string;
   /** Background gradient of the whole app */
@@ -30,11 +32,21 @@ type Palette = {
   statusBar: 'light' | 'dark';
 };
 
-const SHARED = { pink: '#F472B6', orange: '#FB923C', yellow: '#FACC15', green: '#34D399', red: '#F87171', blue: '#60A5FA', onPrimary: '#FFFFFF' };
+const SHARED = { pink: '#F472B6', orange: '#FB923C', yellow: '#FACC15', green: '#34D399', red: '#F87171', blue: '#60A5FA', cyan: '#A5F3FC', onPrimary: '#FFFFFF' };
 
-export type ThemeName = 'night' | 'ocean' | 'sunset' | 'forest' | 'rose' | 'light';
+export type ThemeName = 'neon' | 'night' | 'ocean' | 'sunset' | 'forest' | 'rose' | 'light';
 
 export const THEMES: Record<ThemeName, { label: string; swatch: string; palette: Palette }> = {
+  neon: {
+    label: 'ניאון',
+    swatch: '#A78BFA',
+    palette: {
+      ...SHARED,
+      bg: '#07061C', bgDeep: '#0B0922', card: '#15112F', cardHi: '#1F1A45', border: '#2B2558',
+      text: '#FFFFFF', textDim: '#C7C2E6', textMute: '#8B87AD', primary: '#8B5CF6', primaryHi: '#C4B5FD',
+      app: ['#130D35', '#07061C', '#05041A'], accent: ['#7C3AED', '#DB2777'], statusBar: 'light',
+    },
+  },
   night: {
     label: 'לילה סגול',
     swatch: '#8B5CF6',
@@ -90,7 +102,7 @@ export const THEMES: Record<ThemeName, { label: string; swatch: string; palette:
     swatch: '#F5F3FF',
     palette: {
       ...SHARED,
-      red: '#DC2626', green: '#059669', orange: '#EA580C', yellow: '#CA8A04', blue: '#2563EB', pink: '#DB2777',
+      red: '#DC2626', green: '#059669', orange: '#EA580C', yellow: '#CA8A04', blue: '#2563EB', pink: '#DB2777', cyan: '#0891B2',
       bg: '#F6F4FB', bgDeep: '#ECE8F6', card: '#FFFFFF', cardHi: '#EFEAFB', border: '#DDD6F0',
       text: '#1E1640', textDim: '#5B5385', textMute: '#8C85B0', primary: '#7C3AED', primaryHi: '#6D28D9',
       app: ['#FBFAFF', '#F6F4FB', '#EFEBF8'], accent: ['#7C3AED', '#DB2777'], statusBar: 'dark',
@@ -98,18 +110,27 @@ export const THEMES: Record<ThemeName, { label: string; swatch: string; palette:
   },
 };
 
-export const colors = { ...THEMES.night.palette };
+export const colors = { ...THEMES.neon.palette };
 
 export const gradients = {
-  app: THEMES.night.palette.app as readonly [string, string, ...string[]],
-  primary: THEMES.night.palette.accent as readonly [string, string, ...string[]],
+  app: THEMES.neon.palette.app as readonly [string, string, ...string[]],
+  primary: THEMES.neon.palette.accent as readonly [string, string, ...string[]],
   game: ['#F59E0B', '#EC4899', '#8B5CF6'] as const,
   record: ['#EF4444', '#EC4899'] as const,
   calm: ['#3B82F6', '#8B5CF6'] as readonly [string, string, ...string[]],
+  /** The neon trio: cyan → violet → pink, for glows, rings and shimmering titles */
+  neon: ['#A5F3FC', '#A78BFA', '#F0ABFC'] as readonly [string, string, ...string[]],
 };
 
+/** Rubik, one family per weight (Android ignores fontWeight on custom fonts). */
+export const FONTS = { regular: 'Rubik_400Regular', medium: 'Rubik_500Medium', bold: 'Rubik_700Bold', black: 'Rubik_900Black' };
+export function fontFor(weight?: string | number): string {
+  const w = Number(weight === 'bold' ? 700 : weight === 'normal' || weight == null ? 400 : weight);
+  return w >= 800 ? FONTS.black : w >= 600 ? FONTS.bold : w >= 500 ? FONTS.medium : FONTS.regular;
+}
+
 export function applyTheme(name: ThemeName) {
-  const p = (THEMES[name] ?? THEMES.night).palette;
+  const p = (THEMES[name] ?? THEMES.neon).palette;
   Object.assign(colors, p);
   gradients.app = p.app;
   gradients.primary = p.accent;

@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
@@ -10,10 +11,13 @@ import { scheduleBedtime } from '../lib/notifications';
 import { usePrefs } from '../lib/prefs';
 import { useStore } from '../lib/store';
 import IntroScreen from './IntroScreen';
-import { FloatingEmojis, LogoBurst, PopEmoji, Pulse } from '../components/Wow';
+import { FloatingEmojis, PopEmoji, Pulse } from '../components/Wow';
 import { play } from '../lib/sound';
 import { biometricAvailable, biometricLabel, biometricUnlock } from '../lib/biometric';
-import { colors, gradients, layout } from '../lib/theme';
+import { colors, FONTS, gradients, layout } from '../lib/theme';
+import { Aurora, GlowRing, GoogleG, NeonText, RiseIn } from '../components/neon';
+import Pet from '../components/pet/Pet';
+import { DEFAULT_PET } from '../lib/pet';
 import { LANGS, t } from '../i18n';
 import LegalModal from '../components/LegalModal';
 import { cloudConfigured, cloudMeta, CloudSession, restoreFromCloud, setCloudPassword } from '../lib/cloud';
@@ -50,6 +54,7 @@ const SLIDES = [
 export function Screen({ children }: { children: React.ReactNode }) {
   return (
     <LinearGradient colors={gradients.app} style={{ flex: 1 }}>
+      {colors.statusBar === 'light' && <Aurora dim />}
       <SafeAreaView style={{ flex: 1 }}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 22, justifyContent: 'center' }} keyboardShouldPersistTaps="handled">
@@ -213,19 +218,21 @@ const PROMISES = ['🎙️ מספרים במקום לכתוב — יומי כו�
 function Welcome({ onStart, onSkip }: { onStart: () => void; onSkip: () => void }) {
   return (
     <LinearGradient colors={gradients.app} style={{ flex: 1 }}>
-      <FloatingEmojis />
+      {colors.statusBar === 'light' ? <Aurora /> : <FloatingEmojis />}
       <SafeAreaView style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 22, justifyContent: 'center' }}>
           <Row style={{ justifyContent: 'flex-end' }}>
             <LanguagePicker />
           </Row>
           <View style={{ alignItems: 'center', marginTop: 6 }}>
-            <LogoBurst />
-            <FadeIn delay={350}>
-              <T bold size={38} style={{ textAlign: 'center' }}>
-                {t('היומן שלי')}
-              </T>
-            </FadeIn>
+            <RiseIn>
+              <GlowRing size={150}>
+                <Pet pet={{ ...DEFAULT_PET, hatched: true, species: 'cat' }} stage="kid" size={124} interactive={false} />
+              </GlowRing>
+            </RiseIn>
+            <RiseIn delay={300} style={{ marginTop: 22 }}>
+              <NeonText size={40}>{t('היומן שלי')}</NeonText>
+            </RiseIn>
             <FadeIn delay={650}>
               <T size={19} style={{ textAlign: 'center', marginTop: 8, lineHeight: 28, color: colors.primaryHi, maxWidth: 340 }}>
                 {t('החבר שמקשיב לך כל ערב, מכיר את האנשים שלך — ולא שוכח אף רגע')}
@@ -235,7 +242,7 @@ function Welcome({ onStart, onSkip }: { onStart: () => void; onSkip: () => void 
           <View style={{ marginTop: 26, gap: 10 }}>
             {PROMISES.map((p, i) => (
               <FadeIn key={p} delay={1000 + i * 220}>
-                <View style={{ backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 14 }}>
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 14 }}>
                   <T size={16}>{t(p)}</T>
                 </View>
               </FadeIn>
@@ -404,6 +411,7 @@ const MAX_ATTEMPTS = 5;
 const LOCKOUT_SECONDS = 30;
 
 export function Login({ account, onUnlock, onReset }: { account: Account; onUnlock: (a: Account) => void; onReset: () => void }) {
+  const { pet } = useStore();
   const [username, setUsername] = useState(account.username);
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -457,8 +465,12 @@ export function Login({ account, onUnlock, onReset }: { account: Account; onUnlo
   return (
     <Screen>
       <View style={{ alignItems: 'center' }}>
-        <Text style={{ fontSize: 51 }}>🔒</Text>
-        <T bold size={26} style={{ textAlign: 'center', marginTop: 14 }}>
+        <RiseIn>
+          <GlowRing size={120}>
+            {pet.hatched ? <Pet pet={pet} stage="kid" size={100} interactive={false} /> : <Ionicons name="lock-closed" size={44} color={colors.primaryHi} />}
+          </GlowRing>
+        </RiseIn>
+        <T bold size={26} style={{ textAlign: 'center', marginTop: 18 }}>
           {t('שלום {name}', { name: account.displayName })}
         </T>
         <T dim style={{ textAlign: 'center', marginTop: 4, marginBottom: 22 }}>
@@ -654,26 +666,36 @@ function LanguagePicker() {
   );
 }
 
-export function SocialButton({ label, icon, bg, fg, onPress }: { label: string; icon: string; bg: string; fg: string; onPress: () => void }) {
+const SOCIAL_ICON = {
+  google: <GoogleG />,
+  apple: <Ionicons name="logo-apple" size={21} color="#0B0A1F" />,
+  email: <Ionicons name="mail-outline" size={20} color="#C4B5FD" />,
+  phone: <Ionicons name="phone-portrait-outline" size={20} color="#C4B5FD" />,
+};
+
+/** A sign-in button: Apple is solid white, the rest are glass, each with its real logo. */
+export function SocialButton({ label, kind, onPress }: { label: string; kind: keyof typeof SOCIAL_ICON; onPress: () => void }) {
+  const solid = kind === 'apple';
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
       style={({ pressed }) => ({
-        backgroundColor: bg,
+        backgroundColor: solid ? '#FFFFFF' : 'rgba(255,255,255,0.07)',
         borderRadius: 16,
-        paddingVertical: 14,
+        minHeight: 54,
         marginBottom: 10,
         flexDirection: layout.row,
         alignItems: 'center',
         justifyContent: 'center',
         gap: 10,
-        opacity: pressed ? 0.85 : 1,
-        borderWidth: 1,
-        borderColor: colors.border,
+        transform: [{ scale: pressed ? 0.97 : 1 }],
+        borderWidth: solid ? 0 : 1,
+        borderColor: 'rgba(255,255,255,0.16)',
       })}
     >
-      <Text style={{ color: fg, fontSize: 18, fontWeight: '800' }}>{icon}</Text>
-      <Text style={{ color: fg, fontSize: 16, fontWeight: '700' }}>{label}</Text>
+      {SOCIAL_ICON[kind]}
+      <Text style={{ color: solid ? '#0B0A1F' : colors.text, fontSize: 16, fontFamily: FONTS.bold }}>{label}</Text>
     </Pressable>
   );
 }

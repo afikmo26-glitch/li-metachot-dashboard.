@@ -9,6 +9,7 @@ const SOURCES = {
   error: require('../../assets/sounds/error.wav'),
   whoosh: require('../../assets/sounds/whoosh.wav'),
   levelup: require('../../assets/sounds/levelup.wav'),
+  intro: require('../../assets/sounds/intro.wav'),
 };
 
 export type SoundName = keyof typeof SOURCES;

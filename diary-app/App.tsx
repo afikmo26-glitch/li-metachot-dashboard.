@@ -3,14 +3,24 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useState } from 'react';
+import { useFonts } from 'expo-font';
+import { Rubik_400Regular } from '@expo-google-fonts/rubik/400Regular';
+import { Rubik_500Medium } from '@expo-google-fonts/rubik/500Medium';
+import { Rubik_700Bold } from '@expo-google-fonts/rubik/700Bold';
+import { Rubik_900Black } from '@expo-google-fonts/rubik/900Black';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, I18nManager, KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
 import Modal from './src/components/AppModal';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import EntryModal from './src/components/EntryModal';
-import SettingsModal from './src/components/SettingsModal';
-import { Segmented, T, tap } from './src/components/ui';
+import Splash from './src/components/Splash';
+import SettingsModal, { SettingsSection } from './src/components/SettingsModal';
+import SideDrawer from './src/components/SideDrawer';
+import Pet from './src/components/pet/Pet';
+import { stageOf } from './src/lib/pet';
+import { useLevel } from './src/lib/useLevel';
+import { Segmented, tap } from './src/components/ui';
 import { t } from './src/i18n';
 import { Account, ensurePreviewAccount } from './src/lib/account';
 import { scheduleBedtime, schedulePhotoReminder, scheduleSavingsReminder } from './src/lib/notifications';
@@ -36,6 +46,7 @@ I18nManager.allowRTL(false);
 I18nManager.forceRTL(false);
 
 type Tab = 'today' | 'journal' | 'pet' | 'people' | 'me';
+const TAB_H = 64;
 type IconName = keyof typeof Ionicons.glyphMap;
 const TABS: { key: Tab; label: string; icon: IconName; active: IconName }[] = [
   { key: 'today', label: 'היום', icon: 'mic-outline', active: 'mic' },
@@ -59,10 +70,12 @@ const ROUTES: Record<string, { tab: Tab; journal?: 'archive' | 'calendar'; me?: 
 
 /** Account and lock state live here, above the part that redraws when the theme or language changes. */
 function Root() {
-  const { ready, settings, clearAll, updateSettings } = useStore();
+  const { ready, settings, clearAll, updateSettings, pet } = useStore();
   const { version, prefs, setPrefs } = usePrefs();
   const [account, setAccount] = useState<Account | null | undefined>(undefined);
   const [unlocked, setUnlocked] = useState(false);
+  const [splash, setSplash] = useState(true);
+  const hideSplash = useCallback(() => setSplash(false), []);
 
   useEffect(() => {
     ensurePreviewAccount().then(setAccount);
@@ -126,6 +139,7 @@ function Root() {
     <>
       <StatusBar style={colors.statusBar} />
       {screen}
+      {splash && <Splash ready={ready && account !== undefined} pet={ready ? pet : undefined} onDone={hideSplash} />}
     </>
   );
 }
@@ -140,6 +154,10 @@ function Main({ account, setAccount, onLock }: { account: Account; setAccount: (
   const [journalView, setJournalView] = useState<'archive' | 'calendar'>('archive');
   const [entryId, setEntryId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(takeReopenSettings);
+  const [settingsSection, setSettingsSection] = useState<SettingsSection | undefined>();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [petTab, setPetTab] = useState<'shop' | undefined>();
+  const { level } = useLevel();
   const [introOpen, setIntroOpen] = useState(false);
   const insets = useSafeAreaInsets();
 
@@ -163,6 +181,7 @@ function Main({ account, setAccount, onLock }: { account: Account; setAccount: (
   const go = (next: Tab) => {
     if (next === tab) return;
     tap();
+    if (next !== 'pet') setPetTab(undefined);
     setTab(next);
   };
 
@@ -172,7 +191,7 @@ function Main({ account, setAccount, onLock }: { account: Account; setAccount: (
     <LinearGradient colors={gradients.app} style={{ flex: 1 }}>
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, paddingBottom: TAB_H + Math.max(insets.bottom, 10) + 4 }}>
             {tab === 'today' && (
               <TodayScreen
                 onOpenPet={() => go('pet')}
@@ -180,7 +199,11 @@ function Main({ account, setAccount, onLock }: { account: Account; setAccount: (
                   setWorkSection('study');
                   go('me');
                 }}
-                onOpenSettings={() => setSettingsOpen(true)}
+                onOpenSettings={() => setDrawerOpen(true)}
+                onOpenCalendar={() => {
+                  setJournalView('calendar');
+                  go('journal');
+                }}
                 onOpenEntry={open}
                 onOpenIntro={profile.done ? undefined : () => setIntroOpen(true)}
               />
@@ -201,47 +224,95 @@ function Main({ account, setAccount, onLock }: { account: Account; setAccount: (
             )}
             {tab === 'people' && <PeopleScreen onOpenEntry={open} />}
             {tab === 'me' && <WorkScreen initial={workSection} />}
-            {tab === 'pet' && <PetScreen />}
+            {tab === 'pet' && <PetScreen key={petTab ?? 'pet'} initialTab={petTab} />}
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
 
+      {/* Floating pill tab bar; the pet sits raised in the middle */}
       <View
         style={{
+          position: 'absolute',
+          left: 16,
+          right: 16,
+          bottom: Math.max(insets.bottom, 10),
+          height: TAB_H,
+          borderRadius: TAB_H / 2,
+          backgroundColor: colors.statusBar === 'light' ? 'rgba(20,17,46,0.94)' : colors.card,
+          borderWidth: 1,
+          borderColor: colors.statusBar === 'light' ? 'rgba(255,255,255,0.12)' : colors.border,
           flexDirection: layout.row,
-          backgroundColor: colors.bgDeep,
-          borderTopWidth: 1,
-          borderTopColor: colors.border,
-          paddingBottom: Math.max(insets.bottom, 8),
-          paddingTop: 8,
+          alignItems: 'center',
+          justifyContent: 'space-around',
+          paddingHorizontal: 6,
+          shadowColor: '#000',
+          shadowOpacity: 0.45,
+          shadowRadius: 20,
+          shadowOffset: { width: 0, height: 12 },
+          elevation: 16,
         }}
       >
         {TABS.map((tb) => {
           const active = tb.key === tab;
           const label = tb.key === 'pet' && pet.hatched && pet.name ? pet.name : t(tb.label);
+          if (tb.key === 'pet')
+            return (
+              <Pressable key={tb.key} onPress={() => go(tb.key)} accessibilityRole="tab" accessibilityState={{ selected: active }} accessibilityLabel={label} style={{ marginTop: -34 }}>
+                <LinearGradient
+                  colors={gradients.primary}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{
+                    width: 68,
+                    height: 68,
+                    borderRadius: 34,
+                    borderWidth: 3,
+                    borderColor: active ? colors.cyan : colors.bg,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {pet.hatched ? <Pet pet={pet} stage={stageOf(pet, level)} size={58} interactive={false} /> : <Ionicons name="egg" size={28} color="#fff" />}
+                </LinearGradient>
+              </Pressable>
+            );
           return (
-            <Pressable key={tb.key} onPress={() => go(tb.key)} style={{ flex: 1, alignItems: 'center' }} accessibilityLabel={label}>
-              <View
-                style={{
-                  paddingHorizontal: 10,
-                  paddingVertical: 4,
-                  borderRadius: 999,
-                  backgroundColor: active ? colors.cardHi : 'transparent',
-                }}
-              >
-                <Ionicons name={active ? tb.active : tb.icon} size={23} color={active ? colors.primaryHi : colors.textMute} />
-              </View>
-              <T size={11} bold={active} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={{ textAlign: 'center', marginTop: 2, color: active ? colors.text : colors.textMute }}>
-                {label}
-              </T>
+            <Pressable
+              key={tb.key}
+              onPress={() => go(tb.key)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={label}
+              style={{ width: 52, height: 52, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: active ? `${colors.primaryHi}2E` : 'transparent' }}
+            >
+              <Ionicons name={active ? tb.active : tb.icon} size={23} color={active ? colors.primaryHi : colors.textMute} />
+              {active ? <View style={{ position: 'absolute', bottom: 6, width: 4, height: 4, borderRadius: 2, backgroundColor: colors.cyan }} /> : null}
             </Pressable>
           );
         })}
       </View>
 
+      <SideDrawer
+        visible={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        account={account}
+        onOpenSettings={(section) => {
+          setSettingsSection(section);
+          setSettingsOpen(true);
+        }}
+        onOpenIntro={() => setIntroOpen(true)}
+        onOpenShop={() => {
+          setPetTab('shop');
+          setTab('pet');
+        }}
+        onLock={onLock}
+      />
+
       <EntryModal entryId={entryId} onClose={() => setEntryId(null)} />
       <SettingsModal
         visible={settingsOpen}
+        section={settingsSection}
         onClose={() => setSettingsOpen(false)}
         account={account}
         onAccountChange={setAccount}
@@ -262,6 +333,9 @@ function Main({ account, setAccount, onLock }: { account: Account; setAccount: (
 }
 
 export default function App() {
+  const [fontsLoaded, fontError] = useFonts({ Rubik_400Regular, Rubik_500Medium, Rubik_700Bold, Rubik_900Black });
+  // Until Rubik is in, show the splash's dark ground so there is no flash of system fonts
+  if (!fontsLoaded && !fontError) return <View style={{ flex: 1, backgroundColor: '#06051A' }} />;
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
     <SafeAreaProvider>

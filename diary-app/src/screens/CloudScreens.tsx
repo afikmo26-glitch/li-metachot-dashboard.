@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Platform, Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, View } from 'react-native';
 import { Chip, GhostButton, GradientButton, Input, Row, T, tap } from '../components/ui';
 import { t } from '../i18n';
 import { appleAvailable, CloudSession, googleAvailable, signInWithApple, signInWithGoogle, startCode, verifyCode } from '../lib/cloud';
 import { normalizeContact } from '../lib/recovery';
 import { colors, gradients } from '../lib/theme';
 import { Notice, Screen, SocialButton } from './AuthScreens';
+import { NeonBadge } from '../components/neon';
 
 /** Sign-up steps around the cloud account: how old are you, sign in once, and the code screen. */
 
@@ -21,7 +22,7 @@ export function AgeStep({ onDone }: { onDone: (age: number) => void }) {
     return (
       <Screen>
         <View style={{ alignItems: 'center' }}>
-          <Text style={{ fontSize: 51 }}>🌱</Text>
+          <NeonBadge>🌱</NeonBadge>
           <T bold size={24} style={{ textAlign: 'center', marginTop: 12 }}>
             {t('האפליקציה מיועדת לגיל 13 ומעלה')}
           </T>
@@ -37,7 +38,7 @@ export function AgeStep({ onDone }: { onDone: (age: number) => void }) {
   return (
     <Screen>
       <View style={{ alignItems: 'center' }}>
-        <Text style={{ fontSize: 48 }}>🎂</Text>
+        <NeonBadge>🎂</NeonBadge>
         <T bold size={26} style={{ textAlign: 'center', marginTop: 10 }}>
           {t('בן/בת כמה את/ה?')}
         </T>
@@ -105,7 +106,7 @@ export function ConnectStep({ onDone, onSkip, title }: { onDone: (s: CloudSessio
   return (
     <Screen>
       <View style={{ alignItems: 'center' }}>
-        <Text style={{ fontSize: 45 }}>☁️🔒</Text>
+        <NeonBadge>☁️🔒</NeonBadge>
         <T bold size={26} style={{ textAlign: 'center', marginTop: 10 }}>
           {title ?? t('מתחברים פעם אחת')}
         </T>
@@ -117,10 +118,10 @@ export function ConnectStep({ onDone, onSkip, title }: { onDone: (s: CloudSessio
       <View style={{ marginTop: 22 }}>
         {mode === 'pick' && (
           <>
-            {googleAvailable() && <SocialButton label={t('המשך עם Google')} icon="G" bg="#FFFFFF" fg="#1F1F1F" onPress={() => run(signInWithGoogle)} />}
-            {appleAvailable() && <SocialButton label={t('המשך עם Apple')} icon={''} bg="#000000" fg="#FFFFFF" onPress={() => run(signInWithApple)} />}
-            <SocialButton label={t('המשך עם אימייל')} icon="✉️" bg={colors.card} fg={colors.text} onPress={() => setMode('email')} />
-            <SocialButton label={t('המשך עם מספר טלפון')} icon="📱" bg={colors.card} fg={colors.text} onPress={() => setMode('phone')} />
+            {googleAvailable() && <SocialButton label={t('המשך עם Google')} kind="google" onPress={() => run(signInWithGoogle)} />}
+            {appleAvailable() && <SocialButton label={t('המשך עם Apple')} kind="apple" onPress={() => run(signInWithApple)} />}
+            <SocialButton label={t('המשך עם אימייל')} kind="email" onPress={() => setMode('email')} />
+            <SocialButton label={t('המשך עם מספר טלפון')} kind="phone" onPress={() => setMode('phone')} />
           </>
         )}
         {(mode === 'email' || mode === 'phone') && (
@@ -213,7 +214,7 @@ export function RestoreStep({
   return (
     <Screen>
       <View style={{ alignItems: 'center' }}>
-        <Text style={{ fontSize: 48 }}>📦✨</Text>
+        <NeonBadge>📦✨</NeonBadge>
         <T bold size={26} style={{ textAlign: 'center', marginTop: 10 }}>
           {t('מצאנו את היומן שלך!')}
         </T>

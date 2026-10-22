@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Gender, isRTL, Lang, setGender, setLang } from '../i18n';
+import { setMusic } from './music';
 import { setSoundsEnabled } from './sound';
 import { applyDirection, applyTheme, ThemeName } from './theme';
 
@@ -12,8 +13,8 @@ import { applyDirection, applyTheme, ThemeName } from './theme';
 
 const KEY = 'diary.prefs.v1';
 
-export type Prefs = { lang: Lang; theme: ThemeName; sounds: boolean; gender?: Gender; /** the male/female question was answered */ genderAsked?: boolean };
-export const DEFAULT_PREFS: Prefs = { lang: 'he', theme: 'night', sounds: true };
+export type Prefs = { lang: Lang; theme: ThemeName; sounds: boolean; gender?: Gender; /** the male/female question was answered */ genderAsked?: boolean; /** moved to the neon look once (v2) */ neonSwitch?: boolean; /** quiet background music */ music?: boolean };
+export const DEFAULT_PREFS: Prefs = { lang: 'he', theme: 'neon', sounds: true, neonSwitch: true };
 
 function apply(p: Prefs) {
   setLang(p.lang);
@@ -21,6 +22,7 @@ function apply(p: Prefs) {
   applyDirection(isRTL());
   applyTheme(p.theme);
   setSoundsEnabled(p.sounds);
+  setMusic(!!p.music);
 }
 
 type Ctx = {
@@ -43,7 +45,10 @@ export function PrefsProvider({ children }: { children: React.ReactNode }) {
     AsyncStorage.getItem(KEY)
       .then((raw) => (raw ? { ...DEFAULT_PREFS, ...JSON.parse(raw) } : DEFAULT_PREFS))
       .catch(() => DEFAULT_PREFS)
-      .then((p: Prefs) => {
+      .then((loaded: Prefs) => {
+        // Version 2 brings the neon look: everyone moves to it once, and can still pick another theme later
+        const p = loaded.neonSwitch ? loaded : { ...loaded, theme: 'neon' as ThemeName, neonSwitch: true };
+        if (p !== loaded) AsyncStorage.setItem(KEY, JSON.stringify(p)).catch(() => {});
         apply(p);
         setState(p);
       });

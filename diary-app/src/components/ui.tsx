@@ -8,8 +8,10 @@ import {
   Platform,
   Pressable,
   StyleProp,
+  StyleSheet,
   Text,
   TextInput,
+  TextInputInstance,
   TextInputProps,
   TextProps,
   TextStyle,
@@ -18,7 +20,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { play } from '../lib/sound';
-import { colors, layout, rtl } from '../lib/theme';
+import { colors, fontFor, FONTS, layout, rtl } from '../lib/theme';
 
 export function tap(style: 'light' | 'medium' | 'heavy' = 'light') {
   play(style === 'light' ? 'tap' : 'pop', style === 'heavy' ? 0.6 : 0.4);
@@ -51,18 +53,16 @@ export function Row({ style, ...props }: ViewProps) {
 export const fontSize = (size = 15) => (size <= 15 ? size : Math.round((15 + (size - 15) * 0.72) * 2) / 2);
 
 export function T({ style, dim, bold, size, ...props }: TextProps & { dim?: boolean; bold?: boolean; size?: number }) {
-  return (
-    <Text
-      style={[
-        { color: colors.text, fontSize: 15, ...rtl },
-        dim && { color: colors.textDim },
-        bold && { fontWeight: '700' },
-        size ? { fontSize: fontSize(size) } : null,
-        style,
-      ]}
-      {...props}
-    />
-  );
+  const flat = StyleSheet.flatten([
+    { color: colors.text, fontSize: 15, ...rtl },
+    dim && { color: colors.textDim },
+    bold && { fontWeight: '700' as const },
+    size ? { fontSize: fontSize(size) } : null,
+    style,
+  ]);
+  // Rubik comes in one family per weight, so the weight picks the family
+  const { fontWeight, ...rest } = (flat ?? {}) as TextStyle;
+  return <Text style={[rest, { fontFamily: rest.fontFamily ?? fontFor(fontWeight) }]} {...props} />;
 }
 
 export const cardStyle = (): ViewStyle => ({
@@ -232,7 +232,7 @@ export function Chip({
   );
 }
 
-export function Input(props: TextInputProps & { style?: StyleProp<TextStyle> }) {
+export function Input(props: TextInputProps & { style?: StyleProp<TextStyle>; ref?: React.Ref<TextInputInstance> }) {
   return (
     <TextInput
       placeholderTextColor={colors.textMute}
@@ -245,6 +245,7 @@ export function Input(props: TextInputProps & { style?: StyleProp<TextStyle> }) 
           borderColor: colors.border,
           color: colors.text,
           fontSize: 15,
+          fontFamily: FONTS.regular,
           paddingHorizontal: 14,
           paddingVertical: 11,
           ...rtl,

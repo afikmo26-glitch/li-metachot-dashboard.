@@ -36,7 +36,7 @@ import { StudyTimer } from './StudyScreen';
 import { Friends, ShareCardModal, Shop, usePublishPet } from './PetSocial';
 
 /** "My pet": hatch it, name it, pet it, hug it, feed it, dress it up, and watch it grow with your levels. */
-export default function PetScreen() {
+export default function PetScreen({ initialTab }: { initialTab?: 'closet' | 'levels' | 'shop' | 'friends' } = {}) {
   const { pet, updatePet, entries, settings } = useStore();
   const lvl = useLevel();
   const { width } = useWindowDimensions();
@@ -47,7 +47,7 @@ export default function PetScreen() {
   const wroteToday = entries.some((e) => dayKey(e.createdAt) === dayKey(new Date()));
   const treats = treatsLeft(pet, entries);
   const [line, setLine] = useState('');
-  const [tabSel, setTabSel] = useState<'closet' | 'levels' | 'shop' | 'friends'>('closet');
+  const [tabSel, setTabSel] = useState<'closet' | 'levels' | 'shop' | 'friends'>(initialTab ?? 'closet');
   const [shareOpen, setShareOpen] = useState(false);
   const todayMood = entries.find((e) => dayKey(e.createdAt) === dayKey(new Date()))?.mood;
   usePublishPet(lvl.level, stage);

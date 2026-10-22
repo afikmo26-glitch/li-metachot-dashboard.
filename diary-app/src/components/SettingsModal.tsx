@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, Switch, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Alert, Pressable, ScrollView, ScrollViewInstance, Switch, View } from 'react-native';
 import Modal, { CloseButton } from './AppModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Account, changePassword, saveAccount } from '../lib/account';
@@ -30,10 +30,30 @@ type Props = {
   onAccountChange: (a: Account) => void;
   onLock: () => void;
   onOpenIntro: () => void;
+  /** Opens scrolled to this part (from the side menu) */
+  section?: SettingsSection;
 };
 
-export default function SettingsModal({ visible, onClose, account, onAccountChange, onLock, onOpenIntro }: Props) {
+export type SettingsSection = 'display' | 'account' | 'cloud' | 'ai' | 'security' | 'reminders' | 'backup' | 'premium';
+
+export default function SettingsModal({ visible, onClose, account, onAccountChange, onLock, onOpenIntro, section }: Props) {
   const { settings, updateSettings, entries, people } = useStore();
+  const scroll = useRef<ScrollViewInstance>(null);
+  const [anchors, setAnchors] = useState<Partial<Record<SettingsSection, number>>>({});
+  const anchor = (id: SettingsSection) => ({ onLayout: (e: { nativeEvent: { layout: { y: number } } }) => setAnchors((a) => ({ ...a, [id]: e.nativeEvent.layout.y })) });
+  // Once the asked-for part has been laid out, scroll to it (once per opening)
+  const target = section ? anchors[section] : undefined;
+  const jumped = useRef(false);
+  useEffect(() => {
+    if (!visible) {
+      jumped.current = false;
+      return;
+    }
+    if (target == null || jumped.current) return;
+    jumped.current = true;
+    const id = setTimeout(() => scroll.current?.scrollTo({ y: Math.max(0, target - 8), animated: true }), 300);
+    return () => clearTimeout(id);
+  }, [visible, target]);
   const [draft, setDraft] = useState<Settings>(settings);
   const [legal, setLegal] = useState<'privacy' | 'terms' | null>(null);
 
@@ -48,7 +68,7 @@ export default function SettingsModal({ visible, onClose, account, onAccountChan
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onShow={() => setDraft(settings)} onRequestClose={onClose}>
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
-        <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
+        <ScrollView ref={scroll} contentContainerStyle={{ padding: 18, paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
           <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
             <T bold size={26}>
               {t('⚙️ הגדרות')}
@@ -56,19 +76,24 @@ export default function SettingsModal({ visible, onClose, account, onAccountChan
             <CloseButton onPress={onClose} />
           </Row>
 
+          <View {...anchor('display')} />
           <SectionTitle>{t('🎨 תצוגה')}</SectionTitle>
           <DisplayCard />
 
+          <View {...anchor('account')} />
           <SectionTitle>{t('👤 החשבון שלי')}</SectionTitle>
           <AccountCard account={account} onAccountChange={onAccountChange} onLock={onLock} />
           <GhostButton title={t('👋 ההיכרות שלי (משפחה, חברים, עבודה)')} onPress={onOpenIntro} style={{ marginTop: 10 }} />
 
+          <View {...anchor('cloud')} />
           <SectionTitle>{t('☁️ גיבוי בענן')}</SectionTitle>
           <CloudCard account={account} />
 
+          <View {...anchor('ai')} />
           <SectionTitle>{t('✨ צ\'אט חכם (AI)')}</SectionTitle>
           <AiCard />
 
+          <View {...anchor('security')} />
           <SectionTitle>{t('🛡️ אבטחה ופרטיות')}</SectionTitle>
           <Card style={{ gap: 6 }}>
             <T size={14}>{t('🔐 כל היומן מוצפן על הטלפון (AES-256), והמפתח שמור בכספת המאובטחת של המכשיר')}</T>
@@ -90,6 +115,7 @@ export default function SettingsModal({ visible, onClose, account, onAccountChan
           <SectionTitle>{t('איך לקרוא לך?')}</SectionTitle>
           <Input value={draft.userName} onChangeText={(userName) => setDraft({ ...draft, userName })} placeholder={t('השם שלך')} />
 
+          <View {...anchor('reminders')} />
           <SectionTitle>{t('🌙 תזכורת לפני השינה')}</SectionTitle>
           <Card>
             <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
@@ -134,9 +160,11 @@ export default function SettingsModal({ visible, onClose, account, onAccountChan
 
           <GradientButton title={t('שמור הגדרות')} icon="💾" colors={gradients.primary} onPress={save} style={{ marginTop: 24 }} />
 
+          <View {...anchor('backup')} />
           <SectionTitle>{t('💾 גיבוי וספר השנה')}</SectionTitle>
           <BackupCard />
 
+          <View {...anchor('premium')} />
           <SectionTitle>{t('💎 פרימיום')}</SectionTitle>
           <PremiumCard />
           <GhostButton

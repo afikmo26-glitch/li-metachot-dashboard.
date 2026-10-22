@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Keyboard, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Keyboard, Pressable, ScrollView, ScrollViewInstance, Text, TextInputInstance, View } from 'react-native';
 import ChatModal, { BotAvatar, BOT_NAME, PendingRecording } from '../components/ChatModal';
 import Recorder from '../components/Recorder';
 import { Card, Chip, GradientButton, Input, notify, Row, SectionTitle, T, tap } from '../components/ui';
@@ -26,6 +26,7 @@ import Pet, { PetHandle } from '../components/pet/Pet';
 import { currentLove, isNight, petLine, stageOf } from '../lib/pet';
 import { useLevel } from '../lib/useLevel';
 import MoodInsights from '../components/MoodInsights';
+import { HeroCarousel, MemoryCard, MusicCard, nextEvent, QuickActions, Slide } from '../components/Hero';
 import { promptOfTheDay } from '../lib/prompts';
 import { daysUntil, openHomework, upcomingExams, whenLabel } from '../lib/study';
 
@@ -35,9 +36,10 @@ type Props = {
   onOpenSettings: () => void;
   onOpenEntry: (id: string) => void;
   onOpenIntro?: () => void;
+  onOpenCalendar: () => void;
 };
 
-export default function TodayScreen({ onOpenPet, onOpenStudy, onOpenSettings, onOpenEntry, onOpenIntro }: Props) {
+export default function TodayScreen({ onOpenPet, onOpenStudy, onOpenSettings, onOpenEntry, onOpenIntro, onOpenCalendar }: Props) {
   const { entries, people, events, settings, saveEntry, addPerson, activeShift, workplaces, pet } = useStore();
   const [text, setText] = useState('');
   const [mood, setMood] = useState(3);
@@ -55,6 +57,10 @@ export default function TodayScreen({ onOpenPet, onOpenStudy, onOpenSettings, on
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const [manual, setManual] = useState<string[]>([]);
   const [newName, setNewName] = useState('');
+  const scroll = useRef<ScrollViewInstance>(null);
+  const input = useRef<TextInputInstance>(null);
+  const anchors = useRef({ record: 0, extras: 0 });
+  const scrollTo = (k: 'record' | 'extras') => scroll.current?.scrollTo({ y: Math.max(0, anchors.current[k] - 12), animated: true });
 
   const detected = useMemo(() => findKnownPeople(text, people), [text, people]);
   const tagged = useMemo(() => [...new Set([...detected, ...manual])].filter((id) => !excluded.has(id)), [detected, manual, excluded]);
@@ -73,6 +79,66 @@ export default function TodayScreen({ onOpenPet, onOpenStudy, onOpenSettings, on
       return ev.yearly ? d.getMonth() === now.getMonth() && d.getDate() === now.getDate() : ev.date === todayKey;
     });
   }, [events, todayKey]);
+
+  const answerer = (pet.hatched && pet.name) || t('יומי');
+  const upcoming = nextEvent(events);
+  const slides: Slide[] = [
+    {
+      key: 'q',
+      tag: t('💭 שאלת היום'),
+      title: promptOfTheDay(),
+      cta: t('לענות ל{name} 💬', { name: answerer }),
+      colors: ['#7C3AED', '#DB2777'],
+      onPress: () => {
+        setChatOpening(promptOfTheDay());
+        setChatOpen(true);
+      },
+    },
+    ...(streak > 0
+      ? [
+          {
+            key: 'streak',
+            tag: t('🔥 רצף של {n} ימים', { n: streak }),
+            title: todayEntries.length ? t('כבר כתבת היום — כל הכבוד!') : t('עוד יום אחד והרצף ממשיך'),
+            cta: t('לכתוב עכשיו'),
+            colors: ['#0EA5E9', '#6366F1'] as const,
+            onPress: () => scrollTo('record'),
+          },
+        ]
+      : []),
+    ...(upcoming
+      ? [
+          {
+            key: 'event',
+            tag: upcoming.days === 1 ? t('מחר') : t('בעוד {n} ימים', { n: upcoming.days }),
+            title: `${upcoming.kind === 'birthday' ? '🎂' : upcoming.kind === 'anniversary' ? '💍' : '📌'} ${upcoming.title}`,
+            cta: t('ללוח השנה'),
+            colors: ['#F97316', '#E11D48'] as const,
+            onPress: onOpenCalendar,
+          },
+        ]
+      : []),
+    ...(recentEntries(entries).length >= 3
+      ? [
+          {
+            key: 'recap',
+            tag: t('החודש שלך מוכן!'),
+            title: t('מצב הרוח, האנשים והרגעים של 30 הימים האחרונים'),
+            cta: t('לצפות ✨'),
+            colors: ['#6D28D9', '#EC4899'] as const,
+            onPress: () => setRecapOpen(true),
+          },
+        ]
+      : []),
+    {
+      key: 'talk',
+      tag: t(BOT_NAME),
+      title: t('דבר עם {bot} על היום', { bot: t(BOT_NAME) }),
+      cta: t('לדבר עכשיו'),
+      colors: ['#059669', '#0EA5E9'],
+      onPress: () => setChatOpen(true),
+    },
+  ];
 
   const addManual = (name: string) => {
     if (!name.trim()) return;
@@ -138,41 +204,60 @@ export default function TodayScreen({ onOpenPet, onOpenStudy, onOpenSettings, on
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
-      <Row style={{ alignItems: 'center', justifyContent: 'space-between' }}>
+    <ScrollView ref={scroll} contentContainerStyle={{ padding: 18, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+      <Row style={{ alignItems: 'center', gap: 12 }}>
+        <Pressable
+          onPress={onOpenSettings}
+          hitSlop={6}
+          accessibilityLabel={t('תפריט והגדרות')}
+          style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.07)', borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}
+        >
+          <Ionicons name="menu" size={22} color={colors.text} />
+        </Pressable>
         <View style={{ flex: 1 }}>
-          <T dim size={14}>
-            {formatLongDate(new Date())}
+          <T size={13} style={{ color: colors.textMute }}>
+            {greeting()} · {formatLongDate(new Date())}
           </T>
-          <T bold size={28}>
-            {greeting()}
-            {settings.userName ? `, ${settings.userName}` : ''} 👋
+          <T bold size={24} numberOfLines={1}>
+            {settings.userName || t('היומן שלי')}
           </T>
         </View>
-        <Pressable onPress={onOpenSettings} hitSlop={12} style={{ padding: 6 }} accessibilityLabel={t('הגדרות')}>
-          <Ionicons name="settings-outline" size={26} color={colors.textDim} />
-        </Pressable>
+        {streak > 0 && (
+          <LinearGradient
+            colors={['rgba(251,146,60,0.22)', 'rgba(244,63,94,0.22)']}
+            style={{ flexDirection: layout.row, alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(251,146,60,0.45)' }}
+          >
+            <Ionicons name="flame" size={15} color={colors.orange} />
+            <T bold size={14} style={{ color: '#FED7AA' }}>
+              {streak}
+            </T>
+          </LinearGradient>
+        )}
       </Row>
+
+      <HeroCarousel slides={slides} />
+      <QuickActions
+        actions={[
+          { key: 'rec', label: t('הקלטה'), icon: 'mic', colors: ['#F472B6', '#A855F7'], onPress: () => scrollTo('record') },
+          { key: 'photo', label: t('תמונה'), icon: 'camera', colors: ['#22D3EE', '#6366F1'], onPress: () => scrollTo('extras') },
+          {
+            key: 'write',
+            label: t('כתיבה'),
+            icon: 'create',
+            colors: ['#34D399', '#059669'],
+            onPress: () => {
+              scrollTo('record');
+              setTimeout(() => input.current?.focus(), 400);
+            },
+          },
+          { key: 'study', label: t('לימוד'), icon: 'timer', colors: ['#FBBF24', '#F97316'], onPress: onOpenStudy },
+        ]}
+      />
 
       <PetHello onOpen={onOpenPet} />
       <StudySoon onOpen={onOpenStudy} />
-      <Card style={{ marginTop: 12 }}>
-        <T dim size={13}>
-          {t('💭 שאלת היום')}
-        </T>
-        <T bold size={17} style={{ marginTop: 4, lineHeight: 24 }}>
-          {promptOfTheDay()}
-        </T>
-        <Chip
-          label={t('לענות ל{name} 💬', {
-            name: (pet.hatched && pet.name) || t('יומי'),
-          })}
-          onPress={() => {
-            setChatOpening(promptOfTheDay());
-            setChatOpen(true);
-          }}
-        />
-      </Card>
+      <MemoryCard entries={entries} onOpen={onOpenEntry} />
+      <MusicCard />
 
       <Row style={{ marginTop: 14, gap: 10 }}>
         <Stat emoji="🔥" value={streak} label={t('ימים ברצף')} />
@@ -291,7 +376,7 @@ export default function TodayScreen({ onOpenPet, onOpenStudy, onOpenSettings, on
         </Card>
       )}
 
-      <Card style={{ marginTop: 16, paddingVertical: 20 }}>
+      <Card style={{ marginTop: 16, paddingVertical: 20 }} onLayout={(e) => (anchors.current.record = e.nativeEvent.layout.y)}>
         <T bold size={20} style={{ textAlign: 'center' }}>
           {t('איך היה היום שלך?')}
         </T>
@@ -305,6 +390,7 @@ export default function TodayScreen({ onOpenPet, onOpenStudy, onOpenSettings, on
 
         <View>
           <Input
+            ref={input}
             multiline
             value={interim ? `${text}${text ? ' ' : ''}${interim}` : text}
             onChangeText={setText}
@@ -352,7 +438,9 @@ export default function TodayScreen({ onOpenPet, onOpenStudy, onOpenSettings, on
           ))}
         </Row>
 
-        <DayExtras value={extras} onChange={setExtras} entryId={draftId} />
+        <View onLayout={(e) => (anchors.current.extras = anchors.current.record + e.nativeEvent.layout.y)}>
+          <DayExtras value={extras} onChange={setExtras} entryId={draftId} />
+        </View>
 
         <T bold style={{ marginTop: 16, marginBottom: 8 }}>
           {t('💞 מי היה איתך היום?')}
