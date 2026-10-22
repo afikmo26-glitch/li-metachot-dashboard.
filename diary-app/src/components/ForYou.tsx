@@ -6,6 +6,7 @@ import { formatShortDate } from '../lib/dates';
 import { dueFollowUps, followUpQuestion } from '../lib/followups';
 import { onThisDay, reachOut, upcomingBirthdays, weekKey, wellbeingInsights } from '../lib/insights';
 import { personName, useStore } from '../lib/store';
+import { topicLabel, topTopics } from '../lib/topics';
 import { colors, layout, MOODS } from '../lib/theme';
 import { Card, Chip, Row, SectionTitle, T, notify } from './ui';
 
@@ -19,7 +20,12 @@ export default function ForYou({ onOpenEntry, onOpenGoals, onOpenPhotos }: { onO
   const birthdays = useMemo(() => upcomingBirthdays(people, 10), [people]);
   const quiet = useMemo(() => reachOut(people, entries), [people, entries]);
   const past = useMemo(() => onThisDay(entries), [entries]);
-  const insights = useMemo(() => wellbeingInsights(entries), [entries]);
+  const insights = useMemo(() => {
+    const out = wellbeingInsights(entries);
+    const top = topTopics(entries, 30).filter((x) => x.count >= 2).slice(0, 3);
+    if (top.length) out.unshift(t('🧭 על מה דיברת הכי הרבה לאחרונה: {list}', { list: top.map((x) => topicLabel(x.topic)).join(' · ') }));
+    return out;
+  }, [entries]);
   const photos = entries.filter((e) => e.photoUri).length;
   const wk = weekKey();
   const goalToCheck = goals.find((g) => !g.done && !g.checkins.some((c) => weekKey(new Date(c.at)) === wk));

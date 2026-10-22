@@ -11,6 +11,7 @@ import { circleEmoji, relationText } from '../lib/circles';
 import { colors, gradients, layout, MOOD_LABELS, MOODS } from '../lib/theme';
 import { Card, Chip, GhostButton, GradientButton, Input, Row, T } from './ui';
 import { t } from '../i18n';
+import { entryTopics, topicLabel } from '../lib/topics';
 
 export default function EntryModal({ entryId, onClose }: { entryId: string | null; onClose: () => void }) {
   const { entries, people, saveEntry, deleteEntry } = useStore();
@@ -83,6 +84,13 @@ export default function EntryModal({ entryId, onClose }: { entryId: string | nul
 
           {entry.audioUri ? <AudioPlayerCard uri={entry.audioUri} durationMs={entry.durationMs} /> : null}
 
+          {entryTopics(entry).length > 0 && (
+            <Row style={{ flexWrap: 'wrap', marginTop: 10 }}>
+              {entryTopics(entry).map((k) => (
+                <Chip key={k} label={topicLabel(k)} />
+              ))}
+            </Row>
+          )}
           {(entry.sleep !== undefined || entry.workout !== undefined) && (
             <Row style={{ gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
               {entry.sleep !== undefined && <Chip label={t('😴 {n} שעות שינה', { n: entry.sleep })} />}

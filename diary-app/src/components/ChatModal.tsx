@@ -6,7 +6,8 @@ import { detectCrisis } from '../lib/vent';
 import CrisisCard from './CrisisCard';
 import DictateButton from './DictateButton';
 import { dueFollowUps, followUpQuestion } from '../lib/followups';
-import { AiConfig, aiChat, aiReady, aiSummarize, buildProfile, EMPTY_AI, loadAiConfig } from '../lib/ai';
+import { AiConfig, aiChat, aiReady, aiSummarize, aiTranscribe, buildProfile, canTranscribe, EMPTY_AI, loadAiConfig } from '../lib/ai';
+import { guessTopics, Topic } from '../lib/topics';
 import { persistRecording } from '../lib/audio';
 import {
   Answer,
@@ -26,11 +27,12 @@ import { extractQuotes, findKnownPeople, suggestNewNames } from '../lib/names';
 import { scheduleMorningRecap, scheduleTomorrowReminder } from '../lib/notifications';
 import { newId, personName, useStore } from '../lib/store';
 import { colors, gradients, layout, MOODS, rtl } from '../lib/theme';
-import type { ChatMessage, Entry, Person } from '../lib/types';
+import type { ChatMessage, Circle, Entry, Person } from '../lib/types';
 import { Chip, GhostButton, GradientButton, notify, Row, T, tap } from './ui';
 import { t } from '../i18n';
 
-export type PendingRecording = { uri: string; durationMs: number; startedAt: Date };
+/** `transcript`: what the browser heard while recording (the app itself asks the AI to transcribe the file). */
+export type PendingRecording = { uri: string; durationMs: number; startedAt: Date; transcript?: string };
 
 type Props = {
   visible: boolean;
@@ -43,9 +45,10 @@ type Props = {
 type Draft = {
   text: string;
   mood: number;
-  notes: { name: string; note?: string }[];
+  notes: { name: string; note?: string; circle?: Circle }[];
   said: { name: string; text: string }[];
   tomorrow?: string;
+  topics?: Topic[];
 };
 
 /** Hebrew key; translate with t() at render so a language change applies. */
@@ -64,6 +67,8 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
   const [crisis, setCrisis] = useState(false);
   const scroll = useRef<ScrollViewInstance>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Topics the AI heard in the recording */
+  const heardTopics = useRef<Topic[]>([]);
 
   const profile = () => {
     const p = buildProfile(settings.userName, people, entries, me);
@@ -96,16 +101,19 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
   // Fresh conversation every time the chat opens
   useEffect(() => {
     if (!visible) return;
-    setMessages(recording ? [{ from: 'bot', text: t('🎙️ ההקלטה שלך נשמרה. בוא נדבר עליה קצת.') }] : []);
+    setMessages([]);
+    heardTopics.current = [];
     setAnswers([]);
     setDraft(null);
     setInput('');
     setQuestion(null);
     setCrisis(false);
-    loadAiConfig().then((c) => {
+    loadAiConfig().then(async (c) => {
       setAi(c);
       const on = aiReady(c, 'diary');
       setUseAi(on);
+      if (recording && (await startFromRecording(c, on))) return;
+      if (recording) say(t('🎙️ ההקלטה שלך נשמרה. בוא נדבר עליה קצת.'));
       const first = openingQuestion(settings.userName || undefined);
       // A friend remembers: ask about something a person shared a few days ago
       const fu = dueFollowUps(followUps)[0];
@@ -134,10 +142,47 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
     ...extra.filter((n) => !people.some((p) => p.name === n.name)).map((n) => ({ id: `new:${n.name}`, name: n.name, firstSeen: '' })),
   ];
 
-  const sendAi = async (history: ChatMessage[]) => {
+  /**
+   * Turns the recording into the user's own words and answers them, as if they had typed it.
+   * Returns false when there are no words (no AI to transcribe, or silence), so the chat starts as usual.
+   */
+  const startFromRecording = async (c: AiConfig, on: boolean): Promise<boolean> => {
+    let text = recording?.transcript ?? '';
+    if (recording && canTranscribe(c)) {
+      say(t('🎙️ רגע, אני מקשיב להקלטה שלך…'));
+      setTyping(true);
+      try {
+        const heard = await aiTranscribe(c, recording.uri, profile());
+        text = heard.text || text;
+        heardTopics.current = heard.topics;
+      } catch {
+        // keep whatever the browser heard, if anything
+      } finally {
+        setTyping(false);
+      }
+    }
+    if (!text.trim()) {
+      setMessages([]);
+      return false;
+    }
+    if (!heardTopics.current.length) heardTopics.current = guessTopics(text);
+    const history: ChatMessage[] = [{ from: 'bot', text: t('🎙️ זה מה ששמעתי בהקלטה:') }, { from: 'me', text }];
+    setMessages(history);
+    if (detectCrisis(text)) setCrisis(true);
+    if (on) {
+      sendAi(history, c);
+      return true;
+    }
+    const opening: Answer = { question: openingQuestion(settings.userName || undefined), text };
+    setAnswers([opening]);
+    ask(nextQuestion([opening], people), reactTo(text, opening.question, suggestNewNames(text, people)), [opening]);
+    return true;
+  };
+
+  const sendAi = async (history: ChatMessage[], cfg: AiConfig = ai) => {
     setTyping(true);
     try {
-      say(await aiChat(ai, 'diary', history, profile()));
+      say(await aiChat(cfg, 'diary', history, profile()));
     } catch (e) {
       // Fall back to the offline interviewer, treating everything said so far as the opening answer
       say(t('⚠️ אין חיבור ל-AI ({err}). ממשיך במצב רגיל.', { err: (e as Error).message }));
@@ -201,9 +246,10 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
       setDraft({
         text: s.entry,
         mood: Math.min(5, Math.max(1, Math.round(s.mood) || 3)),
-        notes: s.people.map((p) => ({ name: p.name, note: p.note || undefined })),
+        notes: s.people.map((p) => ({ name: p.name, note: p.note || undefined, circle: p.circle })),
         said: s.quotes,
         tomorrow: s.tomorrow || undefined,
+        topics: s.topics,
       });
     } catch {
       const text = messages.filter((m) => m.from === 'me').map((m) => m.text).join('\n');
@@ -233,7 +279,8 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
     for (const n of [...draft.notes, ...draft.said.map((q) => ({ name: q.name, note: undefined }))]) {
       if (!n.name.trim()) continue;
       const p = addPerson(n.name);
-      if (n.note && !p.note) updatePerson({ ...p, note: n.note });
+      const circle = 'circle' in n && n.circle && n.circle !== 'other' && !p.circle ? n.circle : undefined;
+      if ((n.note && !p.note) || circle) updatePerson({ ...p, ...(n.note && !p.note ? { note: n.note } : {}), ...(circle ? { circle } : {}) });
       if (!all.some((x) => x.id === p.id)) all.push(p);
     }
     const realId = (id: string) => (id.startsWith('new:') ? all.find((p) => p.name === id.slice(4))?.id : id);
@@ -253,6 +300,10 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
       people: [...new Set([...ids, ...quotes.map((q) => q.personId)])],
       quotes,
       chat: messages,
+      topics: (() => {
+        const fromAi = [...new Set([...(draft.topics ?? []), ...heardTopics.current])];
+        return fromAi.length ? fromAi : guessTopics(draft.text);
+      })(),
     };
     saveEntry(entry);
     scheduleMorningRecap(settings, entry, all).catch(() => {});
@@ -262,6 +313,8 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
   };
 
   const userTurns = messages.filter((m) => m.from === 'me').length;
+  // A long recording already tells the day, so it can be written up after a single turn
+  const canFinish = userTurns >= 2 || messages.some((m) => m.from === 'me' && m.text.length > 120);
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -325,7 +378,7 @@ export default function ChatModal({ visible, recording, onClose, onSaved }: Prop
                   ))}
                 </Row>
               )}
-              {useAi && userTurns >= 2 && !typing && (
+              {useAi && canFinish && !typing && (
                 <Row style={{ marginBottom: 8 }}>
                   <Chip label={t('✅ סיים וכתוב את היומן')} color={colors.green} onPress={finishAi} />
                 </Row>

@@ -242,8 +242,8 @@ export default function TodayScreen({ onOpenSettings, onOpenEntry, onOpenIntro }
         </T>
         <Recorder
           hasRecording={!!recording}
-          onRecorded={(uri, durationMs, startedAt) => {
-            setRecording({ uri, durationMs, startedAt });
+          onRecorded={(uri, durationMs, startedAt, transcript) => {
+            setRecording({ uri, durationMs, startedAt, transcript });
             setChatOpen(true);
           }}
         />

@@ -10,15 +10,23 @@ const MAX_MESSAGES = 40;
 const MAX_CHARS = 4000;
 
 export type ApiMessage = { role: 'user' | 'assistant'; content: string };
+
+/** What a day can be about; the app shows labels for these (lib/topics.ts). */
+export const TOPICS = ['friends', 'family', 'work', 'studies', 'love', 'health', 'hobbies'] as const;
+export type Topic = (typeof TOPICS)[number];
+type Circle = 'family' | 'friends' | 'work' | 'other';
 export type Profile = { name?: string; lang?: string; gender?: 'm' | 'f'; people?: string[]; recent?: string[]; about?: string };
 
 export type Summary = {
   entry: string;
   mood: number;
-  people: { name: string; note: string }[];
+  people: { name: string; note: string; circle: Circle }[];
   quotes: { name: string; text: string }[];
   tomorrow: string;
+  topics: Topic[];
 };
+
+export type Transcript = { text: string; topics: Topic[] };
 
 const CRISIS = `Safety comes first. If the user mentions suicide, wanting to die, self-harm or being in danger, even briefly or as a joke:
 - Never agree with, normalize or validate the wish to die ("that's a valid feeling" is wrong here). Validate the pain, not the plan.
@@ -52,12 +60,12 @@ ${CRISIS}`;
 
 const SUMMARY_SYSTEM = `You turn a chat between a user and their diary companion into a diary entry.
 Write the entry in the language the profile asks for (Hebrew if none), first person, as the user would write it in their diary: what happened, who they met, what people said, how they felt. Keep their words and details; do not invent anything. 2 to 8 sentences.
-Also extract: mood (1 = very bad, 5 = amazing), the people mentioned (first names as written, with a short note like "חבר מהעבודה" when the chat says who they are, else empty), notable things people said to the user (quotes), and anything the user asked to be reminded of tomorrow (else empty).`;
+Also extract: mood (1 = very bad, 5 = amazing), the people mentioned (first names as written, with a short note like "חבר מהעבודה" when the chat says who they are, else empty, and which part of the user's life they belong to: family, friends, work or other — classmates count as friends), notable things people said to the user (quotes), anything the user asked to be reminded of tomorrow (else empty), and the topics of the day from this list only: ${TOPICS.join(', ')} (studies = school, exams, university; love = a partner or dating).`;
 
 const SUMMARY_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['entry', 'mood', 'people', 'quotes', 'tomorrow'],
+  required: ['entry', 'mood', 'people', 'quotes', 'tomorrow', 'topics'],
   properties: {
     entry: { type: 'string' },
     mood: { type: 'integer' },
@@ -66,8 +74,8 @@ const SUMMARY_SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['name', 'note'],
-        properties: { name: { type: 'string' }, note: { type: 'string' } },
+        required: ['name', 'note', 'circle'],
+        properties: { name: { type: 'string' }, note: { type: 'string' }, circle: { type: 'string', enum: ['family', 'friends', 'work', 'other'] } },
       },
     },
     quotes: {
@@ -80,6 +88,7 @@ const SUMMARY_SCHEMA = {
       },
     },
     tomorrow: { type: 'string' },
+    topics: { type: 'array', items: { type: 'string', enum: TOPICS } },
   },
 };
 
@@ -114,7 +123,7 @@ export function summaryPrompt(messages: ApiMessage[], profile?: Profile): string
   const transcript = cleanMessages(messages)
     .map((m) => `${m.role === 'user' ? 'User' : 'Yomi'}: ${m.content}`)
     .join('\n');
-  return `${SUMMARY_SYSTEM}${profileText(profile)}\n\nReply with only a JSON object of this shape: {"entry": string, "mood": 1-5, "people": [{"name": string, "note": string}], "quotes": [{"name": string, "text": string}], "tomorrow": string}\n\n<conversation>\n${transcript}\n</conversation>`;
+  return `${SUMMARY_SYSTEM}${profileText(profile)}\n\nReply with only a JSON object of this shape: {"entry": string, "mood": 1-5, "people": [{"name": string, "note": string, "circle": "family"|"friends"|"work"|"other"}], "quotes": [{"name": string, "text": string}], "tomorrow": string, "topics": string[]}\n\n<conversation>\n${transcript}\n</conversation>`;
 }
 
 /** Keeps the conversation valid for the API: trimmed, starting with the user. */
@@ -237,4 +246,31 @@ export async function summarizeWithGemini(key: string, messages: ApiMessage[], p
   );
   if (blocked || !text) throw new Error('refused');
   return JSON.parse(text) as Summary;
+}
+
+const TRANSCRIBE_SYSTEM = `You get a voice recording from a personal diary app: the user talking about their day.
+Write down exactly what they said, word for word, in the language they spoke (usually Hebrew), with punctuation. Fix nothing and add nothing; leave out only filler sounds. If nothing is said, return an empty text.
+Also list the topics of what they talked about, from this list only: ${TOPICS.join(', ')} (studies = school, exams, university; love = a partner or dating).`;
+
+const TRANSCRIPT_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['text', 'topics'],
+  properties: { text: { type: 'string' }, topics: { type: 'array', items: { type: 'string', enum: TOPICS } } },
+};
+
+/** Turns a recording (base64) into the user's words and the topics of the day. */
+export async function transcribeWithGemini(key: string, audioBase64: string, mimeType: string, profile?: Profile, signal?: AbortSignal): Promise<Transcript> {
+  const { text, blocked } = await callGemini(
+    key,
+    {
+      systemInstruction: { parts: [{ text: TRANSCRIBE_SYSTEM + profileText(profile && { name: profile.name, people: profile.people }) }] },
+      contents: [{ role: 'user', parts: [{ inlineData: { mimeType, data: audioBase64 } }, { text: 'Transcribe this recording.' }] }],
+      generationConfig: { maxOutputTokens: 8192, thinkingConfig: { thinkingLevel: 'low' }, responseMimeType: 'application/json', responseJsonSchema: TRANSCRIPT_SCHEMA },
+    },
+    signal,
+  );
+  if (blocked || !text) throw new Error('refused');
+  const out = JSON.parse(text) as Transcript;
+  return { text: (out.text ?? '').trim(), topics: (out.topics ?? []).filter((k) => (TOPICS as readonly string[]).includes(k)) };
 }

@@ -1,3 +1,4 @@
+import type { Topic } from './aiCore';
 export type Quote = {
   personId: string;
   text: string;
@@ -23,6 +24,8 @@ export type Entry = {
   sleep?: number;
   /** Worked out today */
   workout?: boolean;
+  /** What the day was about (friends, family, work, studies…) */
+  topics?: Topic[];
 };
 
 /** Something a person said that is worth asking about later ("Dana has a job interview"). */

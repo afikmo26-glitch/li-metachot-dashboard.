@@ -2,15 +2,16 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { t } from '../i18n';
-import { formatShortDate } from '../lib/dates';
-import { useStore } from '../lib/store';
+import { dayKey, formatShortDate } from '../lib/dates';
+import { pickPhoto } from '../lib/photos';
+import { newId, useStore } from '../lib/store';
 import { colors, MOODS } from '../lib/theme';
-import { Empty, GradientButton, Row, T } from './ui';
+import { Empty, GhostButton, GradientButton, notify, Row, T } from './ui';
 import { gradients } from '../lib/theme';
 
 /** All photos of the day in a grid, and a "watch the change" slideshow from the first to the latest. */
 export default function PhotoTimeline({ visible, onClose, onOpenEntry }: { visible: boolean; onClose: () => void; onOpenEntry: (id: string) => void }) {
-  const { entries } = useStore();
+  const { entries, saveEntry } = useStore();
   const photos = useMemo(() => entries.filter((e) => e.photoUri).reverse(), [entries]);
   const [playing, setPlaying] = useState(false);
   const [i, setI] = useState(0);
@@ -24,6 +25,16 @@ export default function PhotoTimeline({ visible, onClose, onOpenEntry }: { visib
     const next = setTimeout(() => setI(i + 1), 700);
     return () => clearTimeout(next);
   }, [playing, i, photos.length]);
+
+  /** Today's photo goes on today's entry (if it has none yet), otherwise it becomes an entry of its own. */
+  const takeToday = async (source: 'camera' | 'library') => {
+    const today = entries.find((e) => dayKey(e.createdAt) === dayKey(new Date()) && !e.photoUri);
+    const id = today?.id ?? newId();
+    const uri = await pickPhoto(source, id);
+    if (!uri) return;
+    saveEntry(today ? { ...today, photoUri: uri } : { id, createdAt: new Date().toISOString(), text: '', mood: 3, people: [], quotes: [], photoUri: uri });
+    notify('success');
+  };
 
   const play = () => {
     setI(0);
@@ -53,6 +64,10 @@ export default function PhotoTimeline({ visible, onClose, onOpenEntry }: { visib
                   {t('סגור ✕')}
                 </T>
               </Pressable>
+            </Row>
+            <Row style={{ gap: 10, marginTop: 14 }}>
+              <GradientButton title={t('📷 צלם עכשיו')} colors={gradients.primary} onPress={() => takeToday('camera')} style={{ flex: 1 }} />
+              <GhostButton title={t('🖼️ מהגלריה')} onPress={() => takeToday('library')} style={{ flex: 1 }} />
             </Row>
             {photos.length === 0 ? (
               <Empty emoji="📷" title={t('עוד אין תמונות')} text={t('כשתרצה, אפשר לצרף תמונה לרשומה של היום. ככה רואים איך דברים משתנים לאורך זמן.')} />

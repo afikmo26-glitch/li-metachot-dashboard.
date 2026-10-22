@@ -1,9 +1,12 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ApiMessage, chatInstructions, chatWithClaude, chatWithGemini, cleanMessages, GeminiError, Profile, refusalReply, Summary, summarizeWithClaude, summarizeWithGemini, summaryPrompt } from './aiCore';
+import { ApiMessage, chatInstructions, chatWithClaude, chatWithGemini, cleanMessages, GeminiError, Profile, refusalReply, Summary, summarizeWithClaude, summarizeWithGemini, summaryPrompt, transcribeWithGemini, Transcript } from './aiCore';
+import { File } from 'expo-file-system';
+import { Platform } from 'react-native';
 import { decryptFromStorage, encryptForStorage } from './crypto';
 import type { ChatMessage, Entry, Person, UserProfile } from './types';
 import { langName, getGender, t } from '../i18n';
+import { topTopics } from './topics';
 
 /**
  * Ways to reach the AI, first match wins:
@@ -82,12 +85,19 @@ export function profileSummary(p: UserProfile): string {
 }
 
 export function buildProfile(userName: string, people: Person[], entries: Entry[], profile?: UserProfile): AiProfile {
+  // What their days are mostly about, so Yomi knows what matters to them and asks about it
+  const top = topTopics(entries).slice(0, 4);
+  const talks = top.length ? `lately talks most about: ${top.map((x) => `${x.topic} (${x.count} days)`).join(', ')}` : '';
+  const intro = profile ? profileSummary(profile) : '';
   return {
-    about: profile ? profileSummary(profile) || undefined : undefined,
+    about: [intro, talks].filter(Boolean).join('; ') || undefined,
     name: userName || undefined,
     lang: langName(),
     gender: getGender(),
-    people: people.map((p) => (p.note ? `${p.name} (${p.note})` : p.name)),
+    people: people.map((p) => {
+      const info = [p.circle && p.circle !== 'other' ? p.circle : '', p.note ?? ''].filter(Boolean).join(', ');
+      return info ? `${p.name} (${info})` : p.name;
+    }),
     recent: entries.slice(0, 5).map((e) => `${e.createdAt.slice(0, 10)}: ${e.text}`),
   };
 }
@@ -205,6 +215,34 @@ export async function aiSummarize(c: AiConfig, messages: ChatMessage[], profile?
   const gk = geminiKeyOf(c);
   if (gk) return withTimeout((signal) => summarizeWithGemini(gk, toApi(messages), profile, signal));
   return post<AiSummary>(c, '/summarize', { messages: toApi(messages), profile });
+}
+
+/** True when a recording can be turned into text here (needs Gemini: Claude doesn't take audio). */
+export const canTranscribe = (c: AiConfig) => !inClaudeViewer() && !!geminiKeyOf(c);
+
+const AUDIO_TYPES: Record<string, string> = { m4a: 'audio/mp4', mp4: 'audio/mp4', aac: 'audio/aac', webm: 'audio/webm', ogg: 'audio/ogg', wav: 'audio/wav', mp3: 'audio/mp3', caf: 'audio/x-caf' };
+
+async function audioBase64(uri: string): Promise<{ data: string; mimeType: string }> {
+  if (Platform.OS === 'web') {
+    const blob = await (await fetch(uri)).blob();
+    const url = await new Promise<string>((ok, fail) => {
+      const r = new FileReader();
+      r.onload = () => ok(String(r.result));
+      r.onerror = () => fail(r.error);
+      r.readAsDataURL(blob);
+    });
+    return { data: url.slice(url.indexOf(',') + 1), mimeType: (blob.type || 'audio/webm').split(';')[0] };
+  }
+  const ext = uri.split('?')[0].split('.').pop()?.toLowerCase() ?? 'm4a';
+  return { data: await new File(uri).base64(), mimeType: AUDIO_TYPES[ext] ?? 'audio/mp4' };
+}
+
+/** The user's spoken words from a recording, plus what the day was about. */
+export async function aiTranscribe(c: AiConfig, uri: string, profile?: AiProfile): Promise<Transcript> {
+  const gk = geminiKeyOf(c);
+  if (!gk || inClaudeViewer()) throw new Error(t('אין חיבור ל-AI'));
+  const { data, mimeType } = await audioBase64(uri);
+  return withTimeout((signal) => transcribeWithGemini(gk, data, mimeType, profile, signal));
 }
 
 /** Quick connection check used by the settings screen. */
