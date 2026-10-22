@@ -6,9 +6,9 @@ compatibility_flags = ["nodejs_compat"]
 # Storage: one KV namespace bound as DATA holds accounts' encrypted backups, pets, login codes,
 # rate limits and crash reports. Create it with `npx wrangler kv namespace create DATA`
 # and paste the id it prints below (then remove the leading #):
-# [[kv_namespaces]]
-# binding = "DATA"
-# id = "<your KV namespace id>"
+[[kv_namespaces]]
+binding = "DATA"
+id = "fa0988b35f44440da5ac515cb96e381a"
 #
 # Optional: an older CODES namespace (password recovery) keeps working; without it codes go to DATA.
 # [[kv_namespaces]]

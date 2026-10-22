@@ -17,6 +17,7 @@ export const MAX_AUDIO = 15 * 1024 * 1024;
 type Body = { mode?: string; messages?: unknown; profile?: Profile } & Record<string, unknown>;
 
 function geminiFailure(err: unknown): [number, unknown] {
+  console.error('gemini failure', err instanceof GeminiError ? `${err.status} ${err.message}` : String(err));
   if (err instanceof GeminiError && err.status === 429) return [429, { error: 'busy, try again soon' }];
   if (err instanceof GeminiError && (err.status === 400 || err.status === 403)) return [500, { error: 'server API key is invalid' }];
   return [502, { error: 'ai error' }];
