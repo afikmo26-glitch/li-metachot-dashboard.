@@ -1,3 +1,4 @@
+import './src/lib/webAlert';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import { LinearGradient } from 'expo-linear-gradient';

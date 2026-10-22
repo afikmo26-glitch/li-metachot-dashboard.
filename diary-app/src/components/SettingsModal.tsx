@@ -11,6 +11,7 @@ import { useStore } from '../lib/store';
 import { usePrefs } from '../lib/prefs';
 import { colors, gradients, THEME_UNLOCK, ThemeName, THEMES } from '../lib/theme';
 import { levelInfo } from '../lib/game';
+import { GenderPicker } from '../screens/AuthScreens';
 import { exportBackup, importBackup, MIN_BACKUP_PASSWORD } from '../lib/backup';
 import { shareYearBook } from '../lib/yearbook';
 import type { Settings } from '../lib/types';
@@ -201,6 +202,9 @@ function DisplayCard() {
           );
         })}
       </Row>
+      <View style={{ marginTop: 14 }}>
+        <GenderPicker value={prefs.gender} onChange={(gender) => setPrefs({ gender }, true)} />
+      </View>
       <Row style={{ justifyContent: 'space-between', alignItems: 'center', marginTop: 14 }}>
         <T style={{ flex: 1 }}>{t('🔊 צלילים באפליקציה')}</T>
         <Switch value={prefs.sounds} onValueChange={(sounds) => setPrefs({ sounds }, true)} trackColor={{ true: colors.primary, false: colors.border }} />

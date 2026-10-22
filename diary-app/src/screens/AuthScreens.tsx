@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { TimePicker } from '../components/SettingsModal';
-import { FadeIn, GhostButton, GradientButton, Input, Row, T, tap } from '../components/ui';
+import { Chip, FadeIn, GhostButton, GradientButton, Input, Row, T, tap } from '../components/ui';
 import { Account, AuthProvider, checkLogin, createLocalAccount, resetPassword, validateSignup, wipeAllData } from '../lib/account';
 import { maskContact, normalizeContact, sendRecoveryCode, verifyRecoveryCode } from '../lib/recovery';
 import { scheduleBedtime } from '../lib/notifications';
@@ -199,6 +199,7 @@ function Welcome({ onStart, onSkip }: { onStart: () => void; onSkip: () => void 
 
 function Signup({ onCreated }: { onCreated: (a: Account) => void }) {
   const { updateSettings } = useStore();
+  const { prefs, setPrefs } = usePrefs();
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -251,6 +252,7 @@ function Signup({ onCreated }: { onCreated: (a: Account) => void }) {
 
       <View style={{ gap: 10 }}>
         <Input value={displayName} onChangeText={setDisplayName} placeholder={t('השם שלך (איך לקרוא לך)')} autoComplete="name" />
+        <GenderPicker value={prefs.gender} onChange={(gender) => setPrefs({ gender }, false, false)} />
         <Input
           value={username}
           onChangeText={setUsername}
@@ -533,6 +535,27 @@ function ForgotPassword({ account, onCancel, onUnlock, onReset }: { account: Acc
           </Row>
         </>
       )}
+    </View>
+  );
+}
+
+/** "How should I talk to you?" — male, female, or the neutral slash forms. */
+export function GenderPicker({ value, onChange }: { value?: 'm' | 'f'; onChange: (g: 'm' | 'f' | undefined) => void }) {
+  const opts: { key: 'm' | 'f' | undefined; label: string }[] = [
+    { key: 'm', label: t('🙋‍♂️ זכר') },
+    { key: 'f', label: t('🙋‍♀️ נקבה') },
+    { key: undefined, label: t('🙂 לא משנה') },
+  ];
+  return (
+    <View>
+      <T bold size={14} style={{ marginBottom: 6 }}>
+        {t('איך לפנות אליך?')}
+      </T>
+      <Row style={{ flexWrap: 'wrap' }}>
+        {opts.map((o) => (
+          <Chip key={o.label} label={o.label} active={value === o.key} onPress={() => onChange(o.key)} />
+        ))}
+      </Row>
     </View>
   );
 }

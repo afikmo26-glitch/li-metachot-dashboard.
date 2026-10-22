@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ApiMessage, chatWithClaude, Profile, Summary, summarizeWithClaude } from './aiCore';
 import { decryptFromStorage, encryptForStorage } from './crypto';
 import type { ChatMessage, Entry, Person, UserProfile } from './types';
-import { langName, t } from '../i18n';
+import { langName, getGender, t } from '../i18n';
 
 /**
  * Two ways to reach Claude:
@@ -55,6 +55,7 @@ export function buildProfile(userName: string, people: Person[], entries: Entry[
     about: profile ? profileSummary(profile) || undefined : undefined,
     name: userName || undefined,
     lang: langName(),
+    gender: getGender(),
     people: people.map((p) => (p.note ? `${p.name} (${p.note})` : p.name)),
     recent: entries.slice(0, 5).map((e) => `${e.createdAt.slice(0, 10)}: ${e.text}`),
   };

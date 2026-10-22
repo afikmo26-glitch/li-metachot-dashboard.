@@ -10,7 +10,7 @@ const MAX_MESSAGES = 40;
 const MAX_CHARS = 4000;
 
 export type ApiMessage = { role: 'user' | 'assistant'; content: string };
-export type Profile = { name?: string; lang?: string; people?: string[]; recent?: string[]; about?: string };
+export type Profile = { name?: string; lang?: string; gender?: 'm' | 'f'; people?: string[]; recent?: string[]; about?: string };
 
 export type Summary = {
   entry: string;
@@ -95,6 +95,7 @@ function profileText(p: Profile | undefined) {
   if (!p) return '';
   const lines: string[] = [];
   if (p.lang) lines.push(`Always reply in ${p.lang}.`);
+  if (p.gender) lines.push(`The user is ${p.gender === 'm' ? 'male' : 'female'}: use ${p.gender === 'm' ? 'masculine' : 'feminine'} forms when addressing them (Hebrew/Arabic).`);
   if (p.name) lines.push(`User's name: ${p.name}`);
   if (p.about) lines.push(`About the user (from their intro): ${p.about.slice(0, 1200)}`);
   if (p.people?.length) lines.push(`People they've mentioned before: ${p.people.slice(0, 60).join(', ')}`);

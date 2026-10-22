@@ -111,21 +111,18 @@ function Hours({ toggle }: { toggle: React.ReactNode }) {
 
   const clockOut = () => {
     if (!activeShift) return;
+    tap('heavy');
     const end = new Date();
     const mins = (end.getTime() - new Date(activeShift.start).getTime()) / 60000;
-    const finish = () => {
-      cancelShiftReminder(activeShift.notificationId);
-      if (mins >= 1) saveShift({ id: newId(), workplaceId: activeShift.workplaceId, start: activeShift.start, end: end.toISOString() });
-      setActiveShift(null);
-      notify('success');
-      if (mins >= 1) Alert.alert(t('המשמרת נשמרה ✓'), t('עבדת {h} שעות', { h: fmtHM(mins) }));
-    };
+    cancelShiftReminder(activeShift.notificationId);
+    setActiveShift(null);
     if (mins < 1) {
-      Alert.alert(t('המשמרת קצרה מדקה'), t('לבטל אותה בלי לשמור?'), [
-        { text: t('המשך משמרת'), style: 'cancel' },
-        { text: t('בטל'), style: 'destructive', onPress: finish },
-      ]);
-    } else finish();
+      Alert.alert(t('המשמרת הסתיימה'), t('היא הייתה קצרה מדקה, אז לא שמרתי אותה'));
+      return;
+    }
+    saveShift({ id: newId(), workplaceId: activeShift.workplaceId, start: activeShift.start, end: end.toISOString() });
+    notify('success');
+    Alert.alert(t('המשמרת נשמרה ✓'), t('עבדת {h} שעות', { h: fmtHM(mins) }));
   };
 
   const shiftMonth = (d: number) => {

@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { isRTL, Lang, setLang } from '../i18n';
+import { Gender, isRTL, Lang, setGender, setLang } from '../i18n';
 import { setSoundsEnabled } from './sound';
 import { applyDirection, applyTheme, ThemeName } from './theme';
 
@@ -12,11 +12,12 @@ import { applyDirection, applyTheme, ThemeName } from './theme';
 
 const KEY = 'diary.prefs.v1';
 
-export type Prefs = { lang: Lang; theme: ThemeName; sounds: boolean };
+export type Prefs = { lang: Lang; theme: ThemeName; sounds: boolean; gender?: Gender };
 export const DEFAULT_PREFS: Prefs = { lang: 'he', theme: 'night', sounds: true };
 
 function apply(p: Prefs) {
   setLang(p.lang);
+  setGender(p.gender);
   applyDirection(isRTL());
   applyTheme(p.theme);
   setSoundsEnabled(p.sounds);
@@ -26,7 +27,7 @@ type Ctx = {
   prefs: Prefs;
   version: number;
   /** `fromSettings` reopens the settings screen after the redraw */
-  setPrefs: (patch: Partial<Prefs>, fromSettings?: boolean) => void;
+  setPrefs: (patch: Partial<Prefs>, fromSettings?: boolean, redraw?: boolean) => void;
   /** True once after a change made from the settings screen, so it can reopen after the redraw */
   takeReopenSettings: () => boolean;
 };
@@ -48,13 +49,15 @@ export function PrefsProvider({ children }: { children: React.ReactNode }) {
       });
   }, []);
 
-  const setPrefs = useCallback((patch: Partial<Prefs>, fromSettings = false) => {
+  // `redraw: false` applies the change without remounting the screens (used mid-onboarding)
+  const setPrefs = useCallback((patch: Partial<Prefs>, fromSettings = false, redraw = true) => {
     setState((prev) => {
       const next = { ...(prev ?? DEFAULT_PREFS), ...patch };
       apply(next);
       AsyncStorage.setItem(KEY, JSON.stringify(next)).catch(() => {});
       return next;
     });
+    if (!redraw) return;
     reopen.current = fromSettings;
     setVersion((v) => v + 1);
   }, []);
