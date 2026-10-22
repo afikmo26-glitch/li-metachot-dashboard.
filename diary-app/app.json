@@ -10,7 +10,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.mylifediary.app",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "האפליקציה מקליטה את היומן היומי שלך."
+        "NSMicrophoneUsageDescription": "האפליקציה מקשיבה כשאתה מכתיב את היומן.",
+        "NSSpeechRecognitionUsageDescription": "האפליקציה הופכת את הדיבור שלך לטקסט ביומן."
       },
       "usesAppleSignIn": true
     },
@@ -23,7 +24,15 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.mylifediary.app",
-      "allowBackup": false
+      "allowBackup": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -100,8 +109,15 @@
     "backgroundColor": "#14102B",
     "extra": {
       "eas": {
-        "projectId": "c36adb0b-4730-4c7b-b506-a56f25607a82"
+        "projectId": "f5c92a9c-fdf1-4eb1-9964-0057fd2d21ab"
       }
+    },
+    "owner": "afikmo26s-team",
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/f5c92a9c-fdf1-4eb1-9964-0057fd2d21ab"
     }
   }
 }
