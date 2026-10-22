@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Account, changePassword, saveAccount } from '../lib/account';
-import { AiConfig, aiTest, EMPTY_AI, loadAiConfig, saveAiConfig } from '../lib/ai';
+import { AiConfig, aiTest, EMPTY_AI, hasBuiltInAi, loadAiConfig, saveAiConfig } from '../lib/ai';
 import { biometricAvailable, biometricLabel, biometricUnlock } from '../lib/biometric';
 import { maskContact, normalizeContact } from '../lib/recovery';
 import { pad } from '../lib/dates';
@@ -243,10 +243,30 @@ function AiCard() {
   return (
     <Card>
       <T dim size={13} style={{ lineHeight: 19, marginBottom: 10 }}>
-        {t('עם AI, יומי והמקום לפרוק עונים לך כמו בן אדם אמיתי (Claude). הדרך הכי פשוטה: מפתח Claude אישי מ-console.anthropic.com. בלי AI הם עובדים במצב רגיל.')}
+        {t('עם AI, יומי והמקום לפרוק עונים לך כמו בן אדם אמיתי. בלי AI הם עובדים במצב רגיל.')}
+      </T>
+      {hasBuiltInAi() && (
+        <T size={13} style={{ color: colors.green, marginBottom: 10, lineHeight: 19 }}>
+          {t('✨ AI מובנה פעיל באפליקציה (Google Gemini). אפשר להשאיר את השדות למטה ריקים.')}
+        </T>
+      )}
+      <T bold size={14} style={{ marginBottom: 6 }}>
+        {t('🔑 מפתח Gemini (Google AI Studio)')}
+      </T>
+      <Input
+        value={cfg.geminiKey ?? ''}
+        onChangeText={(geminiKey) => update({ geminiKey: geminiKey.trim() })}
+        placeholder={hasBuiltInAi() ? t('לא חובה — יש AI מובנה') : 'AIza... / AQ...'}
+        secureTextEntry
+        autoCapitalize="none"
+        autoCorrect={false}
+        style={{ textAlign: 'left', writingDirection: 'ltr' }}
+      />
+      <T dim size={12} style={{ marginTop: 6, marginBottom: 12, lineHeight: 17 }}>
+        {t('מפתח חינמי מ-aistudio.google.com. נשמר מוצפן רק בטלפון הזה.')}
       </T>
       <T bold size={14} style={{ marginBottom: 6 }}>
-        {t('🔑 מפתח Claude אישי')}
+        {t('🔑 או: מפתח Claude אישי')}
       </T>
       <Input
         value={cfg.claudeKey}

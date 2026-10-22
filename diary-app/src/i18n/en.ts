@@ -1009,4 +1009,14 @@ export const en: Record<string, string> = {
   "🙂 לא משנה": "🙂 Doesn't matter",
   "המשמרת הסתיימה": "Shift ended",
   "היא הייתה קצרה מדקה, אז לא שמרתי אותה": "It was under a minute, so I didn't save it",
+  // Gemini
+  "מפתח Gemini לא תקין": "Invalid Gemini key",
+  "יותר מדי בקשות לשירות. נסה שוב בעוד דקה": "Too many requests. Try again in a minute",
+  "שגיאת Gemini {code}": "Gemini error {code}",
+  "עם AI, יומי והמקום לפרוק עונים לך כמו בן אדם אמיתי. בלי AI הם עובדים במצב רגיל.": "With AI, Yomi and the unload space answer like a real person. Without AI they work in basic mode.",
+  "✨ AI מובנה פעיל באפליקציה (Google Gemini). אפשר להשאיר את השדות למטה ריקים.": "✨ Built-in AI is on (Google Gemini). You can leave the fields below empty.",
+  "🔑 מפתח Gemini (Google AI Studio)": "🔑 Gemini key (Google AI Studio)",
+  "לא חובה — יש AI מובנה": "Optional — built-in AI is on",
+  "מפתח חינמי מ-aistudio.google.com. נשמר מוצפן רק בטלפון הזה.": "A free key from aistudio.google.com. Stored encrypted on this phone only.",
+  "🔑 או: מפתח Claude אישי": "🔑 Or: a personal Claude key",
 };

@@ -4,7 +4,8 @@ compatibility_date = "2026-10-01"
 compatibility_flags = ["nodejs_compat"]
 
 # Secrets (set in the Cloudflare dashboard → Settings → Variables and Secrets):
-#   ANTHROPIC_API_KEY  – from console.anthropic.com
+#   ANTHROPIC_API_KEY  – from console.anthropic.com (Claude), or
+#   GEMINI_API_KEY     – from aistudio.google.com (used when there is no Claude key)
 #   APP_KEY            – any long random password; type the same one in the app settings
 
 # Password recovery (optional). Create a KV namespace in the dashboard (Storage & Databases → KV),

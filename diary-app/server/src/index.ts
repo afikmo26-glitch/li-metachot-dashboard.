@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { chatWithClaude, cleanMessages, Profile, summarizeWithClaude } from '../../src/lib/aiCore';
+import { chatWithClaude, chatWithGemini, cleanMessages, GeminiError, Profile, summarizeWithClaude, summarizeWithGemini } from '../../src/lib/aiCore';
 import { handleRecover, RecoverEnv } from './recover';
 
 /**
@@ -15,7 +15,10 @@ import { handleRecover, RecoverEnv } from './recover';
  */
 
 export interface Env extends RecoverEnv {
-  ANTHROPIC_API_KEY: string;
+  /** Claude is used when this is set… */
+  ANTHROPIC_API_KEY?: string;
+  /** …otherwise Gemini (Google AI Studio) */
+  GEMINI_API_KEY?: string;
   APP_KEY: string;
 }
 
@@ -49,6 +52,19 @@ export default {
 
     const messages = cleanMessages(body.messages);
     if (!messages.length) return json({ error: 'no messages' }, 400);
+
+    if (!env.ANTHROPIC_API_KEY && env.GEMINI_API_KEY) {
+      try {
+        if (path === '/chat') return json({ reply: await chatWithGemini(env.GEMINI_API_KEY, body.mode === 'vent' ? 'vent' : 'diary', messages, body.profile) });
+        if (path === '/summarize') return json(await summarizeWithGemini(env.GEMINI_API_KEY, messages, body.profile));
+        return json({ error: 'not found' }, 404);
+      } catch (err) {
+        if (err instanceof GeminiError && err.status === 429) return json({ error: 'busy, try again soon' }, 429);
+        if (err instanceof GeminiError && (err.status === 400 || err.status === 403)) return json({ error: 'server API key is invalid' }, 500);
+        return json({ error: 'ai error' }, 502);
+      }
+    }
+    if (!env.ANTHROPIC_API_KEY) return json({ error: 'no AI key on the server' }, 500);
 
     const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 

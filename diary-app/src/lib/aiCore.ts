@@ -91,6 +91,9 @@ const REFUSAL_REPLIES: Record<string, string> = {
 };
 export const refusalReply = (lang?: string) => REFUSAL_REPLIES[lang ?? 'Hebrew'] ?? REFUSAL_REPLIES.Hebrew;
 
+/** Chat bubbles show raw text, so ask for no markdown. */
+const PLAIN = '\n\nWrite plain text for a chat bubble: no markdown, no asterisks, no [link](url) syntax.';
+
 function profileText(p: Profile | undefined) {
   if (!p) return '';
   const lines: string[] = [];
@@ -129,7 +132,7 @@ export async function chatWithClaude(client: Anthropic, mode: 'diary' | 'vent', 
     betas: ['server-side-fallback-2026-07-01'],
     fallbacks: 'default',
     output_config: { effort: 'low' },
-    system: (mode === 'vent' ? VENT_SYSTEM : DIARY_SYSTEM) + profileText(profile),
+    system: (mode === 'vent' ? VENT_SYSTEM : DIARY_SYSTEM) + PLAIN + profileText(profile),
     messages: cleanMessages(messages),
   });
   if (res.stop_reason === 'refusal') return refusalReply(profile?.lang);
@@ -151,4 +154,76 @@ export async function summarizeWithClaude(client: Anthropic, messages: ApiMessag
   });
   if (res.stop_reason === 'refusal') throw new Error('refused');
   return JSON.parse(textOf(res.content)) as Summary;
+}
+
+// ---- Gemini (Google AI Studio), same prompts, plain REST so it runs in the app and in the Worker ----
+
+export const GEMINI_MODEL = 'gemini-3.5-flash';
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
+
+export class GeminiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+  ) {
+    super(message);
+  }
+}
+
+type GeminiResponse = {
+  candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] }; finishReason?: string }[];
+  promptFeedback?: { blockReason?: string };
+  error?: { message?: string };
+};
+
+async function callGemini(key: string, body: unknown, signal?: AbortSignal): Promise<{ text: string; blocked: boolean }> {
+  const res = await fetch(`${GEMINI_URL}/${GEMINI_MODEL}:generateContent`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
+    body: JSON.stringify(body),
+    signal,
+  });
+  const data = (await res.json().catch(() => ({}))) as GeminiResponse;
+  if (!res.ok) throw new GeminiError(data.error?.message ?? `gemini ${res.status}`, res.status);
+  const c = data.candidates?.[0];
+  const text = (c?.content?.parts ?? [])
+    .filter((p) => !p.thought)
+    .map((p) => p.text ?? '')
+    .join('')
+    .trim();
+  // Google's own safety filter can stop a reply (often on exactly the hard conversations): never leave the person hanging
+  const blocked = !!data.promptFeedback?.blockReason || c?.finishReason === 'SAFETY' || c?.finishReason === 'PROHIBITED_CONTENT';
+  return { text, blocked };
+}
+
+const toGemini = (msgs: ApiMessage[]) => cleanMessages(msgs).map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
+
+export async function chatWithGemini(key: string, mode: 'diary' | 'vent', messages: ApiMessage[], profile?: Profile, signal?: AbortSignal): Promise<string> {
+  const { text, blocked } = await callGemini(
+    key,
+    {
+      systemInstruction: { parts: [{ text: (mode === 'vent' ? VENT_SYSTEM : DIARY_SYSTEM) + PLAIN + profileText(profile) }] },
+      contents: toGemini(messages),
+      generationConfig: { maxOutputTokens: 2048, thinkingConfig: { thinkingLevel: 'low' } },
+    },
+    signal,
+  );
+  return blocked || !text ? refusalReply(profile?.lang) : text;
+}
+
+export async function summarizeWithGemini(key: string, messages: ApiMessage[], profile?: Profile, signal?: AbortSignal): Promise<Summary> {
+  const transcript = cleanMessages(messages)
+    .map((m) => `${m.role === 'user' ? 'User' : 'Yomi'}: ${m.content}`)
+    .join('\n');
+  const { text, blocked } = await callGemini(
+    key,
+    {
+      systemInstruction: { parts: [{ text: SUMMARY_SYSTEM + profileText(profile) }] },
+      contents: [{ role: 'user', parts: [{ text: `<conversation>\n${transcript}\n</conversation>` }] }],
+      generationConfig: { maxOutputTokens: 4096, thinkingConfig: { thinkingLevel: 'low' }, responseMimeType: 'application/json', responseJsonSchema: SUMMARY_SCHEMA },
+    },
+    signal,
+  );
+  if (blocked || !text) throw new Error('refused');
+  return JSON.parse(text) as Summary;
 }
