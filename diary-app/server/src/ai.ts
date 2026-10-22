@@ -16,6 +16,19 @@ export const MAX_AUDIO = 15 * 1024 * 1024;
 
 type Body = { mode?: string; messages?: unknown; profile?: Profile } & Record<string, unknown>;
 
+/** Gemini's per-minute limit trips on short bursts: wait and try again (1.5 s, then 4 s) before giving up. */
+async function retryBusy<T>(fn: () => Promise<T>): Promise<T> {
+  for (const wait of [1500, 4000]) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (!(err instanceof GeminiError && err.status === 429)) throw err;
+      await new Promise((r) => setTimeout(r, wait));
+    }
+  }
+  return fn();
+}
+
 function geminiFailure(err: unknown): [number, unknown] {
   console.error('gemini failure', err instanceof GeminiError ? `${err.status} ${err.message}` : String(err));
   if (err instanceof GeminiError && err.status === 429) return [429, { error: 'busy, try again soon' }];
@@ -31,7 +44,7 @@ export async function handleTranscribe(body: Body, env: Env): Promise<[number, u
   if (Math.floor((audio.length * 3) / 4) > MAX_AUDIO) return [413, { error: 'recording too large' }];
   if (typeof mimeType !== 'string' || !/^audio\/[\w.+-]+$/.test(mimeType)) return [400, { error: 'bad mimeType' }];
   try {
-    return [200, await transcribeWithGemini(env.GEMINI_API_KEY, audio, mimeType, body.profile)];
+    return [200, await retryBusy(() => transcribeWithGemini(env.GEMINI_API_KEY!, audio, mimeType, body.profile))];
   } catch (err) {
     return geminiFailure(err);
   }
@@ -44,8 +57,8 @@ export async function handleChat(path: string, body: Body, env: Env): Promise<[n
 
   if (!env.ANTHROPIC_API_KEY && env.GEMINI_API_KEY) {
     try {
-      if (path === '/chat') return [200, { reply: await chatWithGemini(env.GEMINI_API_KEY, mode, messages, body.profile) }];
-      return [200, await summarizeWithGemini(env.GEMINI_API_KEY, messages, body.profile)];
+      if (path === '/chat') return [200, { reply: await retryBusy(() => chatWithGemini(env.GEMINI_API_KEY!, mode, messages, body.profile)) }];
+      return [200, await retryBusy(() => summarizeWithGemini(env.GEMINI_API_KEY!, messages, body.profile))];
     } catch (err) {
       return geminiFailure(err);
     }

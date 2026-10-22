@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Modal as RNModal, ModalProps, Pressable } from 'react-native';
+import { Modal as RNModal, ModalProps, Platform, Pressable } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { t } from '../i18n';
 import { colors } from '../lib/theme';
@@ -10,11 +10,8 @@ import { colors } from '../lib/theme';
  * under the status bar and its close button can't be reached.
  */
 export default function Modal({ children, ...props }: ModalProps) {
-  return (
-    <RNModal {...props}>
-      <SafeAreaProvider>{children}</SafeAreaProvider>
-    </RNModal>
-  );
+  // In a browser there is no status bar, and the extra provider would collapse flex layouts inside the modal
+  return <RNModal {...props}>{Platform.OS === 'web' ? children : <SafeAreaProvider>{children}</SafeAreaProvider>}</RNModal>;
 }
 
 /** The one close button for sheets and full screens: a 40pt circle, easy to hit. */
