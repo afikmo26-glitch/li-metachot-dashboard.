@@ -10,7 +10,7 @@ import EntryModal from './src/components/EntryModal';
 import SettingsModal from './src/components/SettingsModal';
 import { T, tap } from './src/components/ui';
 import { t } from './src/i18n';
-import { Account, loadAccount } from './src/lib/account';
+import { Account, ensurePreviewAccount } from './src/lib/account';
 import { scheduleBedtime, schedulePhotoReminder, scheduleSavingsReminder } from './src/lib/notifications';
 import { PrefsProvider, usePrefs } from './src/lib/prefs';
 import { StoreProvider, useStore } from './src/lib/store';
@@ -44,14 +44,22 @@ const TABS: { key: Tab; label: string; icon: IconName; active: IconName }[] = [
 
 /** Account and lock state live here, above the part that redraws when the theme or language changes. */
 function Root() {
-  const { ready, settings, clearAll } = useStore();
-  const { version } = usePrefs();
+  const { ready, settings, clearAll, updateSettings } = useStore();
+  const { version, prefs, setPrefs } = usePrefs();
   const [account, setAccount] = useState<Account | null | undefined>(undefined);
   const [unlocked, setUnlocked] = useState(false);
 
   useEffect(() => {
-    loadAccount().then(setAccount);
+    ensurePreviewAccount().then(setAccount);
   }, []);
+
+  // The ready-made preview account skips sign-up, so fill in what sign-up would have set
+  useEffect(() => {
+    if (!ready || !account || !process.env.EXPO_PUBLIC_PREVIEW_ACCOUNT || Platform.OS !== 'web') return;
+    if (!settings.userName) updateSettings({ userName: account.displayName });
+    if (!prefs.genderAsked) setPrefs({ genderAsked: true }, false, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, account]);
 
   // Make sure the nightly reminder is scheduled (in the current language) once settings are loaded
   useEffect(() => {

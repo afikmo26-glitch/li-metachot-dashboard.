@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import { b64, decryptFromStorage, deleteDataKey, deriveKey, encryptForStorage, randomBytes } from './crypto';
 import { t } from '../i18n';
@@ -76,6 +77,32 @@ export async function createLocalAccount(displayName: string, username: string, 
     createdAt: new Date().toISOString(),
     kdf: 'pbkdf2',
     ...(recovery ? { recovery } : {}),
+  };
+  await saveAccount(account);
+  return account;
+}
+
+/**
+ * Web preview only: a ready-made account from EXPO_PUBLIC_PREVIEW_ACCOUNT ("name:password", kept in .env.local),
+ * so opening the preview goes straight to the login screen instead of sign-up. Never used on a phone.
+ */
+export async function ensurePreviewAccount(): Promise<Account | null> {
+  const spec = process.env.EXPO_PUBLIC_PREVIEW_ACCOUNT;
+  if (Platform.OS !== 'web' || !spec) return loadAccount();
+  const existing = await loadAccount();
+  if (existing) return existing;
+  const at = spec.indexOf(':');
+  const name = spec.slice(0, at);
+  const salt = newSalt();
+  const account: Account = {
+    displayName: name,
+    username: name.toLowerCase(),
+    provider: 'local',
+    passwordHash: await hash(spec.slice(at + 1), salt),
+    salt,
+    lockEnabled: true,
+    createdAt: new Date().toISOString(),
+    kdf: 'pbkdf2',
   };
   await saveAccount(account);
   return account;
