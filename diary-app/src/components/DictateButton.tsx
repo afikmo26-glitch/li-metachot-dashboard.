@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
+import { SpeechModule as ExpoSpeechRecognitionModule, useSpeechEvent as useSpeechRecognitionEvent } from '../lib/speech';
 import React, { useState } from 'react';
 import { Alert, Pressable } from 'react-native';
 import { getLang, t } from '../i18n';
@@ -34,11 +34,11 @@ export default function DictateButton({ onText, onInterim, size = 22 }: { onText
   const toggle = async () => {
     tap();
     if (listening) {
-      ExpoSpeechRecognitionModule.stop();
+      ExpoSpeechRecognitionModule?.stop();
       return;
     }
     try {
-      if (!ExpoSpeechRecognitionModule.isRecognitionAvailable()) throw new Error('unavailable');
+      if (!ExpoSpeechRecognitionModule || !ExpoSpeechRecognitionModule.isRecognitionAvailable()) throw new Error('unavailable');
       const perm = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
       if (!perm.granted) {
         Alert.alert(t('צריך הרשאה למיקרופון'), t('אפשר לאשר בהגדרות הטלפון'));
