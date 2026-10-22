@@ -1,6 +1,7 @@
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import React, { useEffect, useState } from 'react';
-import { Alert, Image, Modal, Pressable, ScrollView, Share, Text, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, Share, Text, View } from 'react-native';
+import Modal, { CloseButton } from './AppModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { deleteRecording } from '../lib/audio';
 import { deletePhoto } from '../lib/photos';
@@ -65,12 +66,8 @@ export default function EntryModal({ entryId, onClose }: { entryId: string | nul
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
         <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
           <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-            <Pressable onPress={onClose} hitSlop={12}>
-              <T bold size={16} style={{ color: colors.primaryHi }}>
-                {t('סגור ✕')}
-              </T>
-            </Pressable>
-            <Text style={{ fontSize: 34 }}>{MOODS[entry.mood - 1]}</Text>
+            <CloseButton onPress={onClose} />
+            <Text style={{ fontSize: 27 }}>{MOODS[entry.mood - 1]}</Text>
           </Row>
 
           <T bold size={22} style={{ marginTop: 12 }}>

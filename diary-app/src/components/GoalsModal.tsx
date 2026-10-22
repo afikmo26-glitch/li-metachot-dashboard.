@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import Modal, { CloseButton } from './AppModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { t } from '../i18n';
 import { formatShortDate } from '../lib/dates';
@@ -33,11 +34,7 @@ export default function GoalsModal({ visible, onClose }: { visible: boolean; onC
             <T bold size={26}>
               {t('🎯 המטרות שלי')}
             </T>
-            <Pressable onPress={onClose} hitSlop={12}>
-              <T bold style={{ color: colors.primaryHi }}>
-                {t('סגור ✕')}
-              </T>
-            </Pressable>
+            <CloseButton onPress={onClose} />
           </Row>
           <T dim style={{ marginTop: 4 }}>
             {t('פעם בשבוע אשאל איך מתקדם')}

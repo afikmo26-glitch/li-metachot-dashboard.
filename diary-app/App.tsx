@@ -3,13 +3,14 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, I18nManager, KeyboardAvoidingView, Modal, Platform, Pressable, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, I18nManager, KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
+import Modal from './src/components/AppModal';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import EntryModal from './src/components/EntryModal';
 import SettingsModal from './src/components/SettingsModal';
-import { T, tap } from './src/components/ui';
+import { Segmented, T, tap } from './src/components/ui';
 import { t } from './src/i18n';
 import { Account, ensurePreviewAccount } from './src/lib/account';
 import { scheduleBedtime, schedulePhotoReminder, scheduleSavingsReminder } from './src/lib/notifications';
@@ -26,8 +27,7 @@ import IntroScreen from './src/screens/IntroScreen';
 import PetScreen from './src/screens/PetScreen';
 import PeopleScreen from './src/screens/PeopleScreen';
 import TodayScreen from './src/screens/TodayScreen';
-import VentScreen from './src/screens/VentScreen';
-import WorkScreen from './src/screens/WorkScreen';
+import WorkScreen, { MeSection } from './src/screens/WorkScreen';
 
 // The native layout is pinned LTR; screens lay themselves out through `layout`/`rtl`,
 // so Hebrew and Arabic read right-to-left and English left-to-right, whatever the phone's language.
@@ -35,17 +35,27 @@ installCrashReporting();
 I18nManager.allowRTL(false);
 I18nManager.forceRTL(false);
 
-type Tab = 'today' | 'archive' | 'calendar' | 'people' | 'work' | 'vent' | 'pet';
+type Tab = 'today' | 'journal' | 'pet' | 'people' | 'me';
 type IconName = keyof typeof Ionicons.glyphMap;
 const TABS: { key: Tab; label: string; icon: IconName; active: IconName }[] = [
   { key: 'today', label: 'היום', icon: 'mic-outline', active: 'mic' },
-  { key: 'archive', label: 'ארכיון', icon: 'library-outline', active: 'library' },
-  { key: 'calendar', label: 'לוח שנה', icon: 'calendar-outline', active: 'calendar' },
-  { key: 'people', label: 'אנשים', icon: 'people-outline', active: 'people' },
-  { key: 'work', label: 'עבודה ולימודים', icon: 'briefcase-outline', active: 'briefcase' },
-  { key: 'vent', label: 'לפרוק', icon: 'lock-closed-outline', active: 'lock-closed' },
+  { key: 'journal', label: 'יומן', icon: 'book-outline', active: 'book' },
   { key: 'pet', label: 'החבר שלי', icon: 'paw-outline', active: 'paw' },
+  { key: 'people', label: 'אנשים', icon: 'people-outline', active: 'people' },
+  { key: 'me', label: 'אני', icon: 'person-circle-outline', active: 'person-circle' },
 ];
+
+/** Where a notification's `screen` opens: a tab, plus the view inside it. */
+const ROUTES: Record<string, { tab: Tab; journal?: 'archive' | 'calendar'; me?: MeSection }> = {
+  record: { tab: 'today' },
+  today: { tab: 'today' },
+  archive: { tab: 'journal', journal: 'archive' },
+  calendar: { tab: 'journal', journal: 'calendar' },
+  work: { tab: 'me', me: 'hours' },
+  vent: { tab: 'me', me: 'vent' },
+  people: { tab: 'people' },
+  pet: { tab: 'pet' },
+};
 
 /** Account and lock state live here, above the part that redraws when the theme or language changes. */
 function Root() {
@@ -126,21 +136,24 @@ function Main({ account, setAccount, onLock }: { account: Account; setAccount: (
   useWidgetSync();
   const { takeReopenSettings } = usePrefs();
   const [tab, setTab] = useState<Tab>('today');
-  const [workSection, setWorkSection] = useState<'hours' | 'save' | 'study' | undefined>();
+  const [workSection, setWorkSection] = useState<MeSection | undefined>();
+  const [journalView, setJournalView] = useState<'archive' | 'calendar'>('archive');
   const [entryId, setEntryId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(takeReopenSettings);
   const [introOpen, setIntroOpen] = useState(false);
   const insets = useSafeAreaInsets();
-  const enter = useRef(new Animated.Value(1)).current;
 
   // Tapping a notification opens the right screen
   useEffect(() => {
     if (Platform.OS === 'web') return;
     const handle = (response: Notifications.NotificationResponse | null) => {
-      const data = response?.notification.request.content.data as { screen?: Tab | 'record'; entryId?: string } | undefined;
-      if (!data?.screen) return;
-      setTab(data.screen === 'record' ? 'today' : data.screen);
-      if (data.entryId) setEntryId(data.entryId);
+      const data = response?.notification.request.content.data as { screen?: string; entryId?: string } | undefined;
+      const route = data?.screen ? ROUTES[data.screen] : undefined;
+      if (!route) return;
+      setTab(route.tab);
+      if (route.journal) setJournalView(route.journal);
+      if (route.me) setWorkSection(route.me);
+      if (data?.entryId) setEntryId(data.entryId);
     };
     handle(Notifications.getLastNotificationResponse());
     const sub = Notifications.addNotificationResponseReceivedListener(handle);
@@ -151,8 +164,6 @@ function Main({ account, setAccount, onLock }: { account: Account; setAccount: (
     if (next === tab) return;
     tap();
     setTab(next);
-    enter.setValue(0);
-    Animated.timing(enter, { toValue: 1, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
   };
 
   const open = (id: string) => setEntryId(id);
@@ -161,32 +172,37 @@ function Main({ account, setAccount, onLock }: { account: Account; setAccount: (
     <LinearGradient colors={gradients.app} style={{ flex: 1 }}>
       <SafeAreaView edges={['top']} style={{ flex: 1 }}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <Animated.View
-            style={{
-              flex: 1,
-              opacity: enter,
-              transform: [{ translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }],
-            }}
-          >
+          <View style={{ flex: 1 }}>
             {tab === 'today' && (
               <TodayScreen
                 onOpenPet={() => go('pet')}
                 onOpenStudy={() => {
                   setWorkSection('study');
-                  go('work');
+                  go('me');
                 }}
                 onOpenSettings={() => setSettingsOpen(true)}
                 onOpenEntry={open}
                 onOpenIntro={profile.done ? undefined : () => setIntroOpen(true)}
               />
             )}
-            {tab === 'archive' && <ArchiveScreen onOpenEntry={open} />}
-            {tab === 'calendar' && <CalendarScreen onOpenEntry={open} />}
+            {tab === 'journal' && (
+              <View style={{ flex: 1 }}>
+                <Segmented
+                  value={journalView}
+                  onChange={setJournalView}
+                  options={[
+                    ['archive', t('📖 ארכיון')],
+                    ['calendar', t('📅 לוח שנה')],
+                  ]}
+                  style={{ marginHorizontal: 18, marginTop: 10 }}
+                />
+                <View style={{ flex: 1 }}>{journalView === 'archive' ? <ArchiveScreen onOpenEntry={open} /> : <CalendarScreen onOpenEntry={open} />}</View>
+              </View>
+            )}
             {tab === 'people' && <PeopleScreen onOpenEntry={open} />}
-            {tab === 'work' && <WorkScreen initial={workSection} />}
-            {tab === 'vent' && <VentScreen />}
+            {tab === 'me' && <WorkScreen initial={workSection} />}
             {tab === 'pet' && <PetScreen />}
-          </Animated.View>
+          </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
 
@@ -213,7 +229,7 @@ function Main({ account, setAccount, onLock }: { account: Account; setAccount: (
                   backgroundColor: active ? colors.cardHi : 'transparent',
                 }}
               >
-                <Ionicons name={active ? tb.active : tb.icon} size={24} color={active ? colors.primaryHi : colors.textMute} />
+                <Ionicons name={active ? tb.active : tb.icon} size={23} color={active ? colors.primaryHi : colors.textMute} />
               </View>
               <T size={11} bold={active} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75} style={{ textAlign: 'center', marginTop: 2, color: active ? colors.text : colors.textMute }}>
                 {label}

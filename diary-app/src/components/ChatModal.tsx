@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, ScrollViewInstance, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, ScrollViewInstance, Text, TextInput, View } from 'react-native';
+import Modal, { CloseButton } from './AppModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { detectCrisis } from '../lib/vent';
 import CrisisCard from './CrisisCard';
@@ -336,9 +337,7 @@ export default function ChatModal({ visible, recording, opening, onClose, onSave
                 </T>
               </View>
             </Row>
-            <Pressable onPress={onClose} hitSlop={12}>
-              <T bold style={{ color: colors.primaryHi }}>{t('סגור ✕')}</T>
-            </Pressable>
+            <CloseButton onPress={onClose} />
           </Row>
 
           <ScrollView ref={scroll} contentContainerStyle={{ padding: 16, gap: 10 }} keyboardShouldPersistTaps="handled">

@@ -1,6 +1,7 @@
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Modal, Platform, Text, useWindowDimensions, View, type ViewInstance } from 'react-native';
+import { Alert, Platform, Text, useWindowDimensions, View, type ViewInstance } from 'react-native';
+import Modal from '../components/AppModal';
 import { captureRef } from 'react-native-view-shot';
 import Pet from '../components/pet/Pet';
 import { Room } from '../components/pet/art';
@@ -36,7 +37,7 @@ export function Shop() {
             <Row style={{ gap: 14, marginTop: 8 }}>
               {packItems(p.id).map((i) => (
                 <View key={i.id} style={{ alignItems: 'center' }}>
-                  <Text style={{ fontSize: 30 }}>{i.emoji}</Text>
+                  <Text style={{ fontSize: 24 }}>{i.emoji}</Text>
                   <T size={12}>{t(i.label)}</T>
                 </View>
               ))}
@@ -109,7 +110,7 @@ export function Friends({ level, stage }: { level: number; stage: Stage }) {
       {signedIn ? (
         <>
           <T bold>{t('הקוד של {name}', { name: pet.name || t('יומי') })}</T>
-          <Text selectable style={{ fontSize: 34, fontWeight: '800', letterSpacing: 6, color: colors.primaryHi, textAlign: 'center', marginVertical: 6 }}>
+          <Text selectable style={{ fontSize: 27, fontWeight: '800', letterSpacing: 6, color: colors.primaryHi, textAlign: 'center', marginVertical: 6 }}>
             {me?.code ?? '······'}
           </Text>
           <T dim size={13} style={{ textAlign: 'center' }}>
@@ -229,7 +230,7 @@ export function ShareCardModal({ visible, onClose, level, levelTitle, stage }: {
         <View ref={ref} collapsable={false} style={{ width: W, height: W * 1.5, borderRadius: 28, overflow: 'hidden', backgroundColor: colors.bg }}>
           <Room id={pet.wear.bg} width={W} height={W * 1.5} />
           <View style={{ position: 'absolute', top: 26, left: 0, right: 0, alignItems: 'center' }}>
-            <Text style={{ color: '#fff', fontSize: 32, fontWeight: '900', textShadowColor: '#0008', textShadowRadius: 8 }}>{pet.name}</Text>
+            <Text style={{ color: '#fff', fontSize: 26, fontWeight: '900', textShadowColor: '#0008', textShadowRadius: 8 }}>{pet.name}</Text>
             <View style={{ backgroundColor: '#0007', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 5, marginTop: 6 }}>
               <Text style={{ color: '#FFE45C', fontWeight: '800' }}>
                 {t('רמה {n} · {title}', { n: level, title: levelTitle })}

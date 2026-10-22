@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
+import Modal, { CloseButton } from './AppModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
 import { t } from '../i18n';
@@ -54,11 +55,7 @@ export default function MoodInsights({ visible, onClose }: { visible: boolean; o
             <T bold size={24}>
               {t('📊 מצב הרוח שלי')}
             </T>
-            <Pressable onPress={onClose} hitSlop={12}>
-              <T bold style={{ color: colors.primaryHi }}>
-                {t('סגור ✕')}
-              </T>
-            </Pressable>
+            <CloseButton onPress={onClose} />
           </Row>
 
           <Card style={{ marginTop: 14 }}>

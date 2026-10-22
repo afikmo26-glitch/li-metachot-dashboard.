@@ -190,7 +190,7 @@ export default function TodayScreen({ onOpenPet, onOpenStudy, onOpenSettings, on
         >
           <Card style={{ borderColor: colors.yellow }}>
             <Row style={{ alignItems: 'center', gap: 12 }}>
-              <Text style={{ fontSize: 34 }}>👋</Text>
+              <Text style={{ fontSize: 27 }}>👋</Text>
               <View style={{ flex: 1 }}>
                 <T bold size={17}>
                   {t('ספר לי קצת על עצמך')}
@@ -237,7 +237,7 @@ export default function TodayScreen({ onOpenPet, onOpenStudy, onOpenSettings, on
         >
           <LinearGradient colors={['#6D28D9', '#A855F7', '#EC4899']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: 20, padding: 16 }}>
             <Row style={{ alignItems: 'center', gap: 12 }}>
-              <Text style={{ fontSize: 34 }}>✨</Text>
+              <Text style={{ fontSize: 27 }}>✨</Text>
               <View style={{ flex: 1 }}>
                 <T bold size={17} style={{ color: '#fff' }}>
                   {t('החודש שלך מוכן!')}
@@ -445,7 +445,7 @@ function StudySoon({ onOpen }: { onOpen: () => void }) {
     >
       <Card style={{ borderColor: colors.orange }}>
         <Row style={{ alignItems: 'center', gap: 12 }}>
-          <Text style={{ fontSize: 30 }}>📚</Text>
+          <Text style={{ fontSize: 24 }}>📚</Text>
           <View style={{ flex: 1 }}>
             {exam && (
               <T bold size={16}>

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Modal, Pressable, Text, View } from 'react-native';
+import { Animated, Easing, Pressable, Text, View } from 'react-native';
+import Modal, { CloseButton } from './AppModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { t } from '../i18n';
 import { colors } from '../lib/theme';
@@ -66,11 +67,7 @@ export default function Breathing({ visible, onClose }: { visible: boolean; onCl
   return (
     <Modal visible={visible} animationType="fade" onRequestClose={close}>
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg, padding: 22 }}>
-        <Pressable onPress={close} hitSlop={12}>
-          <T bold style={{ color: colors.primaryHi }}>
-            {t('סגור ✕')}
-          </T>
-        </Pressable>
+        <CloseButton onPress={close} />
         <T bold size={26} style={{ textAlign: 'center', marginTop: 10 }}>
           {t('🌬️ רגע לנשום')}
         </T>

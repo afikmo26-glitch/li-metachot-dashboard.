@@ -79,7 +79,7 @@ export default function VentScreen() {
 function Header({ subtitle }: { subtitle: string }) {
   return (
     <View style={{ alignItems: 'center', marginBottom: 22 }}>
-      <Text style={{ fontSize: 60 }}>🔐</Text>
+      <Text style={{ fontSize: 48 }}>🔐</Text>
       <T bold size={28} style={{ textAlign: 'center', marginTop: 10 }}>
         {t('המקום לפרוק')}
       </T>

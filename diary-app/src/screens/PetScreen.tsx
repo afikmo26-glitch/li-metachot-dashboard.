@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
+import Modal, { CloseButton } from '../components/AppModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Pet, { PetHandle } from '../components/pet/Pet';
 import { Room } from '../components/pet/art';
@@ -226,11 +227,7 @@ export default function PetScreen() {
       <Modal visible={gameOpen} animationType="slide" onRequestClose={() => setGameOpen(false)}>
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
           <Row style={{ justifyContent: 'flex-end', padding: 12 }}>
-            <Pressable onPress={() => setGameOpen(false)} hitSlop={12}>
-              <T bold style={{ color: colors.primaryHi }}>
-                {t('סגור ✕')}
-              </T>
-            </Pressable>
+            <CloseButton onPress={() => setGameOpen(false)} />
           </Row>
           <GameScreen />
         </SafeAreaView>
@@ -239,11 +236,7 @@ export default function PetScreen() {
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
           <ScrollView contentContainerStyle={{ padding: 18 }}>
             <Row style={{ justifyContent: 'flex-end', marginBottom: 10 }}>
-              <Pressable onPress={() => setStudyOpen(false)} hitSlop={12}>
-                <T bold style={{ color: colors.primaryHi }}>
-                  {t('סגור ✕')}
-                </T>
-              </Pressable>
+              <CloseButton onPress={() => setStudyOpen(false)} />
             </Row>
             <StudyTimer />
           </ScrollView>
@@ -450,7 +443,7 @@ function LevelUpModal({ level, onClose }: { level: number | null; onClose: () =>
     <Modal visible={!!level} transparent animationType="fade" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: '#000a', justifyContent: 'center', padding: 22 }}>
         <Card style={{ alignItems: 'center' }}>
-          <Text style={{ fontSize: 56 }}>🏆</Text>
+          <Text style={{ fontSize: 45 }}>🏆</Text>
           <T bold size={26} style={{ textAlign: 'center' }}>
             {t('עלית לרמה {n}!', { n: level ?? 0 })}
           </T>
@@ -470,7 +463,7 @@ function LevelUpModal({ level, onClose }: { level: number | null; onClose: () =>
               <Row style={{ flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 6 }}>
                 {got.map((g) => (
                   <View key={g.id} style={{ alignItems: 'center', width: 76 }}>
-                    <Text style={{ fontSize: 30 }}>{g.emoji}</Text>
+                    <Text style={{ fontSize: 24 }}>{g.emoji}</Text>
                     <T size={12} style={{ textAlign: 'center' }}>
                       {t(g.label)}
                     </T>

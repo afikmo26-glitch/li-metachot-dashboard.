@@ -22,7 +22,7 @@ export function PetWidget({ s }: { s: WidgetSnapshot | null }) {
   if (!s || !s.hatched) {
     return (
       <FlexWidget clickAction="OPEN_APP" style={{ height: 'match_parent', width: 'match_parent', backgroundColor: '#1E1846', borderRadius: 24, alignItems: 'center', justifyContent: 'center' }}>
-        <TextWidget text="🥚" style={{ fontSize: 40 }} />
+        <TextWidget text="🥚" style={{ fontSize: 32 }} />
         <TextWidget text={s ? s.line : 'היומן שלי'} style={{ fontSize: 14, color: '#E9E3FF', marginTop: 4 }} />
       </FlexWidget>
     );

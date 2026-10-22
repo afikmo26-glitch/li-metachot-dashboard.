@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, Switch, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Switch, Text, View } from 'react-native';
+import Modal from '../components/AppModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Chip, GhostButton, GradientButton, Input, Row, ScreenTitle, SectionTitle, T, tap } from '../components/ui';
 import { dayKey, dayNamesShort, formatLongDate, monthName, parseDayKey } from '../lib/dates';

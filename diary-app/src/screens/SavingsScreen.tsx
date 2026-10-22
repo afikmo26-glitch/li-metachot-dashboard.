@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, Share, Switch, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Share, Switch, Text, View } from 'react-native';
+import Modal, { CloseButton } from '../components/AppModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Chip, Empty, GhostButton, GradientButton, Input, notify, Row, SectionTitle, T, tap } from '../components/ui';
 import { Confetti } from '../components/Wow';
@@ -121,7 +122,7 @@ function GoalCard({ goal, txs, onPress }: { goal: SavingsGoal; txs: SavingsTx[];
     <Pressable onPress={onPress} style={{ marginTop: 12 }}>
       <Card>
         <Row style={{ alignItems: 'center', gap: 12 }}>
-          <Text style={{ fontSize: 34 }}>{goal.emoji}</Text>
+          <Text style={{ fontSize: 27 }}>{goal.emoji}</Text>
           <View style={{ flex: 1 }}>
             <T bold size={17}>
               {goal.name}
@@ -252,11 +253,7 @@ function GoalModal({ goal, onClose }: { goal: SavingsGoal; onClose: () => void }
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
         <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
           <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-            <Pressable onPress={onClose} hitSlop={12}>
-              <T bold style={{ color: colors.primaryHi }}>
-                {t('סגור ✕')}
-              </T>
-            </Pressable>
+            <CloseButton onPress={onClose} />
             <Pressable onPress={() => setEditing(!editing)} hitSlop={12}>
               <T bold style={{ color: colors.primaryHi }}>
                 {t('✏️ עריכה')}
@@ -270,7 +267,7 @@ function GoalModal({ goal, onClose }: { goal: SavingsGoal; onClose: () => void }
             </Card>
           ) : (
             <View style={{ alignItems: 'center', marginTop: 8 }}>
-              <Text style={{ fontSize: 60 }}>{goal.emoji}</Text>
+              <Text style={{ fontSize: 48 }}>{goal.emoji}</Text>
               <T bold size={24} style={{ textAlign: 'center' }}>
                 {goal.name}
               </T>

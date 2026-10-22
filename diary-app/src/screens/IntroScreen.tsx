@@ -176,7 +176,7 @@ export default function IntroScreen({ onDone }: { onDone: () => void }) {
 function Step({ emoji, title, subtitle, children }: { emoji: string; title: string; subtitle: string; children: React.ReactNode }) {
   return (
     <View>
-      <Text style={{ fontSize: 54, textAlign: 'center' }}>{emoji}</Text>
+      <Text style={{ fontSize: 43, textAlign: 'center' }}>{emoji}</Text>
       <T bold size={26} style={{ textAlign: 'center', marginTop: 10 }}>
         {title}
       </T>

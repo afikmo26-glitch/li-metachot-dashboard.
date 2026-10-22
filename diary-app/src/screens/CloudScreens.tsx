@@ -21,7 +21,7 @@ export function AgeStep({ onDone }: { onDone: (age: number) => void }) {
     return (
       <Screen>
         <View style={{ alignItems: 'center' }}>
-          <Text style={{ fontSize: 64 }}>🌱</Text>
+          <Text style={{ fontSize: 51 }}>🌱</Text>
           <T bold size={24} style={{ textAlign: 'center', marginTop: 12 }}>
             {t('האפליקציה מיועדת לגיל 13 ומעלה')}
           </T>
@@ -37,7 +37,7 @@ export function AgeStep({ onDone }: { onDone: (age: number) => void }) {
   return (
     <Screen>
       <View style={{ alignItems: 'center' }}>
-        <Text style={{ fontSize: 60 }}>🎂</Text>
+        <Text style={{ fontSize: 48 }}>🎂</Text>
         <T bold size={26} style={{ textAlign: 'center', marginTop: 10 }}>
           {t('בן/בת כמה את/ה?')}
         </T>
@@ -105,7 +105,7 @@ export function ConnectStep({ onDone, onSkip, title }: { onDone: (s: CloudSessio
   return (
     <Screen>
       <View style={{ alignItems: 'center' }}>
-        <Text style={{ fontSize: 56 }}>☁️🔒</Text>
+        <Text style={{ fontSize: 45 }}>☁️🔒</Text>
         <T bold size={26} style={{ textAlign: 'center', marginTop: 10 }}>
           {title ?? t('מתחברים פעם אחת')}
         </T>
@@ -213,7 +213,7 @@ export function RestoreStep({
   return (
     <Screen>
       <View style={{ alignItems: 'center' }}>
-        <Text style={{ fontSize: 60 }}>📦✨</Text>
+        <Text style={{ fontSize: 48 }}>📦✨</Text>
         <T bold size={26} style={{ textAlign: 'center', marginTop: 10 }}>
           {t('מצאנו את היומן שלך!')}
         </T>

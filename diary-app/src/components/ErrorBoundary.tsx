@@ -33,7 +33,7 @@ export default class ErrorBoundary extends React.Component<{ children: React.Rea
     if (!this.state.failed) return this.props.children;
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30, backgroundColor: '#14102B' }}>
-        <Text style={{ fontSize: 60 }}>🙈</Text>
+        <Text style={{ fontSize: 48 }}>🙈</Text>
         <Text style={{ color: '#fff', fontSize: 22, fontWeight: '800', textAlign: 'center', marginTop: 12 }}>{t('אופס, משהו השתבש')}</Text>
         <Text style={{ color: '#C9C2E8', fontSize: 15, textAlign: 'center', marginTop: 8, lineHeight: 22 }}>
           {t('היומן שלך שמור ובטוח. שלחנו דיווח כדי לתקן את זה.')}

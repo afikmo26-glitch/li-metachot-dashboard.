@@ -1,5 +1,6 @@
 import React from 'react';
-import { Modal, Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
+import Modal, { CloseButton } from './AppModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getLang, t } from '../i18n';
 import { LEGAL_UPDATED, PRIVACY, TERMS } from '../legal/texts';
@@ -18,11 +19,7 @@ export default function LegalModal({ doc, onClose }: { doc: 'privacy' | 'terms' 
             <T bold size={24}>
               {d.title}
             </T>
-            <Pressable onPress={onClose} hitSlop={12}>
-              <T bold style={{ color: colors.primaryHi }}>
-                {t('סגור ✕')}
-              </T>
-            </Pressable>
+            <CloseButton onPress={onClose} />
           </Row>
           <T dim size={12} style={{ marginTop: 4 }}>
             {t('עודכן: {date}', { date: LEGAL_UPDATED })}

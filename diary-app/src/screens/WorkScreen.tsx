@@ -1,12 +1,14 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Modal, Platform, Pressable, ScrollView, Share, Switch, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, Share, Switch, Text, View } from 'react-native';
+import Modal, { CloseButton } from '../components/AppModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { TimePicker } from '../components/SettingsModal';
 import SavingsScreen from './SavingsScreen';
 import StudyScreen from './StudyScreen';
-import { Card, Chip, Empty, GhostButton, GradientButton, Input, notify, Row, ScreenTitle, SectionTitle, T, tap } from '../components/ui';
+import VentScreen from './VentScreen';
+import { Card, Chip, Empty, GhostButton, GradientButton, Input, notify, Row, ScreenTitle, SectionTitle, Segmented, T, tap } from '../components/ui';
 import { isRTL, t } from '../i18n';
 import { formatShortDate, formatTime, monthName } from '../lib/dates';
 import { cancelShiftReminder, scheduleShiftReminder } from '../lib/notifications';
@@ -37,43 +39,36 @@ import {
  * Shift clock: clock in and out with one button (or add a shift by hand), for one or more workplaces.
  * Hours add up per month, with an estimated pay and a report to send the employer.
  */
-export default function WorkScreen({ initial }: { initial?: 'hours' | 'save' | 'study' }) {
-  const [section, setSection] = useState<'hours' | 'save' | 'study'>(initial ?? 'hours');
+export type MeSection = 'hours' | 'save' | 'study' | 'vent';
+
+/** The "me" tab: work hours, savings, studies and the private vent space, one tap apart. */
+export default function WorkScreen({ initial }: { initial?: MeSection }) {
+  const [section, setSection] = useState<MeSection>(initial ?? 'hours');
   useEffect(() => {
     if (initial) setSection(initial);
   }, [initial]);
   const toggle = (
-    <Row style={{ gap: 8, marginBottom: 12 }}>
-      {(
-        [
-          ['hours', t('⏱️ שעות עבודה')],
-          ['save', t('🐷 בוא נחסוך')],
-          ['study', t('📚 לימודים')],
-        ] as const
-      ).map(([key, label]) => (
-        <Pressable
-          key={key}
-          onPress={() => {
-            tap();
-            setSection(key);
-          }}
-          style={{
-            flex: 1,
-            paddingVertical: 10,
-            borderRadius: 14,
-            alignItems: 'center',
-            backgroundColor: section === key ? colors.primary : colors.card,
-            borderWidth: 1,
-            borderColor: section === key ? colors.primary : colors.border,
-          }}
-        >
-          <T bold style={{ color: section === key ? colors.onPrimary : colors.text, textAlign: 'center' }}>
-            {label}
-          </T>
-        </Pressable>
-      ))}
-    </Row>
+    <Segmented
+      value={section}
+      onChange={setSection}
+      options={[
+        ['hours', t('⏱️ עבודה')],
+        ['save', t('🐷 חיסכון')],
+        ['study', t('📚 לימודים')],
+        ['vent', t('🫂 לפרוק')],
+      ]}
+      style={{ marginBottom: 12 }}
+    />
   );
+  if (section === 'vent')
+    return (
+      <View style={{ flex: 1 }}>
+        <View style={{ paddingHorizontal: 18, paddingTop: 14 }}>{toggle}</View>
+        <View style={{ flex: 1 }}>
+          <VentScreen />
+        </View>
+      </View>
+    );
   if (section === 'study')
     return (
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
@@ -202,7 +197,7 @@ function Hours({ toggle }: { toggle: React.ReactNode }) {
             <T bold size={16} style={{ color: colors.green }}>
               {t('🟢 במשמרת ב{place}', { place: running?.name ?? t('מקום עבודה') })}
             </T>
-            <Text style={{ color: colors.text, fontSize: 52, fontWeight: '800', fontVariant: ['tabular-nums'], marginTop: 6 }}>
+            <Text style={{ color: colors.text, fontSize: 42, fontWeight: '800', fontVariant: ['tabular-nums'], marginTop: 6 }}>
               {fmtClock(tick - new Date(activeShift.start).getTime())}
             </Text>
             <T dim size={14}>
@@ -212,7 +207,7 @@ function Hours({ toggle }: { toggle: React.ReactNode }) {
               onPress={clockOut}
               style={({ pressed }) => ({ marginTop: 18, width: 170, height: 170, borderRadius: 85, backgroundColor: colors.red, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.85 : 1 })}
             >
-              <Text style={{ fontSize: 40 }}>⏹️</Text>
+              <Text style={{ fontSize: 32 }}>⏹️</Text>
               <T bold size={18} style={{ color: '#fff', textAlign: 'center' }}>
                 {t('סיום משמרת')}
               </T>
@@ -231,7 +226,7 @@ function Hours({ toggle }: { toggle: React.ReactNode }) {
               onPress={clockIn}
               style={({ pressed }) => ({ width: 190, height: 190, borderRadius: 95, backgroundColor: colors.green, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] })}
             >
-              <Text style={{ fontSize: 44 }}>▶️</Text>
+              <Text style={{ fontSize: 35 }}>▶️</Text>
               <T bold size={19} style={{ color: '#fff', textAlign: 'center' }}>
                 {t('כניסה למשמרת')}
               </T>
@@ -421,11 +416,7 @@ function ShiftModal({ shift, defaultPlace, onClose }: { shift: Shift | null; def
             <T bold size={22}>
               {shift ? t('✏️ עריכת משמרת') : t('✍️ משמרת חדשה')}
             </T>
-            <Pressable onPress={onClose} hitSlop={12}>
-              <T bold style={{ color: colors.primaryHi }}>
-                {t('סגור ✕')}
-              </T>
-            </Pressable>
+            <CloseButton onPress={onClose} />
           </Row>
 
           <SectionTitle>{t('איפה?')}</SectionTitle>
@@ -602,11 +593,7 @@ function PlacesModal({ visible, onClose }: { visible: boolean; onClose: () => vo
             <T bold size={22}>
               {t('🏢 מקומות העבודה שלי')}
             </T>
-            <Pressable onPress={onClose} hitSlop={12}>
-              <T bold style={{ color: colors.primaryHi }}>
-                {t('סגור ✕')}
-              </T>
-            </Pressable>
+            <CloseButton onPress={onClose} />
           </Row>
           {workplaces.map((w) => (
             <Card key={w.id} style={{ marginTop: 12 }}>

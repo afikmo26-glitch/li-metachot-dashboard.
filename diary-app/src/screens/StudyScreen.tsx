@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import Modal from '../components/AppModal';
 import Pet, { PetHandle } from '../components/pet/Pet';
 import { Card, Chip, GhostButton, GradientButton, Input, notify, Row, SectionTitle, T, tap } from '../components/ui';
 import { Confetti } from '../components/Wow';
@@ -216,10 +217,10 @@ export function StudyTimer() {
       <Row style={{ alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 6 }}>
         <View>
           <Pet ref={ref} pet={studyPet} stage={pet.hatched ? stageOf(pet, level) : 'baby'} size={130} interactive={false} />
-          <Text style={{ position: 'absolute', bottom: 6, [layout.isRTL ? 'right' : 'left']: -4, fontSize: 30 }}>📖</Text>
+          <Text style={{ position: 'absolute', bottom: 6, [layout.isRTL ? 'right' : 'left']: -4, fontSize: 24 }}>📖</Text>
         </View>
         <View style={{ alignItems: 'center', minWidth: 130 }}>
-          <Text style={{ fontSize: 44, fontWeight: '800', color: colors.text, fontVariant: ['tabular-nums'] }}>{fmtClock(left).slice(3)}</Text>
+          <Text style={{ fontSize: 35, fontWeight: '800', color: colors.text, fontVariant: ['tabular-nums'] }}>{fmtClock(left).slice(3)}</Text>
           {active && (
             <View style={{ width: 130, height: 8, borderRadius: 4, backgroundColor: colors.bgDeep, overflow: 'hidden', marginTop: 6 }}>
               <View style={{ width: `${progress * 100}%`, height: '100%', backgroundColor: colors.green }} />

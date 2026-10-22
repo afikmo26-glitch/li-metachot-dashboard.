@@ -44,14 +44,20 @@ export function Row({ style, ...props }: ViewProps) {
   return <View style={[{ flexDirection: layout.row }, style]} {...props} />;
 }
 
+/**
+ * Type scale: body 15, and big sizes pulled in so headings stay strong without filling a phone screen
+ * (30 → 26, 26 → 23, 22 → 20). Small sizes are kept as they are.
+ */
+export const fontSize = (size = 15) => (size <= 15 ? size : Math.round((15 + (size - 15) * 0.72) * 2) / 2);
+
 export function T({ style, dim, bold, size, ...props }: TextProps & { dim?: boolean; bold?: boolean; size?: number }) {
   return (
     <Text
       style={[
-        { color: colors.text, fontSize: 16, ...rtl },
+        { color: colors.text, fontSize: 15, ...rtl },
         dim && { color: colors.textDim },
         bold && { fontWeight: '700' },
-        size ? { fontSize: size } : null,
+        size ? { fontSize: fontSize(size) } : null,
         style,
       ]}
       {...props}
@@ -61,8 +67,8 @@ export function T({ style, dim, bold, size, ...props }: TextProps & { dim?: bool
 
 export const cardStyle = (): ViewStyle => ({
   backgroundColor: colors.card,
-  borderRadius: 20,
-  padding: 16,
+  borderRadius: 18,
+  padding: 14,
   borderWidth: 1,
   borderColor: colors.border,
 });
@@ -153,9 +159,9 @@ export function GradientButton({
         colors={grad}
         start={{ x: layout.isRTL ? 1 : 0, y: 0 }}
         end={{ x: layout.isRTL ? 0 : 1, y: 1 }}
-        style={{ borderRadius: 16, paddingVertical: small ? 9 : 15, paddingHorizontal: small ? 14 : 20, alignItems: 'center' }}
+        style={{ borderRadius: 14, paddingVertical: small ? 8 : 13, paddingHorizontal: small ? 14 : 18, minHeight: small ? 36 : 46, alignItems: 'center', justifyContent: 'center' }}
       >
-        <T bold size={small ? 14 : 17} style={{ color: '#fff', textAlign: 'center' }}>
+        <T bold size={small ? 14 : 16} style={{ color: '#fff', textAlign: 'center' }}>
           {icon ? `${icon}  ` : ''}
           {title}
         </T>
@@ -171,7 +177,7 @@ export function GhostButton({ title, onPress, style, color }: { title: string; o
         tap();
         onPress();
       }}
-      style={[{ paddingVertical: 12, paddingHorizontal: 16, borderRadius: 14, borderWidth: 1, borderColor: colors.border }, style]}
+      style={[{ paddingVertical: 10, paddingHorizontal: 14, minHeight: 44, justifyContent: 'center', borderRadius: 14, borderWidth: 1, borderColor: colors.border }, style]}
     >
       <T bold style={{ color: color ?? colors.primaryHi, textAlign: 'center' }}>
         {title}
@@ -204,11 +210,12 @@ export function Chip({
         })
       }
       onLongPress={onLongPress}
+      hitSlop={4}
       style={({ pressed }) => [
         {
           borderWidth: 1.5,
           borderRadius: 999,
-          paddingVertical: 6,
+          paddingVertical: 7,
           paddingHorizontal: 12,
           marginBottom: 8,
           borderColor: c,
@@ -237,9 +244,9 @@ export function Input(props: TextInputProps & { style?: StyleProp<TextStyle> }) 
           borderWidth: 1,
           borderColor: colors.border,
           color: colors.text,
-          fontSize: 16,
+          fontSize: 15,
           paddingHorizontal: 14,
-          paddingVertical: 12,
+          paddingVertical: 11,
           ...rtl,
         },
         props.style,
@@ -277,7 +284,7 @@ export function ScreenTitle({ title, subtitle, right }: { title: string; subtitl
 export function Empty({ emoji, title, text }: { emoji: string; title: string; text?: string }) {
   return (
     <View style={{ alignItems: 'center', paddingVertical: 40, paddingHorizontal: 20 }}>
-      <Text style={{ fontSize: 56 }}>{emoji}</Text>
+      <Text style={{ fontSize: 45 }}>{emoji}</Text>
       <T bold size={18} style={{ textAlign: 'center', marginTop: 12 }}>
         {title}
       </T>
@@ -286,6 +293,34 @@ export function Empty({ emoji, title, text }: { emoji: string; title: string; te
           {text}
         </T>
       ) : null}
+    </View>
+  );
+}
+
+/** Two to four views of one screen, side by side (journal: list / calendar; me: work / savings / study / vent). */
+export function Segmented<K extends string>({ options, value, onChange, style }: { options: readonly (readonly [K, string])[]; value: K; onChange: (k: K) => void; style?: StyleProp<ViewStyle> }) {
+  return (
+    <View style={[{ flexDirection: layout.row, gap: 6, backgroundColor: colors.bgDeep, borderRadius: 14, padding: 4, borderWidth: 1, borderColor: colors.border }, style]}>
+      {options.map(([key, label]) => {
+        const on = key === value;
+        return (
+          <Pressable
+            key={key}
+            onPress={() => {
+              if (on) return;
+              Haptics.selectionAsync().catch(() => {});
+              onChange(key);
+            }}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: on }}
+            style={{ flex: 1, minHeight: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, backgroundColor: on ? colors.primary : 'transparent' }}
+          >
+            <T bold={on} size={13} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ color: on ? colors.onPrimary : colors.textDim, textAlign: 'center' }}>
+              {label}
+            </T>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }

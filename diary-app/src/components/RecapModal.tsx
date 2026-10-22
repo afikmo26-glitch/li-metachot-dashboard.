@@ -1,6 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Modal, Pressable, Share, Text, View } from 'react-native';
+import { Animated, Easing, Pressable, Share, Text, View } from 'react-native';
+import Modal from './AppModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { t } from '../i18n';
 import { circleInfo, circleOf } from '../lib/circles';

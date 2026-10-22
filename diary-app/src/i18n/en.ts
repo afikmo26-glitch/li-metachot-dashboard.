@@ -1395,4 +1395,9 @@ export const en: Record<string, string> = {
   "רביעי": "Wednesday",
   "חמישי": "Thursday",
   "שישי": "Friday",
+  "📖 ארכיון": "📖 Archive",
+  "📅 לוח שנה": "📅 Calendar",
+  "⏱️ עבודה": "⏱️ Work",
+  "🐷 חיסכון": "🐷 Savings",
+  "🫂 לפרוק": "🫂 Vent",
 };

@@ -370,7 +370,7 @@ function ReminderStep({ onDone }: { onDone: () => void }) {
   return (
     <Screen>
       <View style={{ alignItems: 'center' }}>
-        <Text style={{ fontSize: 70 }}>🌙</Text>
+        <Text style={{ fontSize: 56 }}>🌙</Text>
         <T bold size={26} style={{ textAlign: 'center', marginTop: 16 }}>
           {t('מתי אתה הולך לישון?')}
         </T>
@@ -457,7 +457,7 @@ export function Login({ account, onUnlock, onReset }: { account: Account; onUnlo
   return (
     <Screen>
       <View style={{ alignItems: 'center' }}>
-        <Text style={{ fontSize: 64 }}>🔒</Text>
+        <Text style={{ fontSize: 51 }}>🔒</Text>
         <T bold size={26} style={{ textAlign: 'center', marginTop: 14 }}>
           {t('שלום {name}', { name: account.displayName })}
         </T>

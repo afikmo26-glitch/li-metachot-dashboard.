@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import Modal, { CloseButton } from '../components/AppModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Chip, Empty, GhostButton, GradientButton, Input, Row, ScreenTitle, SectionTitle, T } from '../components/ui';
 import { CIRCLES, circleColor, circleInfo, circleOf, relationText } from '../lib/circles';
@@ -248,9 +249,7 @@ function PersonModal({ stats, onClose, onOpenEntry }: { stats: PersonStats; onCl
     <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={save}>
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
         <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
-          <Pressable onPress={save} hitSlop={12}>
-            <T bold style={{ color: colors.primaryHi }}>{t('סגור ✕')}</T>
-          </Pressable>
+          <CloseButton onPress={save} />
           <View style={{ alignItems: 'center', marginTop: 10 }}>
             <Avatar name={person.name} size={84} badge={circle ? circleInfo(circle).emoji : undefined} />
             <T bold size={26} style={{ textAlign: 'center', marginTop: 10 }}>

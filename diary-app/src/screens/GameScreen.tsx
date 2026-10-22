@@ -65,11 +65,11 @@ export default function GameScreen() {
     return (
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 120, alignItems: 'stretch' }}>
         <View style={{ alignItems: 'center', marginTop: 20 }}>
-          <Text style={{ fontSize: 72 }}>{stars === 3 ? '🏆' : stars === 2 ? '🎉' : stars === 1 ? '👍' : '💪'}</Text>
+          <Text style={{ fontSize: 58 }}>{stars === 3 ? '🏆' : stars === 2 ? '🎉' : stars === 1 ? '👍' : '💪'}</Text>
           <T bold size={30} style={{ textAlign: 'center', marginTop: 8 }}>
             {stars === 3 ? t('זיכרון מושלם!') : stars === 2 ? t('כל הכבוד!') : stars === 1 ? t('לא רע!') : t('פעם הבאה!')}
           </T>
-          <Text style={{ fontSize: 44, marginTop: 10, letterSpacing: 6, color: colors.yellow }}>
+          <Text style={{ fontSize: 35, marginTop: 10, letterSpacing: 6, color: colors.yellow }}>
             {'⭐'.repeat(stars)}
             {'☆'.repeat(3 - stars)}
           </Text>
@@ -108,7 +108,7 @@ export default function GameScreen() {
   return (
     <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 120 }}>
       <LinearGradient colors={gradients.game} start={{ x: 1, y: 0 }} end={{ x: 0, y: 1 }} style={{ borderRadius: 28, padding: 22 }}>
-        <Text style={{ fontSize: 54, textAlign: 'center' }}>🧠🎮</Text>
+        <Text style={{ fontSize: 43, textAlign: 'center' }}>🧠🎮</Text>
         <T bold size={30} style={{ color: '#fff', textAlign: 'center', marginTop: 6 }}>
           {t('משחק הזיכרון')}
         </T>
@@ -416,7 +416,7 @@ function Round({
 
       <Animated.View style={{ transform: [{ translateX: shake }] }}>
         <Card style={{ marginTop: 18, paddingVertical: 24, alignItems: 'center' }}>
-          <Text style={{ fontSize: 46 }}>{q.emoji}</Text>
+          <Text style={{ fontSize: 37 }}>{q.emoji}</Text>
           <T bold size={21} style={{ textAlign: 'center', marginTop: 8 }}>
             {q.prompt}
           </T>

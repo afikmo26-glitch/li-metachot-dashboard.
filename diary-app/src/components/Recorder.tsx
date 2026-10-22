@@ -132,7 +132,7 @@ export default function Recorder({ onRecorded, hasRecording }: Props) {
               elevation: 10,
             }}
           >
-            <Text style={{ fontSize: 46 }}>{state.isRecording ? '⏹️' : '🎙️'}</Text>
+            <Text style={{ fontSize: 37 }}>{state.isRecording ? '⏹️' : '🎙️'}</Text>
           </LinearGradient>
         </Pressable>
       </View>

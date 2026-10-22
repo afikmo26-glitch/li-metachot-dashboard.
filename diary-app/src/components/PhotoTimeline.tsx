@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Image, Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, Text, View } from 'react-native';
+import Modal, { CloseButton } from './AppModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { t } from '../i18n';
 import { dayKey, formatShortDate } from '../lib/dates';
@@ -59,11 +60,7 @@ export default function PhotoTimeline({ visible, onClose, onOpenEntry }: { visib
               <T bold size={26}>
                 {t('📸 התמונות שלי')}
               </T>
-              <Pressable onPress={onClose} hitSlop={12}>
-                <T bold style={{ color: colors.primaryHi }}>
-                  {t('סגור ✕')}
-                </T>
-              </Pressable>
+              <CloseButton onPress={onClose} />
             </Row>
             <Row style={{ gap: 10, marginTop: 14 }}>
               <GradientButton title={t('📷 צלם עכשיו')} colors={gradients.primary} onPress={() => takeToday('camera')} style={{ flex: 1 }} />

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, Switch, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Switch, View } from 'react-native';
+import Modal, { CloseButton } from './AppModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Account, changePassword, saveAccount } from '../lib/account';
 import { AiConfig, aiTest, EMPTY_AI, hasBuiltInAi, loadAiConfig, saveAiConfig } from '../lib/ai';
@@ -52,9 +53,7 @@ export default function SettingsModal({ visible, onClose, account, onAccountChan
             <T bold size={26}>
               {t('⚙️ הגדרות')}
             </T>
-            <Pressable onPress={onClose} hitSlop={12}>
-              <T bold style={{ color: colors.primaryHi }}>{t('סגור ✕')}</T>
-            </Pressable>
+            <CloseButton onPress={onClose} />
           </Row>
 
           <SectionTitle>{t('🎨 תצוגה')}</SectionTitle>
