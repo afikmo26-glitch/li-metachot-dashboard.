@@ -1002,4 +1002,11 @@ export const en: Record<string, string> = {
   "⏱️ שעות עבודה": "⏱️ Work hours",
   "🐷 בוא נחסוך": "🐷 Let's save",
   "📈 אחרי שבוע של חיסכון אראה מתי תגיע ליעד בקצב שלך": "📈 After a week of saving I'll show when you'll reach your goal at your pace",
+  // Gender choice, shift end
+  "איך לפנות אליך?": "How should I address you?",
+  "🙋‍♂️ זכר": "🙋‍♂️ Male",
+  "🙋‍♀️ נקבה": "🙋‍♀️ Female",
+  "🙂 לא משנה": "🙂 Doesn't matter",
+  "המשמרת הסתיימה": "Shift ended",
+  "היא הייתה קצרה מדקה, אז לא שמרתי אותה": "It was under a minute, so I didn't save it",
 };
