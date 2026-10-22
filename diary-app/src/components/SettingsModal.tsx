@@ -203,7 +203,7 @@ function DisplayCard() {
         })}
       </Row>
       <View style={{ marginTop: 14 }}>
-        <GenderPicker value={prefs.gender} onChange={(gender) => setPrefs({ gender }, true)} />
+        <GenderPicker value={prefs.gender} onChange={(gender) => setPrefs({ gender, genderAsked: true }, true)} />
       </View>
       <Row style={{ justifyContent: 'space-between', alignItems: 'center', marginTop: 14 }}>
         <T style={{ flex: 1 }}>{t('🔊 צלילים באפליקציה')}</T>

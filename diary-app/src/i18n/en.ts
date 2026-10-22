@@ -1019,4 +1019,5 @@ export const en: Record<string, string> = {
   "לא חובה — יש AI מובנה": "Optional — built-in AI is on",
   "מפתח חינמי מ-aistudio.google.com. נשמר מוצפן רק בטלפון הזה.": "A free key from aistudio.google.com. Stored encrypted on this phone only.",
   "🔑 או: מפתח Claude אישי": "🔑 Or: a personal Claude key",
+  "צריך לאשר את השימוש ב-AI בחלון שנפתח": "Please allow AI use in the window that opened",
 };

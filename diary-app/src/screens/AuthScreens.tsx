@@ -252,7 +252,7 @@ function Signup({ onCreated }: { onCreated: (a: Account) => void }) {
 
       <View style={{ gap: 10 }}>
         <Input value={displayName} onChangeText={setDisplayName} placeholder={t('השם שלך (איך לקרוא לך)')} autoComplete="name" />
-        <GenderPicker value={prefs.gender} onChange={(gender) => setPrefs({ gender }, false, false)} />
+        <GenderPicker value={prefs.gender} onChange={(gender) => setPrefs({ gender, genderAsked: true }, false, false)} />
         <Input
           value={username}
           onChangeText={setUsername}

@@ -106,6 +106,17 @@ function profileText(p: Profile | undefined) {
   return lines.length ? `\n\n<profile>\n${lines.join('\n')}\n</profile>` : '';
 }
 
+/** The full instructions for a chat, for providers that take them as plain text. */
+export const chatInstructions = (mode: 'diary' | 'vent', profile?: Profile) => (mode === 'vent' ? VENT_SYSTEM : DIARY_SYSTEM) + PLAIN + profileText(profile);
+
+/** The diary-entry instructions plus the transcript, as one prompt asking for the summary JSON. */
+export function summaryPrompt(messages: ApiMessage[], profile?: Profile): string {
+  const transcript = cleanMessages(messages)
+    .map((m) => `${m.role === 'user' ? 'User' : 'Yomi'}: ${m.content}`)
+    .join('\n');
+  return `${SUMMARY_SYSTEM}${profileText(profile)}\n\nReply with only a JSON object of this shape: {"entry": string, "mood": 1-5, "people": [{"name": string, "note": string}], "quotes": [{"name": string, "text": string}], "tomorrow": string}\n\n<conversation>\n${transcript}\n</conversation>`;
+}
+
 /** Keeps the conversation valid for the API: trimmed, starting with the user. */
 export function cleanMessages(raw: unknown): ApiMessage[] {
   if (!Array.isArray(raw)) return [];

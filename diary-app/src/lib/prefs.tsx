@@ -12,7 +12,7 @@ import { applyDirection, applyTheme, ThemeName } from './theme';
 
 const KEY = 'diary.prefs.v1';
 
-export type Prefs = { lang: Lang; theme: ThemeName; sounds: boolean; gender?: Gender };
+export type Prefs = { lang: Lang; theme: ThemeName; sounds: boolean; gender?: Gender; /** the male/female question was answered */ genderAsked?: boolean };
 export const DEFAULT_PREFS: Prefs = { lang: 'he', theme: 'night', sounds: true };
 
 function apply(p: Prefs) {

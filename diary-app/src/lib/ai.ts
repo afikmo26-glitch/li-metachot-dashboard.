@@ -1,6 +1,6 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ApiMessage, chatWithClaude, chatWithGemini, GeminiError, Profile, Summary, summarizeWithClaude, summarizeWithGemini } from './aiCore';
+import { ApiMessage, chatInstructions, chatWithClaude, chatWithGemini, cleanMessages, GeminiError, Profile, refusalReply, Summary, summarizeWithClaude, summarizeWithGemini, summaryPrompt } from './aiCore';
 import { decryptFromStorage, encryptForStorage } from './crypto';
 import type { ChatMessage, Entry, Person, UserProfile } from './types';
 import { langName, getGender, t } from '../i18n';
@@ -21,7 +21,33 @@ export const EMPTY_AI: AiConfig = { claudeKey: '', geminiKey: '', url: '', appKe
 /** A Gemini key baked into this build (from .env, never committed); a key typed in Settings takes precedence. */
 const BUILT_IN_GEMINI = process.env.EXPO_PUBLIC_GEMINI_API_KEY ?? '';
 const geminiKeyOf = (c: AiConfig) => c.geminiKey?.trim() || BUILT_IN_GEMINI;
-export const hasBuiltInAi = () => !!BUILT_IN_GEMINI;
+export const hasBuiltInAi = () => !!BUILT_IN_GEMINI || inClaudeViewer();
+
+// ---- Inside a claude.ai page (the web preview) ----
+// The page's network is blocked there, so Gemini/Claude can't be reached; the viewer's own Claude answers instead.
+
+type Sample = ((input: { role: 'user' | 'assistant'; content: string }[] | string, opts?: object) => Promise<{ text: string }>) & {
+  json: <T>(input: string, opts?: object) => Promise<T>;
+};
+type ClaudeHost = { use: (name: string) => Promise<unknown> };
+
+function inClaudeViewer(): boolean {
+  return typeof window !== 'undefined' && !!(window as unknown as { claude?: ClaudeHost }).claude?.use;
+}
+
+let samplePromise: Promise<Sample | null> | undefined;
+function viewerSample(): Promise<Sample | null> {
+  if (!inClaudeViewer()) return Promise.resolve(null);
+  samplePromise ??= (window as unknown as { claude: ClaudeHost }).claude.use('sample').then((s) => (s as Sample) ?? null).catch(() => null);
+  return samplePromise;
+}
+
+function sampleError(e: unknown): Error {
+  const code = (e as { code?: string })?.code;
+  if (code === 'not_granted' || code === 'sampling_disabled') return new Error(t('צריך לאשר את השימוש ב-AI בחלון שנפתח'));
+  if (code === 'rate_limited') return new Error(t('יותר מדי בקשות לשירות. נסה שוב בעוד דקה'));
+  return new Error(t('שגיאה'));
+}
 export type AiProfile = Profile;
 export type AiSummary = Summary;
 
@@ -39,7 +65,7 @@ export async function saveAiConfig(c: AiConfig) {
 }
 
 const hasServer = (c: AiConfig) => !!c.url && !!c.appKey;
-export const aiReady = (c: AiConfig, mode: 'diary' | 'vent') => (!!c.claudeKey || !!geminiKeyOf(c) || hasServer(c)) && c[mode];
+export const aiReady = (c: AiConfig, mode: 'diary' | 'vent') => (inClaudeViewer() || !!c.claudeKey || !!geminiKeyOf(c) || hasServer(c)) && c[mode];
 
 /** A one-line description of the user for Yomi, built from the intro answers. */
 export function profileSummary(p: UserProfile): string {
@@ -136,6 +162,16 @@ async function post<T>(c: AiConfig, path: string, body: unknown): Promise<T> {
 }
 
 export async function aiChat(c: AiConfig, mode: 'diary' | 'vent', messages: ChatMessage[], profile?: AiProfile): Promise<string> {
+  const sample = await viewerSample();
+  if (sample) {
+    try {
+      const { text } = await sample([{ role: 'user', content: chatInstructions(mode, profile) }, ...cleanMessages(toApi(messages))], { modelTier: 'quick', cache: false });
+      return text.trim() || refusalReply(profile?.lang);
+    } catch (e) {
+      if ((e as { code?: string })?.code === 'refused') return refusalReply(profile?.lang);
+      throw sampleError(e);
+    }
+  }
   if (c.claudeKey) {
     try {
       return await chatWithClaude(await claude(c), mode, toApi(messages), profile);
@@ -151,6 +187,14 @@ export async function aiChat(c: AiConfig, mode: 'diary' | 'vent', messages: Chat
 }
 
 export async function aiSummarize(c: AiConfig, messages: ChatMessage[], profile?: AiProfile): Promise<AiSummary> {
+  const sample = await viewerSample();
+  if (sample) {
+    try {
+      return await sample.json<AiSummary>(summaryPrompt(toApi(messages), profile), { modelTier: 'quick', cache: false });
+    } catch (e) {
+      throw sampleError(e);
+    }
+  }
   if (c.claudeKey) {
     try {
       return await summarizeWithClaude(await claude(c), toApi(messages), profile);

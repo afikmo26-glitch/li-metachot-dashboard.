@@ -17,6 +17,8 @@ import DictateButton from '../components/DictateButton';
 import ForYou from '../components/ForYou';
 import GoalsModal from '../components/GoalsModal';
 import PhotoTimeline from '../components/PhotoTimeline';
+import { usePrefs } from '../lib/prefs';
+import { GenderPicker } from './AuthScreens';
 import { colors, gradients, layout, MOOD_LABELS, MOODS } from '../lib/theme';
 import type { Entry } from '../lib/types';
 import { t } from '../i18n';
@@ -30,6 +32,7 @@ export default function TodayScreen({ onOpenSettings, onOpenEntry, onOpenIntro }
   const [recording, setRecording] = useState<PendingRecording | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [recapOpen, setRecapOpen] = useState(false);
+  const { prefs, setPrefs } = usePrefs();
   const [goalsOpen, setGoalsOpen] = useState(false);
   const [photosOpen, setPhotosOpen] = useState(false);
   const [extras, setExtras] = useState<Extras>(EMPTY_EXTRAS);
@@ -162,6 +165,12 @@ export default function TodayScreen({ onOpenSettings, onOpenEntry, onOpenIntro }
             </Row>
           </Card>
         </Pressable>
+      )}
+
+      {!prefs.genderAsked && !prefs.gender && prefs.lang !== 'en' && (
+        <Card style={{ marginTop: 14, borderColor: colors.primary }}>
+          <GenderPicker value={prefs.gender} onChange={(gender) => setPrefs({ gender, genderAsked: true })} />
+        </Card>
       )}
 
       {activeShift && (
