@@ -12,6 +12,9 @@ import { ELEMENTS, MOVES, MoveId, SPECIES } from '../data';
 import { Fighter } from '../progress';
 import Sprite, { hasAnim } from '../Sprite';
 import { GL, GT, ItemIcon, MOVE_ICON } from '../ui';
+import Arena3D, { Fx3D, screenOf } from '../../arena3d/Arena3D';
+import { HERO_FOR_ELEMENT, HeroId, SKELETON_FOR_ELEMENT } from '../../arena3d/assets';
+import type { Pose } from '../../arena3d/Hero3D';
 
 export type BattleResult = { win: boolean; stars: number; hpLeft: number };
 
@@ -22,7 +25,7 @@ type Fx = { id: number; move: MoveId; from: Side };
  * The duel on the 3D arena. The player's fighter is seen from behind at the bottom, the opponent faces you
  * at the top; cards along the bottom spend energy on moves.
  */
-export default function BattleScreen({ me, foe, foeName, skill, guards = [], onEnd }: { me: Fighter; foe: Fighter; foeName: string; skill: number; guards?: string[]; onEnd: (r: BattleResult) => void }) {
+export default function BattleScreen({ me, foe, foeName, skill, guards = [], onEnd, mode3d, on3dError }: { me: Fighter; foe: Fighter; foeName: string; skill: number; guards?: string[]; onEnd: (r: BattleResult) => void; mode3d?: boolean; on3dError?: () => void }) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const bRef = useRef<Battle>(newBattle({ ...me, handicap: 1 + guards.length * 0.04 }, foe, skill));
@@ -39,10 +42,39 @@ export default function BattleScreen({ me, foe, foeName, skill, guards = [], onE
     onEndRef.current = onEnd;
   });
 
-  const pos: [{ x: number; y: number }, { x: number; y: number }] = [
-    { x: width / 2, y: height * 0.6 },
-    { x: width / 2, y: height * 0.33 },
-  ];
+  // where each fighter stands on screen (the 3D camera puts them a little differently from the 2D arena)
+  const pos: [{ x: number; y: number }, { x: number; y: number }] = mode3d
+    ? ([0, 1] as const).map((sd) => {
+        // anchor the overlay just above the hero's head: FighterView puts its HP tag size/2 above y
+        const head = screenOf(sd, 2.7 * (sd === 1 ? (SPECIES[foe.species].scale ?? 1) : 1), width, height);
+        return { x: head.x, y: head.y + (150 * (SPECIES[(sd === 0 ? me : foe).species].scale ?? 1)) / 2 };
+      }) as [{ x: number; y: number }, { x: number; y: number }]
+    : [
+        { x: width / 2, y: height * 0.6 },
+        { x: width / 2, y: height * 0.33 },
+      ];
+  // 3D mode: which hero model each side uses, and its pose / flash / effects
+  const heroes = useRef<[HeroId, HeroId]>([
+    HERO_FOR_ELEMENT[SPECIES[me.species].element],
+    (foeName.startsWith('בוס') ? SKELETON_FOR_ELEMENT : HERO_FOR_ELEMENT)[SPECIES[foe.species].element],
+  ]).current;
+  const [pose3d, setPose3d] = useState<[Pose, Pose]>(['intro', 'intro']);
+  const [poseId3d, setPoseId3d] = useState<[number, number]>([0, 0]);
+  const [flash3d, setFlash3d] = useState<[number, number]>([0, 0]);
+  const [fx3d, setFx3d] = useState<Fx3D[]>([]);
+  const [shake3d, setShake3d] = useState(0);
+  const pose3 = (side: Side, p: Pose) => {
+    setPose3d((cur) => {
+      const n: [Pose, Pose] = [...cur] as [Pose, Pose];
+      n[side] = p;
+      return n;
+    });
+    setPoseId3d((cur) => {
+      const n: [number, number] = [...cur] as [number, number];
+      n[side] = cur[side] + 1;
+      return n;
+    });
+  };
   const lunge = [useSharedValue(0), useSharedValue(0)];
   const flash = [useSharedValue(0), useSharedValue(0)];
   const shake = useSharedValue(0);
@@ -67,8 +99,22 @@ export default function BattleScreen({ me, foe, foeName, skill, guards = [], onE
           const from = (e.side === 0 ? 1 : 0) as Side;
           lunge[from].value = withSequence(withTiming(1, { duration: 120, easing: Easing.out(Easing.quad) }), withSpring(0, { damping: 9 }));
           flash[e.side].value = withSequence(withTiming(1, { duration: 60 }), withTiming(0, { duration: 220 }));
-          if (hasAnim(b.c[from].fighter.species, 'attack')) setAnimFor(from, 'attack');
-          if (hasAnim(b.c[e.side].fighter.species, 'hit')) setTimeout(() => setAnimFor(e.side, 'hit'), 120);
+          if (mode3d) {
+            pose3(from, 'attack');
+            const target = e.side;
+            setTimeout(() => {
+              pose3(target, 'hit');
+              setFlash3d((cur) => {
+                const n: [number, number] = [...cur] as [number, number];
+                n[target] = cur[target] + 1;
+                return n;
+              });
+              setFx3d((f) => [...f.slice(-5), { id: e.id, at: target, color: e.move ? MOVES[e.move].color : e.crit ? '#FDE047' : '#FFFFFF', big: !!e.move || e.crit }]);
+            }, 160);
+          } else {
+            if (hasAnim(b.c[from].fighter.species, 'attack')) setAnimFor(from, 'attack');
+            if (hasAnim(b.c[e.side].fighter.species, 'hit')) setTimeout(() => setAnimFor(e.side, 'hit'), 120);
+          }
           addFloat(e.side, `-${e.amount}`, e.crit ? '#FDE047' : e.strong ? '#FB923C' : '#FFFFFF', e.crit || !!e.move);
           if (e.crit) addFloat(e.side, 'קריטי!', '#FDE047', false);
           sfx('tap', e.move ? 0.6 : 0.3);
@@ -76,6 +122,11 @@ export default function BattleScreen({ me, foe, foeName, skill, guards = [], onE
           const m = MOVES[e.move];
           setFx((f) => [...f.slice(-3), { id: e.id, move: e.move, from: e.side }]);
           setBanner({ id: e.id, text: m.name, color: m.color });
+          if (mode3d && m.power === 0) {
+            pose3(e.side, 'cast');
+            setFx3d((f) => [...f.slice(-5), { id: e.id + 0.5, at: e.side, color: m.color, big: true }]);
+          }
+          if (mode3d && (e.move === 'thunder' || e.move === 'quake' || e.move === 'smash')) setShake3d((k) => k + 1);
           sfx('whoosh', 0.5);
           if (e.move === 'thunder' || e.move === 'quake' || e.move === 'smash') {
             shake.value = withSequence(withTiming(1, { duration: 50 }), withTiming(-1, { duration: 50 }), withTiming(1, { duration: 50 }), withTiming(0, { duration: 80 }));
@@ -91,6 +142,10 @@ export default function BattleScreen({ me, foe, foeName, skill, guards = [], onE
         clearInterval(id);
         const win = b.winner === 0;
         setAnim(win ? ['win', 'death'] : ['death', 'win']);
+        if (mode3d) {
+          pose3(0, win ? 'win' : 'death');
+          pose3(1, win ? 'death' : 'win');
+        }
         if (win) {
           sfx('levelup', 0.6);
           notify('success');
@@ -123,8 +178,24 @@ export default function BattleScreen({ me, foe, foeName, skill, guards = [], onE
   return (
     <View style={{ flex: 1, backgroundColor: '#0B0620' }}>
       <Animated.View style={[StyleSheet.absoluteFill, shakeStyle]}>
-        <Image source={BACKGROUNDS.arena} style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' }} resizeMode="cover" />
-        {guards.slice(0, 3).map((g, i) => (
+        {mode3d ? (
+          <Arena3D
+            sides={[
+              { hero: heroes[0], pose: pose3d[0], poseId: poseId3d[0], flashId: flash3d[0] },
+              { hero: heroes[1], pose: pose3d[1], poseId: poseId3d[1], flashId: flash3d[1], scale: SPECIES[foe.species].scale },
+            ]}
+            fx={fx3d}
+            shake={shake3d}
+            onFxDone={(id) => setFx3d((f) => f.filter((x) => x.id !== id))}
+            onPoseDone={(side, p) => {
+              if (!b.over && p !== 'death') pose3(side, 'idle');
+            }}
+            onError={on3dError}
+          />
+        ) : (
+          <Image source={BACKGROUNDS.arena} style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' }} resizeMode="cover" />
+        )}
+        {!mode3d && guards.slice(0, 3).map((g, i) => (
           <View key={g} pointerEvents="none" style={{ position: 'absolute', top: height * 0.7, left: [width * 0.08, width * 0.72, width * 0.4][i] }}>
             <Sprite char={g} size={66} fps={9} />
           </View>
@@ -157,6 +228,7 @@ export default function BattleScreen({ me, foe, foeName, skill, guards = [], onE
               stunned={stunned}
               burning={burning}
               shield={c.shield}
+              hideSprite={mode3d}
               onAnimEnd={() => !b.over && setAnimFor(side, 'idle')}
             />
           );
@@ -260,6 +332,7 @@ function FighterView(props: {
   stunned: boolean;
   burning: boolean;
   shield: boolean;
+  hideSprite?: boolean;
   onAnimEnd: () => void;
 }) {
   const { side, size, x, y, lunge, flash } = props;
@@ -282,10 +355,14 @@ function FighterView(props: {
           <LinearGradient colors={side === 0 ? ['#22D3EE', '#3B82F6'] : ['#FB7185', '#E11D48']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ width: `${Math.max(0, props.hp) * 100}%`, height: '100%' }} />
         </View>
       </View>
-      <View style={{ position: 'absolute', bottom: size * 0.06, width: size * 0.62, height: size * 0.16, borderRadius: size, backgroundColor: 'rgba(0,0,0,0.3)' }} />
-      <Animated.View style={[st, fl]}>
-        <Sprite char={props.char} view={side === 0 ? 'back' : 'front'} anim={props.anim} size={size} once={once} onEnd={props.onAnimEnd} />
-      </Animated.View>
+      {!props.hideSprite && <View style={{ position: 'absolute', bottom: size * 0.06, width: size * 0.62, height: size * 0.16, borderRadius: size, backgroundColor: 'rgba(0,0,0,0.3)' }} />}
+      {props.hideSprite ? (
+        <View style={{ width: size, height: size }} />
+      ) : (
+        <Animated.View style={[st, fl]}>
+          <Sprite char={props.char} view={side === 0 ? 'back' : 'front'} anim={props.anim} size={size} once={once} onEnd={props.onAnimEnd} />
+        </Animated.View>
+      )}
       {props.shield && <View style={{ position: 'absolute', top: size * 0.05, width: size * 0.95, height: size * 0.95, borderRadius: size, borderWidth: 3, borderColor: '#6EE7B7', backgroundColor: 'rgba(52,211,153,0.18)' }} />}
       {props.frozen && <View style={{ position: 'absolute', top: size * 0.1, width: size * 0.85, height: size * 0.85, borderRadius: 20, backgroundColor: 'rgba(125,211,252,0.45)', borderWidth: 2, borderColor: '#E0F2FE' }} />}
       {props.burning && (

@@ -19,7 +19,7 @@ const SLOT_ORDER: Slot[] = ['weapon', 'head', 'armor', 'charm'];
 const SLOT_EMPTY: Record<Slot, string> = { weapon: 'Sword', head: 'Crown2', armor: 'Armor_Leather', charm: 'Ring1' };
 
 /** The fighter's home: level, rank, gear, and the way into every part of the game. */
-export default function Hub({ go, onClose }: { go: (to: HubGo) => void; onClose: () => void }) {
+export default function Hub({ go, onClose, use3d, onToggle3d }: { go: (to: HubGo) => void; onClose: () => void; use3d: boolean; onToggle3d: () => void }) {
   const insets = useSafeAreaInsets();
   const { s, claimDiaryBonus } = useArena();
   const { entries } = useStore();
@@ -157,7 +157,10 @@ export default function Hub({ go, onClose }: { go: (to: HubGo) => void; onClose:
             </Pressable>
           ))}
         </View>
-        <GL size={11} color="#A78BFA" style={{ marginTop: 14 }}>{`${s.wins} ניצחונות · ${s.losses} הפסדים`}</GL>
+        <Pressable onPress={onToggle3d} accessibilityRole="switch" accessibilityState={{ checked: use3d }} style={{ alignSelf: 'center', marginTop: 12, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: use3d ? 'rgba(34,211,238,0.22)' : 'rgba(0,0,0,0.4)', borderWidth: 1.5, borderColor: use3d ? '#22D3EE' : 'rgba(255,255,255,0.2)' }}>
+          <GT size={13}>{use3d ? '⭐ זירת תלת-ממד: פועלת' : 'זירת תלת-ממד: כבויה'}</GT>
+        </Pressable>
+        <GL size={11} color="#A78BFA" style={{ marginTop: 10 }}>{`${s.wins} ניצחונות · ${s.losses} הפסדים`}</GL>
       </ScrollView>
     </View>
   );

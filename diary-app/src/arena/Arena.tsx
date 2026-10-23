@@ -24,6 +24,8 @@ export default function Arena({ onClose }: { onClose: () => void }) {
   const [fight, setFight] = useState<Fight | null>(null);
   const [result, setResult] = useState<ResultInfo | null>(null);
   const [battleKey, setBattleKey] = useState(0);
+  // the new live 3D arena; falls back to the 2D one if this device can't run it
+  const [use3d, setUse3d] = useState(true);
 
   // Keep the online card up to date (trophies, level, gear) — quietly, it's fine to be offline
   const last = useRef('');
@@ -87,7 +89,7 @@ export default function Arena({ onClose }: { onClose: () => void }) {
     case 'matching':
       return <Matching species={s.fighter.species} />;
     case 'battle':
-      return fight ? <BattleScreen key={battleKey} me={s.fighter} foe={fight.foe} foeName={fight.foeName} skill={fight.skill} guards={guards} onEnd={onBattleEnd} /> : null;
+      return fight ? <BattleScreen key={battleKey} me={s.fighter} foe={fight.foe} foeName={fight.foeName} skill={fight.skill} guards={guards} onEnd={onBattleEnd} mode3d={use3d} on3dError={() => setUse3d(false)} /> : null;
     case 'result':
       return result ? (
         <ResultScreen
@@ -106,7 +108,7 @@ export default function Arena({ onClose }: { onClose: () => void }) {
     case 'guards':
       return <GuardsScreen onBack={() => setRoute('hub')} />;
     default:
-      return <Hub go={go} onClose={onClose} />;
+      return <Hub go={go} onClose={onClose} use3d={use3d} onToggle3d={() => setUse3d((v) => !v)} />;
   }
 }
 
