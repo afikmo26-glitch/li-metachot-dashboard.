@@ -13,6 +13,7 @@ import { ELEMENTS, MOVES, MoveId, SPECIES } from '../data';
 import { WORLD_ART } from '../simArt';
 import { Fighter } from '../progress';
 import Sprite from '../Sprite';
+import { SPECIAL_CLIP } from '../../arena3d/Fighter3D';
 import { GL, GT, ItemIcon, MOVE_ICON } from '../ui';
 
 export type BattleResult = { win: boolean; stars: number; hpLeft: number };
@@ -32,6 +33,8 @@ export default function BattleScreen({ me, foe, foeName, skill, guards = [], onE
   const [, setFrame] = useState(0);
   const [count, setCount] = useState(3);
   const [anim, setAnim] = useState<[Anim, Anim]>(['idle', 'idle']);
+  const [animIds, setAnimIds] = useState<[number, number]>([0, 0]);
+  const [specials, setSpecials] = useState<[string | undefined, string | undefined]>([undefined, undefined]);
   const [floaters, setFloaters] = useState<Floater[]>([]);
   const [fx, setFx] = useState<Fx[]>([]);
   const [banner, setBanner] = useState<{ id: number; text: string; color: string } | null>(null);
@@ -76,9 +79,10 @@ export default function BattleScreen({ me, foe, foeName, skill, guards = [], onE
           if (e.tap) {
             // a tap: quick jab, the target flinches, sparks fly off it
             lunge[0].value = withSequence(withTiming(0.6, { duration: 60 }), withTiming(0, { duration: 140 }));
+            setAnimFor(0, 'attack');
+            if ((e.combo ?? 0) % 3 === 0) setAnimFor(1, 'hit');
             const tp = pos[1];
             bursts.add(tp.x + (Math.random() - 0.5) * 60, tp.y - 30 + (Math.random() - 0.5) * 60, e.crit ? '#FDE047' : '#FB923C', e.crit);
-            if (e.crit) setAnimFor(1, 'hit');
             setCombo(e.combo ?? 0);
           } else {
             setAnimFor(from, 'attack');
@@ -92,6 +96,7 @@ export default function BattleScreen({ me, foe, foeName, skill, guards = [], onE
           const m = MOVES[e.move];
           setFx((f) => [...f.slice(-3), { id: e.id, move: e.move, from: e.side }]);
           setBanner({ id: e.id, text: m.name, color: m.color });
+          setAnimFor(e.side, 'attack', SPECIAL_CLIP[m.element ?? SPECIES[b.c[e.side].fighter.species].element]);
           sfx('whoosh', 0.5);
           if (e.move === 'thunder' || e.move === 'quake' || e.move === 'smash') {
             shake.value = withSequence(withTiming(1, { duration: 50 }), withTiming(-1, { duration: 50 }), withTiming(1, { duration: 50 }), withTiming(0, { duration: 80 }));
@@ -118,12 +123,15 @@ export default function BattleScreen({ me, foe, foeName, skill, guards = [], onE
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [count]);
 
-  function setAnimFor(side: Side, a: Anim) {
+  function setAnimFor(side: Side, a: Anim, special?: string) {
     setAnim((cur) => {
       const n: [Anim, Anim] = [...cur] as [Anim, Anim];
       n[side] = a;
       return n;
     });
+    // replay even when the same animation is already playing (punch, punch, punch)
+    setAnimIds((cur) => (side === 0 ? [cur[0] + 1, cur[1]] : [cur[0], cur[1] + 1]));
+    setSpecials((cur) => (side === 0 ? [special, cur[1]] : [cur[0], special]));
   }
   function addFloat(side: Side, text: string, color: string, big: boolean) {
     const id = Math.random();
@@ -174,6 +182,8 @@ export default function BattleScreen({ me, foe, foeName, skill, guards = [], onE
               burning={burning}
               shield={c.shield}
               skin={side === 0 ? me.skin : foe.skin}
+              animId={animIds[side]}
+              special={specials[side]}
               onAnimEnd={() => !b.over && setAnimFor(side, 'idle')}
             />
           );
@@ -302,6 +312,8 @@ function FighterView(props: {
   shield: boolean;
   skin?: string;
   onAnimEnd: () => void;
+  animId: number;
+  special?: string;
 }) {
   const { side, size, x, y, lunge, flash } = props;
   const dir = side === 0 ? 1 : -1; // the player lunges up-right, the opponent down-left
@@ -324,7 +336,7 @@ function FighterView(props: {
         </View>
       </View>
       <Animated.View style={[st, fl]}>
-        <Sprite char={props.char} skin={props.skin} flip={side === 1} anim={props.anim} size={size} once={once} onEnd={props.onAnimEnd} />
+        <Sprite char={props.char} skin={props.skin} flip={side === 1} anim={props.anim} animId={props.animId} special={props.special} live size={size} once={once} onEnd={props.onAnimEnd} />
       </Animated.View>
       {props.shield && <View style={{ position: 'absolute', top: size * 0.05, width: size * 0.95, height: size * 0.95, borderRadius: size, borderWidth: 3, borderColor: '#6EE7B7', backgroundColor: 'rgba(52,211,153,0.18)' }} />}
       {props.frozen && <View style={{ position: 'absolute', top: size * 0.1, width: size * 0.85, height: size * 0.85, borderRadius: 20, backgroundColor: 'rgba(125,211,252,0.45)', borderWidth: 2, borderColor: '#E0F2FE' }} />}

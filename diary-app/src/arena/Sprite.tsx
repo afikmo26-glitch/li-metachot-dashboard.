@@ -1,8 +1,13 @@
-import React, { useEffect, useRef } from 'react';
+import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { Image, StyleProp, View, ViewStyle } from 'react-native';
 import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { Anim, View as Facing } from './assets';
 import { CHAR_ART } from './simArt';
+import { MODELS3D } from '../arena3d/models';
+import type { Pose3 } from '../arena3d/Fighter3D';
+
+// three.js only loads once a live 3D fighter is actually on screen
+const Fighter3D = React.lazy(() => import('../arena3d/Fighter3D'));
 
 type Props = {
   char: string;
@@ -19,6 +24,13 @@ type Props = {
   once?: boolean;
   onEnd?: () => void;
   style?: StyleProp<ViewStyle>;
+  /** draw the live 3D model when this fighter has one (only for the big hero spots: one GL view each) */
+  live?: boolean;
+  /** bump to replay the same animation (punch after punch) */
+  animId?: number;
+  /** live 3D only: the special move's clip, and the lobby's relaxed loop instead of the fight stance */
+  special?: string;
+  lobby?: boolean;
 };
 
 /** Every fighter can play every animation: they're motion on the illustration, not frames. */
@@ -31,7 +43,39 @@ const ease = Easing.inOut(Easing.quad);
  * A fighter illustration brought to life with squash-and-stretch: breathing on idle, a wind-up and lunge on
  * attack, a white flash and shake when hit, a fall on defeat and victory hops.
  */
-export default function Sprite({ char, skin, anim = 'idle', flip, size, once, onEnd, style }: Props) {
+export default function Sprite(props: Props) {
+  const [failed, setFailed] = useState(false);
+  const { char, skin, live } = props;
+  if (live && !skin && MODELS3D[char] && !failed) {
+    const pose: Pose3 = props.special && props.anim === 'attack' ? 'special' : props.lobby && (props.anim ?? 'idle') === 'idle' ? 'lobby' : (props.anim ?? 'idle');
+    return (
+      <View style={[{ width: props.size, height: props.size }, props.style]} pointerEvents="none">
+        <Guard onError={() => setFailed(true)}>
+          <Suspense fallback={<Flat {...props} />}>
+            <Fighter3D char={char} pose={pose} poseId={props.animId} special={props.special} flip={props.flip} size={props.size} onDone={() => props.once && props.onEnd?.()} />
+          </Suspense>
+        </Guard>
+      </View>
+    );
+  }
+  return <Flat {...props} />;
+}
+
+/** If the 3D view can't start on this device, fall back to the illustration. */
+class Guard extends React.Component<{ onError: () => void; children: React.ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch() {
+    this.props.onError();
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
+function Flat({ char, skin, anim = 'idle', flip, size, once, onEnd, style }: Props) {
   const src = CHAR_ART[skin ?? char] ?? CHAR_ART[char] ?? CHAR_ART.dragon;
   const sx = useSharedValue(1);
   const sy = useSharedValue(1);

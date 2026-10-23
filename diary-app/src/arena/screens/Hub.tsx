@@ -96,7 +96,7 @@ export default function Hub({ go, onClose }: { go: (to: HubGo) => void; onClose:
         <View style={{ position: 'absolute', bottom: 74, width: hero * 0.6, height: hero * 0.14, borderRadius: hero, backgroundColor: 'rgba(255,255,255,0.18)' }} />
         {/* feet on the middle of the stage */}
         <View style={{ marginBottom: 58 + hero * 0.02 }}>
-          <Sprite char={f.species} skin={f.skin} size={hero} />
+          <Sprite char={f.species} skin={f.skin} size={hero} live lobby />
         </View>
         <Pressable onPress={() => go('skins')} accessibilityLabel="החלף סקין" style={{ position: 'absolute', bottom: 70, right: width / 2 - hero * 0.55, width: 40, height: 40, borderRadius: 10, backgroundColor: 'rgba(8,4,20,0.8)', borderWidth: 2.5, borderColor: OUTLINE, alignItems: 'center', justifyContent: 'center' }}>
           <Ionicons name="shirt" size={20} color="#fff" />

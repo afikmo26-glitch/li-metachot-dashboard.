@@ -61,7 +61,7 @@ export function ResultScreen({ r, char, skin, onContinue, onRetry }: { r: Result
         )}
         <View style={{ height: 230, alignItems: 'center', justifyContent: 'center' }}>
           {r.win && <Rays size={380} color="rgba(253,224,71,0.1)" />}
-          <Sprite char={char} skin={skin} anim={r.win ? 'win' : 'death'} once={!r.win} size={240} />
+          <Sprite char={char} skin={skin} anim={r.win ? 'win' : 'death'} once={!r.win} size={240} live />
         </View>
         <View style={{ flexDirection: 'row-reverse', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
           <Pill icon="Coin" value={`+${r.coins}`} />
