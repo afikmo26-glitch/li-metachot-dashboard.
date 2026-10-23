@@ -369,3 +369,46 @@ describe('crash reports', () => {
     assert.equal((await call(env, 'POST', '/crash', {})).status, 400);
   });
 });
+
+describe('pet arena', () => {
+  const card = (extra: Record<string, unknown> = {}) => ({ name: 'ספרקי', species: 'YellowDragon', level: 12, trophies: 150, wins: 4, equip: { weapon: { id: 'Sword', level: 3 } }, ...extra });
+  const secretA = 'a'.repeat(32);
+  const secretB = 'b'.repeat(32);
+
+  test('profile, leaderboard and opponents', async () => {
+    const env = makeEnv();
+    const a = await call(env, 'PUT', '/arena/profile', { secret: secretA, card: card() });
+    assert.equal(a.status, 200);
+    assert.match(a.body.id, /^[a-f0-9]{16}$/);
+    assert.equal(a.body.rank, 1);
+    const b = await call(env, 'PUT', '/arena/profile', { secret: secretB, card: card({ name: 'בו', species: 'Ghost', trophies: 120 }) });
+    assert.equal(b.body.rank, 2);
+
+    // same secret, same id
+    assert.equal((await call(env, 'PUT', '/arena/profile', { secret: secretA, card: card({ trophies: 180 }) })).body.id, a.body.id);
+
+    const top = await call(env, 'GET', `/arena/top?id=${a.body.id}`);
+    assert.equal(top.body.rows.length, 2);
+    assert.equal(top.body.rows[0].name, 'ספרקי');
+    assert.equal(top.body.rows[0].me, true);
+    assert.deepEqual(top.body.me, { rank: 1, trophies: 180 });
+
+    // A gets B as an opponent, never itself
+    const opp = await call(env, 'GET', `/arena/opponent?t=180&id=${a.body.id}`);
+    assert.equal(opp.body.card.name, 'בו');
+    const none = await call(env, 'GET', `/arena/opponent?t=5000&id=${a.body.id}`);
+    assert.equal(none.body.card, null);
+  });
+
+  test('trophy jumps are capped and bad cards refused', async () => {
+    const env = makeEnv();
+    const first = await call(env, 'PUT', '/arena/profile', { secret: secretA, card: card({ trophies: 9000 }) });
+    assert.equal(first.body.trophies, 200); // a new player starts at most at 200
+    const next = await call(env, 'PUT', '/arena/profile', { secret: secretA, card: card({ trophies: 9000 }) });
+    assert.equal(next.body.trophies, 280); // +80 at most per save
+    for (const bad of [card({ name: '' }), card({ name: '<script>' }), card({ level: 501 }), card({ equip: { boots: { id: 'X', level: 1 } } }), card({ species: 'a b' })]) {
+      assert.equal((await call(env, 'PUT', '/arena/profile', { secret: secretB, card: bad })).status, 400, JSON.stringify(bad));
+    }
+    assert.equal((await call(env, 'PUT', '/arena/profile', { secret: 'short', card: card() })).status, 400);
+  });
+});

@@ -1,4 +1,5 @@
 import { handleChat, handleTranscribe } from './ai';
+import { handleArena } from './arena';
 import { handleAuth, requireUser, sessionUid } from './auth';
 import { handleCrash } from './crash';
 import { clientIp, CORS, data, Env, HttpError, json, uidKey } from './env';
@@ -19,6 +20,7 @@ export type { Env } from './env';
  *   POST /crash                crash reports (crash.ts)
  *   /pet…                      visiting friends' pets (pet.ts)
  *   POST /recover/*            password reset codes by email / SMS (recover.ts)
+ *   /arena/…                   Pet Arena leaderboard and online opponents (arena.ts)
  *
  * Every request must carry the header `x-app-key: <APP_KEY>`; user routes also `authorization: Bearer <token>`.
  */
@@ -74,6 +76,11 @@ async function route(req: Request, env: Env): Promise<[number, unknown]> {
   }
 
   if (method === 'POST' && path === '/crash') return handleCrash(body, req, env);
+
+  if (path.startsWith('/arena/')) {
+    await rateLimit(env, 'arena', `ip:${clientIp(req)}`);
+    return handleArena(method, new URL(req.url), body, env);
+  }
 
   if (path === '/pet' || path.startsWith('/pet/')) {
     const uid = await sessionUid(req, env);

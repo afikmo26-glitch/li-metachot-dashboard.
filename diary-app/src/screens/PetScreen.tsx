@@ -34,9 +34,10 @@ import { useLevel } from '../lib/useLevel';
 import GameScreen from './GameScreen';
 import { StudyTimer } from './StudyScreen';
 import { Friends, ShareCardModal, Shop, usePublishPet } from './PetSocial';
+import ArenaCard from '../arena/ArenaCard';
 
 /** "My pet": hatch it, name it, pet it, hug it, feed it, dress it up, and watch it grow with your levels. */
-export default function PetScreen({ initialTab }: { initialTab?: 'closet' | 'levels' | 'shop' | 'friends' } = {}) {
+export default function PetScreen({ initialTab, onOpenArena }: { initialTab?: 'closet' | 'levels' | 'shop' | 'friends'; onOpenArena?: () => void } = {}) {
   const { pet, updatePet, entries, settings } = useStore();
   const lvl = useLevel();
   const { width } = useWindowDimensions();
@@ -195,6 +196,8 @@ export default function PetScreen({ initialTab }: { initialTab?: 'closet' | 'lev
           <T dim size={12} style={{ textAlign: 'center', marginTop: 8 }}>
             {t('💡 החלק עליו כדי ללטף · לחיצה ארוכה = חיבוק · הקשה = קפיצה')}
           </T>
+
+          {onOpenArena && <ArenaCard onOpen={onOpenArena} style={{ marginTop: 16 }} />}
 
           {/* Closet / levels */}
           <Row style={{ gap: 8, marginTop: 18 }}>

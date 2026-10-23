@@ -15,6 +15,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import EntryModal from './src/components/EntryModal';
 import Splash from './src/components/Splash';
+import Arena from './src/arena/Arena';
+import { ArenaProvider } from './src/arena/state';
 import SettingsModal, { SettingsSection } from './src/components/SettingsModal';
 import SideDrawer from './src/components/SideDrawer';
 import Pet from './src/components/pet/Pet';
@@ -157,6 +159,7 @@ function Main({ account, setAccount, onLock }: { account: Account; setAccount: (
   const [settingsSection, setSettingsSection] = useState<SettingsSection | undefined>();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [petTab, setPetTab] = useState<'shop' | undefined>();
+  const [arenaOpen, setArenaOpen] = useState(false);
   const { level } = useLevel();
   const [introOpen, setIntroOpen] = useState(false);
   const insets = useSafeAreaInsets();
@@ -200,6 +203,7 @@ function Main({ account, setAccount, onLock }: { account: Account; setAccount: (
                   go('me');
                 }}
                 onOpenSettings={() => setDrawerOpen(true)}
+                onOpenArena={() => setArenaOpen(true)}
                 onOpenCalendar={() => {
                   setJournalView('calendar');
                   go('journal');
@@ -224,7 +228,7 @@ function Main({ account, setAccount, onLock }: { account: Account; setAccount: (
             )}
             {tab === 'people' && <PeopleScreen onOpenEntry={open} />}
             {tab === 'me' && <WorkScreen initial={workSection} />}
-            {tab === 'pet' && <PetScreen key={petTab ?? 'pet'} initialTab={petTab} />}
+            {tab === 'pet' && <PetScreen key={petTab ?? 'pet'} initialTab={petTab} onOpenArena={() => setArenaOpen(true)} />}
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -307,7 +311,11 @@ function Main({ account, setAccount, onLock }: { account: Account; setAccount: (
           setTab('pet');
         }}
         onLock={onLock}
+        onOpenArena={() => setArenaOpen(true)}
       />
+      <Modal visible={arenaOpen} animationType="slide" onRequestClose={() => setArenaOpen(false)}>
+        <Arena onClose={() => setArenaOpen(false)} />
+      </Modal>
 
       <EntryModal entryId={entryId} onClose={() => setEntryId(null)} />
       <SettingsModal
@@ -341,9 +349,11 @@ export default function App() {
     <SafeAreaProvider>
       <PrefsProvider>
         <StoreProvider>
-          <ErrorBoundary>
-            <Root />
-          </ErrorBoundary>
+          <ArenaProvider>
+            <ErrorBoundary>
+              <Root />
+            </ErrorBoundary>
+          </ArenaProvider>
         </StoreProvider>
       </PrefsProvider>
     </SafeAreaProvider>

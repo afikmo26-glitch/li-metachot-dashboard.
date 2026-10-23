@@ -5,7 +5,7 @@ import { Env, HttpError, today } from './env';
  * not exact (KV has no atomic increment, parallel requests can slip through).
  */
 
-export const LIMITS = { ai: 300, transcribe: 40, crash: 50 } as const;
+export const LIMITS = { ai: 300, transcribe: 40, crash: 50, arena: 1500 } as const;
 export type Bucket = keyof typeof LIMITS;
 
 export async function rateLimit(env: Env, bucket: Bucket, who: string): Promise<void> {

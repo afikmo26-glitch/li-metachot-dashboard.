@@ -25,10 +25,11 @@ type Props = {
   onOpenIntro: () => void;
   onOpenShop: () => void;
   onLock: () => void;
+  onOpenArena: () => void;
 };
 
 /** The side menu (from the ☰ button): who you are, your level, and every setting one tap away. */
-export default function SideDrawer({ visible, onClose, account, onOpenSettings, onOpenIntro, onOpenShop, onLock }: Props) {
+export default function SideDrawer({ visible, onClose, account, onOpenSettings, onOpenIntro, onOpenShop, onLock, onOpenArena }: Props) {
   const insets = useSafeAreaInsets();
   const { settings, pet } = useStore();
   const { prefs, setPrefs } = usePrefs();
@@ -104,6 +105,25 @@ export default function SideDrawer({ visible, onClose, account, onOpenSettings, 
               <Ionicons name="close" size={20} color={colors.text} />
             </Pressable>
           </Row>
+
+          <Pressable onPress={go(onOpenArena)} accessibilityRole="button">
+            <LinearGradient
+              colors={['#F59E0B', '#DC2626']}
+              start={{ x: layout.isRTL ? 1 : 0, y: 0 }}
+              end={{ x: layout.isRTL ? 0 : 1, y: 0 }}
+              style={{ marginTop: 18, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#FDE68A', flexDirection: layout.row, alignItems: 'center', gap: 10 }}
+            >
+              <Ionicons name="flash" size={22} color="#FEF3C7" />
+              <View style={{ flex: 1 }}>
+                <T bold size={15} style={{ color: '#fff' }}>
+                  {t('⚔️ קרב החיות')}
+                </T>
+                <T size={12} style={{ color: '#FEF3C7' }}>
+                  {t('שלבים, דרגות וקרבות אונליין')}
+                </T>
+              </View>
+            </LinearGradient>
+          </Pressable>
 
           <Pressable onPress={go(onOpenShop)} accessibilityRole="button">
             <LinearGradient

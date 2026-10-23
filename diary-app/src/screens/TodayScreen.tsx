@@ -27,6 +27,7 @@ import { currentLove, isNight, petLine, stageOf } from '../lib/pet';
 import { useLevel } from '../lib/useLevel';
 import MoodInsights from '../components/MoodInsights';
 import { HeroCarousel, MemoryCard, MusicCard, nextEvent, QuickActions, Slide } from '../components/Hero';
+import ArenaCard from '../arena/ArenaCard';
 import { promptOfTheDay } from '../lib/prompts';
 import { daysUntil, openHomework, upcomingExams, whenLabel } from '../lib/study';
 
@@ -37,9 +38,10 @@ type Props = {
   onOpenEntry: (id: string) => void;
   onOpenIntro?: () => void;
   onOpenCalendar: () => void;
+  onOpenArena: () => void;
 };
 
-export default function TodayScreen({ onOpenPet, onOpenStudy, onOpenSettings, onOpenEntry, onOpenIntro, onOpenCalendar }: Props) {
+export default function TodayScreen({ onOpenPet, onOpenStudy, onOpenSettings, onOpenEntry, onOpenIntro, onOpenCalendar, onOpenArena }: Props) {
   const { entries, people, events, settings, saveEntry, addPerson, activeShift, workplaces, pet } = useStore();
   const [text, setText] = useState('');
   const [mood, setMood] = useState(3);
@@ -254,6 +256,7 @@ export default function TodayScreen({ onOpenPet, onOpenStudy, onOpenSettings, on
         ]}
       />
 
+      <ArenaCard onOpen={onOpenArena} style={{ marginTop: 14 }} />
       <PetHello onOpen={onOpenPet} />
       <StudySoon onOpen={onOpenStudy} />
       <MemoryCard entries={entries} onOpen={onOpenEntry} />
