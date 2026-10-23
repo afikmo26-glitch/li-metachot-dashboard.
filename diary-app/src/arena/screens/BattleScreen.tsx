@@ -7,7 +7,8 @@ import Svg, { Path } from 'react-native-svg';
 import { notify } from '../../components/ui';
 import { play as sfx } from '../../lib/sound';
 import { Anim } from '../assets';
-import { Battle, drain, MAX_ENERGY, newBattle, play, Side, starsOf, tick } from '../battle';
+import { Battle, drain, MAX_ENERGY, newBattle, play, Side, starsOf, tap, tick } from '../battle';
+import { useBursts } from '../TapFx';
 import { ELEMENTS, MOVES, MoveId, SPECIES } from '../data';
 import { WORLD_ART } from '../simArt';
 import { Fighter } from '../progress';
@@ -42,9 +43,12 @@ export default function BattleScreen({ me, foe, foeName, skill, guards = [], onE
 
   // where each fighter stands on screen: a diagonal, so they face each other across the arena floor
   const pos: [{ x: number; y: number }, { x: number; y: number }] = [
-    { x: width * 0.3, y: height * 0.63 },
-    { x: width * 0.7, y: height * 0.44 },
+    { x: width * 0.3, y: height * 0.65 },
+    { x: width * 0.7, y: height * 0.47 },
   ];
+  const bursts = useBursts();
+  const [combo, setCombo] = useState(0);
+  const [tapped, setTapped] = useState(false);
   const lunge = [useSharedValue(0), useSharedValue(0)];
   const flash = [useSharedValue(0), useSharedValue(0)];
   const shake = useSharedValue(0);
@@ -69,11 +73,21 @@ export default function BattleScreen({ me, foe, foeName, skill, guards = [], onE
           const from = (e.side === 0 ? 1 : 0) as Side;
           lunge[from].value = withSequence(withTiming(1, { duration: 120, easing: Easing.out(Easing.quad) }), withSpring(0, { damping: 9 }));
           flash[e.side].value = withSequence(withTiming(1, { duration: 60 }), withTiming(0, { duration: 220 }));
-          setAnimFor(from, 'attack');
-          setTimeout(() => setAnimFor(e.side, 'hit'), 140);
+          if (e.tap) {
+            // a tap: quick jab, the target flinches, sparks fly off it
+            lunge[0].value = withSequence(withTiming(0.6, { duration: 60 }), withTiming(0, { duration: 140 }));
+            const tp = pos[1];
+            bursts.add(tp.x + (Math.random() - 0.5) * 60, tp.y - 30 + (Math.random() - 0.5) * 60, e.crit ? '#FDE047' : '#FB923C', e.crit);
+            if (e.crit) setAnimFor(1, 'hit');
+            setCombo(e.combo ?? 0);
+          } else {
+            setAnimFor(from, 'attack');
+            setTimeout(() => setAnimFor(e.side, 'hit'), 140);
+            bursts.add(pos[e.side].x, pos[e.side].y - 30, e.move ? MOVES[e.move].color : '#FFFFFF', true);
+          }
           addFloat(e.side, `-${e.amount}`, e.crit ? '#FDE047' : e.strong ? '#FB923C' : '#FFFFFF', e.crit || !!e.move);
-          if (e.crit) addFloat(e.side, 'קריטי!', '#FDE047', false);
-          sfx('tap', e.move ? 0.6 : 0.3);
+          if (e.crit) addFloat(e.side, e.tap ? `קומבו ×${e.combo}!` : 'קריטי!', '#FDE047', false);
+          sfx('tap', e.move ? 0.6 : e.tap ? 0.18 : 0.35);
         } else if (e.kind === 'move') {
           const m = MOVES[e.move];
           setFx((f) => [...f.slice(-3), { id: e.id, move: e.move, from: e.side }]);
@@ -172,6 +186,29 @@ export default function BattleScreen({ me, foe, foeName, skill, guards = [], onE
         ))}
       </Animated.View>
       <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: '#FEF9C3' }, flashStyle]} />
+      {/* tap anywhere on the arena to hit */}
+      <View
+        accessibilityLabel="הכה"
+        onStartShouldSetResponder={() => true}
+        onResponderGrant={() => {
+          if (count > 0 || b.over) return;
+          if (tap(b) && !tapped) setTapped(true);
+        }}
+        style={{ position: 'absolute', left: 0, right: 0, top: insets.top + 70, bottom: insets.bottom + 170 }}
+      />
+      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+        {bursts.layer}
+      </View>
+      {combo >= 3 && !b.over && (
+        <View pointerEvents="none" style={{ position: 'absolute', top: height * 0.2, left: 0, right: 0, alignItems: 'center' }}>
+          <GT key={combo} size={combo >= 20 ? 40 : combo >= 10 ? 34 : 28} color={combo >= 20 ? '#F472B6' : combo >= 10 ? '#FDE047' : '#FFFFFF'}>{`×${combo} קומבו`}</GT>
+        </View>
+      )}
+      {count <= 0 && !tapped && !b.over && (
+        <View pointerEvents="none" style={{ position: 'absolute', top: height * 0.24, left: 0, right: 0, alignItems: 'center' }}>
+          <GT size={24} color="#FDE047">👆 הקש מהר כדי להכות!</GT>
+        </View>
+      )}
 
       {/* top bar: opponent and clock */}
       <LinearGradient colors={['rgba(20,8,40,0.92)', 'rgba(20,8,40,0)']} style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: insets.top + 8, paddingHorizontal: 12, paddingBottom: 18, flexDirection: 'row-reverse', alignItems: 'center', gap: 8 }}>

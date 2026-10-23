@@ -20,9 +20,9 @@ export function GT({ children, size = 16, color = '#FFFFFF', style, numberOfLine
           fontSize: size,
           fontFamily: FONTS.black,
           textAlign: 'center',
-          textShadowColor: 'rgba(20,8,40,0.95)',
-          textShadowOffset: { width: 0, height: Math.max(2, size / 9) },
-          textShadowRadius: 1,
+          textShadowColor: '#0B0618',
+          textShadowOffset: { width: 0, height: Math.max(2, size / 8) },
+          textShadowRadius: 0.5,
           writingDirection: 'rtl',
         },
         style,
@@ -47,6 +47,8 @@ const PALETTES = {
   gray: ['#E2E8F0', '#94A3B8', '#334155'],
 } as const;
 export type Tone = keyof typeof PALETTES;
+/** The near-black outline every game button and panel wears. */
+export const OUTLINE = '#120A24';
 
 /** A fat 3D game button: gradient face, darker "depth" underneath, springs down when pressed. */
 export function GButton({ title, onPress, tone = 'gold', size = 18, style, disabled, children, height = 56 }: { title?: string; onPress: () => void; tone?: Tone; size?: number; style?: StyleProp<ViewStyle>; disabled?: boolean; children?: React.ReactNode; height?: number }) {
@@ -64,11 +66,12 @@ export function GButton({ title, onPress, tone = 'gold', size = 18, style, disab
     >
       {({ pressed }) => (
         <View style={{ height: height + 6, opacity: disabled ? 0.6 : 1 }}>
-          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height, borderRadius: 18, backgroundColor: deep }} />
+          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height, borderRadius: 16, backgroundColor: deep, borderWidth: 3, borderColor: OUTLINE }} />
           <LinearGradient
             colors={[top, mid]}
-            style={{ height, borderRadius: 18, marginTop: pressed ? 6 : 0, alignItems: 'center', justifyContent: 'center', flexDirection: 'row-reverse', gap: 8, paddingHorizontal: 12, borderWidth: 2, borderColor: 'rgba(255,255,255,0.35)' }}
+            style={{ height, borderRadius: 16, marginTop: pressed ? 6 : 0, alignItems: 'center', justifyContent: 'center', flexDirection: 'row-reverse', gap: 8, paddingHorizontal: 12, borderWidth: 3, borderColor: OUTLINE }}
           >
+            <View pointerEvents="none" style={{ position: 'absolute', top: 3, left: 8, right: 8, height: height * 0.32, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.28)' }} />
             {children}
             {title ? <GT size={size}>{title}</GT> : null}
           </LinearGradient>
@@ -184,4 +187,55 @@ export function Pulse({ children, style }: { children: React.ReactNode; style?: 
   }, [reduced, v]);
   const st = useAnimatedStyle(() => ({ transform: [{ scale: 1 + v.value * 0.04 }] }));
   return <Animated.View style={[st, style]}>{children}</Animated.View>;
+}
+
+/** A square side-menu button for the game's home: an icon popping out of a chunky tile, a label, a badge. */
+export function SideButton({ icon, label, onPress, tone = 'blue', badge, ribbon }: { icon: string; label: string; onPress: () => void; tone?: Tone; badge?: number; ribbon?: string }) {
+  const [top, mid, deep] = PALETTES[tone];
+  return (
+    <Pressable
+      onPress={() => {
+        play('pop', 0.4);
+        onPress();
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={({ pressed }) => ({ width: 82, transform: [{ scale: pressed ? 0.92 : 1 }] })}
+    >
+      <View style={{ height: 70, marginTop: 18 }}>
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 66, borderRadius: 14, backgroundColor: deep, borderWidth: 3, borderColor: OUTLINE }} />
+        <LinearGradient colors={[top, mid]} style={{ height: 64, borderRadius: 14, borderWidth: 3, borderColor: OUTLINE, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 3 }}>
+          <View pointerEvents="none" style={{ position: 'absolute', top: 3, left: 6, right: 6, height: 18, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.25)' }} />
+          <GT size={13}>{label}</GT>
+        </LinearGradient>
+      </View>
+      <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, alignItems: 'center' }}>
+        <ItemIcon icon={icon} size={54} />
+      </View>
+      {!!badge && (
+        <View style={{ position: 'absolute', top: 10, left: -4, minWidth: 26, height: 26, borderRadius: 13, backgroundColor: '#EF4444', borderWidth: 3, borderColor: OUTLINE, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}>
+          <GT size={12}>{badge}</GT>
+        </View>
+      )}
+      {!!ribbon && (
+        <View style={{ position: 'absolute', top: 12, right: -8, backgroundColor: '#22C55E', borderRadius: 6, borderWidth: 2, borderColor: OUTLINE, paddingHorizontal: 5, transform: [{ rotate: '8deg' }] }}>
+          <GT size={10}>{ribbon}</GT>
+        </View>
+      )}
+    </Pressable>
+  );
+}
+
+/** A currency counter in the top bar: icon overlapping a dark outlined slot. */
+export function Counter({ icon, value }: { icon: string; value: number }) {
+  return (
+    <View style={{ flexDirection: 'row-reverse', alignItems: 'center' }}>
+      <View style={{ height: 30, minWidth: 70, paddingRight: 24, paddingLeft: 10, borderRadius: 8, backgroundColor: 'rgba(8,4,20,0.75)', borderWidth: 2.5, borderColor: OUTLINE, justifyContent: 'center', marginRight: -18 }}>
+        <GT size={15} style={{ textAlign: 'left' }}>{value.toLocaleString()}</GT>
+      </View>
+      <View style={{ zIndex: 1 }}>
+        <ItemIcon icon={icon} size={36} />
+      </View>
+    </View>
+  );
 }

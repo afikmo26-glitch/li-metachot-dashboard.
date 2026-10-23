@@ -1,6 +1,8 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, useWindowDimensions, View } from 'react-native';
+import Animated, { SlideInLeft, SlideInRight, useAnimatedStyle, useSharedValue, withDelay, withSequence, withSpring, withTiming, ZoomIn } from 'react-native-reanimated';
+import { WORLD_ART } from './simArt';
 import { ELEMENTS, SPECIES, SpeciesId } from './data';
 import { findOpponent, publish } from './online';
 import { botOpponent, enemyForStage, Fighter, isBoss, stageSkill, worldOfStage, stageInWorld } from './progress';
@@ -12,6 +14,7 @@ import Pick from './screens/Pick';
 import { ChestsScreen, ResultInfo, ResultScreen } from './screens/Rewards';
 import Sprite from './Sprite';
 import { useArena } from './state';
+import { TapLayer } from './TapFx';
 import { Float, GL, GT, Rays } from './ui';
 
 type Fight = { mode: 'stage'; stage: number; foe: Fighter; foeName: string; skill: number; bg: string } | { mode: 'ranked'; foe: Fighter; foeName: string; skill: number; trophies: number; bg: string };
@@ -20,14 +23,23 @@ type Fight = { mode: 'stage'; stage: number; foe: Fighter; foeName: string; skil
 const HOME_ARENA: Record<string, string> = { fire: 'volcano', water: 'ocean', nature: 'forest', earth: 'forest', storm: 'storm', shadow: 'shadow' };
 type Route = 'hub' | 'map' | 'matching' | 'battle' | 'result' | 'bag' | 'chests' | 'ranks' | 'guards' | 'skins';
 
-/** "הסים שלך" (Your Sim): the whole game, opened full screen from the diary. */
+/** "הסים שלך" (Your Sim): the whole game, opened full screen from the diary. Every touch sparkles. */
 export default function Arena({ onClose }: { onClose: () => void }) {
+  return (
+    <TapLayer>
+      <Game onClose={onClose} />
+    </TapLayer>
+  );
+}
+
+function Game({ onClose }: { onClose: () => void }) {
   const { ready, s, winStage, loseStage, ranked } = useArena();
   const [route, setRoute] = useState<Route>('hub');
   const [fight, setFight] = useState<Fight | null>(null);
   const [result, setResult] = useState<ResultInfo | null>(null);
   const [battleKey, setBattleKey] = useState(0);
   const [intro, setIntro] = useState(true);
+  const endIntro = useCallback(() => setIntro(false), []);
 
   // Keep the online card up to date (trophies, level, gear) — quietly, it's fine to be offline
   const last = useRef('');
@@ -41,7 +53,7 @@ export default function Arena({ onClose }: { onClose: () => void }) {
   }, [s]);
 
   if (!ready) return <View style={{ flex: 1, backgroundColor: '#12082A' }} />;
-  if (intro) return <Intro onDone={() => setIntro(false)} />;
+  if (intro) return <Intro onDone={endIntro} />;
   if (!s.fighter) return <Pick onDone={() => setRoute('hub')} />;
   const guards = s.guards.slice(0, 3);
 
@@ -83,6 +95,7 @@ export default function Arena({ onClose }: { onClose: () => void }) {
 
   const go = (to: HubGo) => {
     if (to === 'ranked') startRanked();
+    else if (to === 'play') startStage(s.stage);
     else setRoute(to);
   };
 
@@ -118,33 +131,52 @@ export default function Arena({ onClose }: { onClose: () => void }) {
   }
 }
 
-/** The game's own title screen, every time it opens: the logo over the fighters. */
+/** The game's own title screen, every time it opens: lightning, the fighters jump in, the logo slams down. */
 function Intro({ onDone }: { onDone: () => void }) {
+  const { width } = useWindowDimensions();
+  const flash = useSharedValue(1);
+  const logo = useSharedValue(0);
   useEffect(() => {
-    const id = setTimeout(onDone, 2600);
+    flash.value = withSequence(withTiming(0, { duration: 500 }), withDelay(700, withTiming(0.85, { duration: 60 })), withTiming(0, { duration: 450 }));
+    logo.value = withDelay(750, withSpring(1, { damping: 7, stiffness: 160 }));
+    const id = setTimeout(onDone, 3000);
     return () => clearTimeout(id);
-  }, [onDone]);
+  }, [onDone, flash, logo]);
+  const flashSt = useAnimatedStyle(() => ({ opacity: flash.value }));
+  const logoSt = useAnimatedStyle(() => ({ opacity: Math.min(1, logo.value * 2), transform: [{ scale: 2.4 - logo.value * 1.4 }, { rotate: `${(1 - logo.value) * -8}deg` }] }));
+  const hero = Math.min(width * 0.5, 230);
   return (
-    <Pressable onPress={onDone} accessibilityRole="button" accessibilityLabel="הסים שלך, לחץ להתחלה" style={{ flex: 1 }}>
-      <LinearGradient colors={['#4C1D95', '#2A1052', '#0B0620']} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <Rays size={700} color="rgba(250,204,21,0.08)" />
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginBottom: -10 }}>
-          <Sprite char="cat" anim="win" size={130} />
-          <Sprite char="dragon" anim="win" size={190} style={{ marginHorizontal: -30, zIndex: 1 }} />
-          <Sprite char="wolf" anim="win" size={130} flip />
+    <Pressable onPress={onDone} accessibilityRole="button" accessibilityLabel="הסים שלך, לחץ להתחלה" style={{ flex: 1, backgroundColor: '#05010D' }}>
+      <Image source={WORLD_ART.arena_shadow} style={{ position: 'absolute', width: '100%', height: '100%', opacity: 0.55 }} resizeMode="cover" />
+      <LinearGradient colors={['rgba(5,1,13,0.9)', 'rgba(60,10,90,0.25)', 'rgba(5,1,13,0.95)']} style={{ position: 'absolute', width: '100%', height: '100%' }} />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <Rays size={760} color="rgba(168,85,247,0.1)" />
+        <Animated.View style={logoSt}>
+          <GT size={58} color="#FDE047" style={{ textShadowColor: '#7C2D12', textShadowOffset: { width: 0, height: 6 } }}>
+            הסים שלך
+          </GT>
+          <View style={{ alignSelf: 'center', marginTop: 2, backgroundColor: '#DC2626', borderRadius: 6, borderWidth: 3, borderColor: '#120A24', paddingHorizontal: 12, transform: [{ rotate: '-3deg' }] }}>
+            <GT size={14}>ARENA</GT>
+          </View>
+        </Animated.View>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 20 }}>
+          <Animated.View entering={SlideInRight.delay(250).springify().damping(12)}>
+            <Sprite char="cat" anim="idle" size={hero * 0.7} />
+          </Animated.View>
+          <Animated.View entering={ZoomIn.delay(100).springify().damping(9)} style={{ marginHorizontal: -hero * 0.15, zIndex: 1 }}>
+            <Sprite char="dragon" anim="idle" size={hero} />
+          </Animated.View>
+          <Animated.View entering={SlideInLeft.delay(400).springify().damping(12)}>
+            <Sprite char="wolf" anim="idle" size={hero * 0.7} flip />
+          </Animated.View>
         </View>
-        <GT size={52} color="#FDE047" style={{ textShadowColor: '#7C2D12', textShadowRadius: 1, textShadowOffset: { width: 0, height: 5 } }}>
-          הסים שלך
-        </GT>
-        <GL size={15} color="#E9D5FF" style={{ marginTop: 6 }}>
-          בחר. תילחם. תשוויץ בבית ספר.
-        </GL>
         <Float>
-          <GL size={13} color="#FFFFFF" style={{ marginTop: 40, opacity: 0.8 }}>
-            לחץ להתחלה
-          </GL>
+          <GT size={15} color="#E9D5FF" style={{ marginTop: 34 }}>
+            ⚡ לחץ להתחלה ⚡
+          </GT>
         </Float>
-      </LinearGradient>
+      </View>
+      <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, backgroundColor: '#FFFFFF' }, flashSt]} />
     </Pressable>
   );
 }

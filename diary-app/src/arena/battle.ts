@@ -2,9 +2,9 @@ import { elementBonus, MOVES, MoveId, SPECIES } from './data';
 import { deckOf, Fighter, statsOf } from './progress';
 
 /**
- * The duel itself, Clash-Royale style: energy fills over time, the pets hit each other on their own,
- * and each side spends energy on its four move cards. Pure logic — the screen calls `tick` every frame
- * and draws whatever `events` came out.
+ * The duel itself. You hit by tapping the screen (fast taps build a combo and fill energy); the opponent
+ * hits on its own, faster on harder stages. Both sides spend energy on their four move cards. Stop tapping
+ * and you lose. Pure logic — the screen calls `tick` every frame and draws whatever `events` came out.
  */
 
 export type Side = 0 | 1; // 0 = player (bottom), 1 = opponent (top)
@@ -29,10 +29,14 @@ export type Combatant = {
   /** healing has a cooldown so a fight can't be stalled forever */
   healReadyAt: number;
   shield: boolean;
+  /** player only: tap cooldown, and the running combo of quick taps */
+  tapReadyAt: number;
+  lastTap: number;
+  combo: number;
 };
 
 export type BattleEvent =
-  | { id: number; kind: 'hit'; side: Side; amount: number; crit: boolean; strong: boolean; move?: MoveId }
+  | { id: number; kind: 'hit'; side: Side; amount: number; crit: boolean; strong: boolean; move?: MoveId; tap?: boolean; combo?: number }
   | { id: number; kind: 'move'; side: Side; move: MoveId }
   | { id: number; kind: 'heal'; side: Side; amount: number }
   | { id: number; kind: 'blocked'; side: Side }
@@ -58,8 +62,8 @@ function combatant(f: Fighter): Combatant {
   const k = f.handicap ?? 1;
   return {
     fighter: f,
-    maxHp: Math.round(s.hp * 6 * k), // battles last ~30–60 s
-    hp: Math.round(s.hp * 6 * k),
+    maxHp: Math.round(s.hp * 16 * k), // battles last ~30–50 s
+    hp: Math.round(s.hp * 16 * k),
     atk: Math.round(s.atk * k),
     def: s.def,
     spd: s.spd,
@@ -74,6 +78,9 @@ function combatant(f: Fighter): Combatant {
     ccImmuneUntil: 0,
     healReadyAt: 0,
     shield: false,
+    tapReadyAt: 0,
+    lastTap: -9,
+    combo: 0,
   };
 }
 
@@ -84,7 +91,7 @@ export function newBattle(player: Fighter, enemy: Fighter, aiSkill = 0.6, limit 
 let nextId = 1;
 const swingTime = (c: Combatant) => Math.max(0.75, 2.1 - c.spd * 0.045);
 
-function damage(b: Battle, from: Side, power: number, move?: MoveId) {
+function damage(b: Battle, from: Side, power: number, move?: MoveId, tapCombo?: number) {
   const a = b.c[from];
   const d = b.c[from === 0 ? 1 : 0];
   const target: Side = from === 0 ? 1 : 0;
@@ -98,13 +105,31 @@ function damage(b: Battle, from: Side, power: number, move?: MoveId) {
   const bonus = elementBonus(el, SPECIES[d.fighter.species].element);
   const rage = b.t < a.rageUntil ? 1.5 : 1;
   const def = move === 'shadowClaw' ? d.def * 0.5 : d.def;
-  const crit = Math.random() < 0.08;
+  // every 10th hit of a combo is a guaranteed crit
+  const crit = tapCombo ? tapCombo % 10 === 0 : Math.random() < 0.08;
   const raw = a.atk * power * bonus * rage * (crit ? 1.6 : 1) * (0.9 + Math.random() * 0.2);
   // attack against defence as a ratio, so a battle takes about as long at level 5 as at level 450
   const amount = Math.max(1, Math.round(raw * (a.atk / (a.atk + def)) * 5));
   d.hp = Math.max(0, d.hp - amount);
-  b.events.push({ id: nextId++, kind: 'hit', side: target, amount, crit, strong: bonus > 1, move });
+  b.events.push({ id: nextId++, kind: 'hit', side: target, amount, crit, strong: bonus > 1, move, tap: tapCombo !== undefined, combo: tapCombo });
   return amount;
+}
+
+export const TAP_COOLDOWN = 0.2;
+const TAP_POWER = 0.2;
+const COMBO_WINDOW = 0.7;
+
+/** The player taps: a quick hit. Taps in a row build a combo (more damage, more energy). */
+export function tap(b: Battle): boolean {
+  const c = b.c[0];
+  if (b.over || b.t < c.tapReadyAt || b.t < c.freezeUntil || b.t < c.stunUntil) return false;
+  c.combo = b.t - c.lastTap <= COMBO_WINDOW ? c.combo + 1 : 1;
+  c.lastTap = b.t;
+  c.tapReadyAt = b.t + TAP_COOLDOWN;
+  c.energy = Math.min(MAX_ENERGY, c.energy + 0.12);
+  damage(b, 0, TAP_POWER * (1 + Math.min(c.combo, 20) * 0.015), undefined, c.combo);
+  check(b);
+  return true;
 }
 
 /** Plays a card if the side can afford it. Returns false when it can't. */
@@ -172,12 +197,14 @@ export function tick(b: Battle, dt: number) {
       c.hp = Math.max(0, c.hp - amt);
       if (Math.random() < dt * 1.5) b.events.push({ id: nextId++, kind: 'burn', side, amount: Math.round(c.burnDps) });
     }
+    if (side === 0 && b.t - c.lastTap > COMBO_WINDOW) c.combo = 0;
     const busy = b.t < c.freezeUntil || b.t < c.stunUntil;
-    if (!busy) {
+    // the opponent swings on its own (faster with skill); the player hits by tapping
+    if (!busy && side === 1) {
       c.swing -= dt;
       if (c.swing <= 0) {
-        c.swing = swingTime(c);
-        damage(b, side, 0.55);
+        c.swing = swingTime(c) * (1.15 - b.aiSkill * 0.45);
+        damage(b, side, 1.6);
       }
     }
   }

@@ -96,7 +96,7 @@ export const stageLevel = (stage: number) => Math.max(1, Math.round(1 + (stage -
 export const stageSkill = (stage: number) => Math.min(0.8, 0.3 + (stage / 250) * 0.45 + (isBoss(stage) ? 0.05 : 0));
 
 /** Early stages are gentler: a first-time player should win the first world while learning. */
-export const stageHandicap = (stage: number) => (stage <= 5 ? 0.6 : stage <= 20 ? 0.75 : stage <= 50 ? 0.85 : 0.88) * (isWorldBoss(stage) ? 1 : isBoss(stage) ? 1.04 : 1);
+export const stageHandicap = (stage: number) => (stage <= 3 ? 0.7 : stage <= 10 ? 0.8 : stage <= 50 ? 0.88 : 0.9) * (isWorldBoss(stage) ? 1 : isBoss(stage) ? 1.04 : 1);
 
 function seeded(n: number) {
   let s = n * 9301 + 49297;
