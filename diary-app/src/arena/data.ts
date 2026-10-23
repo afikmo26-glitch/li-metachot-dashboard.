@@ -1,6 +1,6 @@
 /**
- * Pet Arena ("קרב החיות"): the static game data — elements, fighters, moves, items, ranks and worlds.
- * Characters and items are Quaternius' CC0 3D models, rendered to sprite sheets (see assets/game/CREDITS.md).
+ * "הסים שלך" (Your Sim): the static game data — elements, fighters, skins, moves, items, ranks and worlds.
+ * Fighters, items and worlds are original illustrations made for the game (see assets/sim/CREDITS.md).
  */
 
 export type Element = 'water' | 'fire' | 'nature' | 'earth' | 'storm' | 'shadow';
@@ -62,8 +62,9 @@ export const MOVES: Record<MoveId, Move> = {
 };
 
 export type SpeciesId =
-  | 'YellowDragon' | 'Penguin' | 'Cactus' | 'Panda' | 'Bee' | 'Ghost'
-  | 'Yeti' | 'Cyclops' | 'Demon' | 'GreenDemon' | 'Alien' | 'Alien_Tall' | 'Skull' | 'Tree' | 'Deer' | 'Crab' | 'Bat' | 'Cthulhu' | 'Mushroom' | 'Pig' | 'Chicken';
+  | 'dragon' | 'cat' | 'fox' | 'penguin' | 'shark' | 'octopus' | 'frog' | 'bunny' | 'owl'
+  | 'panda' | 'rhino' | 'mole' | 'wolf' | 'bee' | 'eagle' | 'raven' | 'bat' | 'snake'
+  | 'boss_gorilla' | 'boss_kraken' | 'boss_lavadragon' | 'boss_thunderbird' | 'boss_shadowking';
 
 export type Species = {
   id: SpeciesId;
@@ -77,31 +78,57 @@ export type Species = {
   desc: string;
 };
 
+const sp = (id: SpeciesId, name: string, element: Element, hp: number, atk: number, def: number, spd: number, signature: MoveId, desc: string, extra: Partial<Species> = {}): Species => ({ id, name, element, base: { hp, atk, def, spd }, signature, desc, ...extra });
+
 export const SPECIES: Record<SpeciesId, Species> = {
-  YellowDragon: { id: 'YellowDragon', name: 'ספרקי', element: 'fire', base: { hp: 92, atk: 15, def: 8, spd: 10 }, signature: 'fireBreath', starter: true, desc: 'דרקון קטן עם לב ענק. נשימת אש שורפת.' },
-  Penguin: { id: 'Penguin', name: 'פינגו', element: 'water', base: { hp: 104, atk: 14, def: 11, spd: 9 }, signature: 'iceBlast', starter: true, desc: 'מקפיא את היריבים במקום.' },
-  Cactus: { id: 'Cactus', name: 'קקטי', element: 'nature', base: { hp: 105, atk: 12, def: 12, spd: 8 }, signature: 'vineWhip', starter: true, desc: 'קוצני ועקשן. גונב חיים מהיריב.' },
-  Panda: { id: 'Panda', name: 'פנדי', element: 'earth', base: { hp: 116, atk: 13, def: 12, spd: 6 }, signature: 'quake', starter: true, desc: 'הכי חזק ועמיד. רעידת אדמה!' },
-  Bee: { id: 'Bee', name: 'זמזום', element: 'storm', base: { hp: 88, atk: 15, def: 8, spd: 15 }, signature: 'zap', starter: true, desc: 'הכי מהיר בזירה. עוקץ שוב ושוב.' },
-  Ghost: { id: 'Ghost', name: 'בו', element: 'shadow', base: { hp: 85, atk: 16, def: 8, spd: 11 }, signature: 'shadowClaw', starter: true, desc: 'מופיע ונעלם. עובר דרך שריון.' },
-  Yeti: { id: 'Yeti', name: 'ייטי', element: 'water', base: { hp: 130, atk: 14, def: 12, spd: 6 }, signature: 'iceBlast', desc: 'שומר ההרים הקפואים.' },
-  Cyclops: { id: 'Cyclops', name: 'עין-אחת', element: 'earth', base: { hp: 115, atk: 15, def: 11, spd: 7 }, signature: 'smash', desc: 'רואה הכול בעין אחת.' },
-  Demon: { id: 'Demon', name: 'שדון אש', element: 'fire', base: { hp: 95, atk: 17, def: 8, spd: 10 }, signature: 'fireBreath', desc: 'שובב ולוהט.' },
-  GreenDemon: { id: 'GreenDemon', name: 'גובלין', element: 'nature', base: { hp: 98, atk: 15, def: 9, spd: 11 }, signature: 'vineWhip', desc: 'הגובלין של היער.' },
-  Alien: { id: 'Alien', name: 'זורג', element: 'storm', base: { hp: 90, atk: 15, def: 9, spd: 12 }, signature: 'zap', desc: 'נחת מכוכב אחר.' },
-  Alien_Tall: { id: 'Alien_Tall', name: 'זורג הגבוה', element: 'storm', base: { hp: 100, atk: 16, def: 10, spd: 11 }, signature: 'thunder', desc: 'מנהיג החייזרים.' },
-  Skull: { id: 'Skull', name: 'גולגולי', element: 'shadow', base: { hp: 88, atk: 17, def: 8, spd: 10 }, signature: 'shadowClaw', desc: 'מפחיד רק קצת.' },
-  Tree: { id: 'Tree', name: 'עצי', element: 'nature', base: { hp: 135, atk: 12, def: 14, spd: 5 }, signature: 'vineWhip', desc: 'עץ עתיק ששומר על היער.' },
-  Deer: { id: 'Deer', name: 'צביקי', element: 'nature', base: { hp: 92, atk: 14, def: 9, spd: 13 }, signature: 'vineWhip', desc: 'קופץ בין העצים.' },
-  Crab: { id: 'Crab', name: 'סרטן', element: 'water', base: { hp: 105, atk: 14, def: 15, spd: 7 }, signature: 'shield', desc: 'שריון קשה מאוד.' },
-  Bat: { id: 'Bat', name: 'עטלפי', element: 'shadow', base: { hp: 80, atk: 15, def: 7, spd: 14 }, signature: 'shadowClaw', desc: 'יוצא רק בלילה.' },
-  Cthulhu: { id: 'Cthulhu', name: 'קת׳ולו', element: 'water', base: { hp: 145, atk: 16, def: 12, spd: 8 }, signature: 'iceBlast', scale: 1.25, desc: 'מלך המעמקים. בוס.' },
-  Mushroom: { id: 'Mushroom', name: 'פטריון', element: 'nature', base: { hp: 95, atk: 13, def: 10, spd: 9 }, signature: 'heal', desc: 'מרפא את עצמו.' },
-  Pig: { id: 'Pig', name: 'חזרזיר', element: 'earth', base: { hp: 110, atk: 13, def: 11, spd: 8 }, signature: 'smash', desc: 'קטן אבל עקשן.' },
-  Chicken: { id: 'Chicken', name: 'תרנגולי', element: 'fire', base: { hp: 80, atk: 14, def: 8, spd: 13 }, signature: 'bite', desc: 'אל תעצבנו אותו.' },
+  dragon: sp('dragon', 'דרקו', 'fire', 92, 15, 8, 10, 'fireBreath', 'דרקון קטן עם עצבים גדולים. נושף אש!', { starter: true }),
+  cat: sp('cat', 'בלייז', 'fire', 86, 16, 7, 13, 'slash', 'חתול רחוב לוהט. מהיר וחד.', { starter: true }),
+  fox: sp('fox', 'פוקסי', 'fire', 88, 15, 8, 12, 'fireBreath', 'שועל ערמומי עם זנב בוער.'),
+  penguin: sp('penguin', 'פינגו', 'water', 104, 14, 11, 9, 'iceBlast', 'מקפיא את היריבים במקום.', { starter: true }),
+  shark: sp('shark', 'שארקי', 'water', 108, 16, 10, 8, 'bite', 'החיוך הכי מפחיד בים.'),
+  octopus: sp('octopus', 'אוקטו', 'water', 96, 14, 10, 11, 'iceBlast', 'שמונה זרועות, אפס רחמים.'),
+  frog: sp('frog', 'קרואק', 'nature', 105, 12, 12, 9, 'vineWhip', 'צפרדע היער. גונב חיים מהיריב.', { starter: true }),
+  bunny: sp('bunny', 'באני', 'nature', 90, 13, 9, 14, 'heal', 'שומרת היער. מרפאה את עצמה.'),
+  owl: sp('owl', 'ינשופי', 'nature', 92, 15, 8, 11, 'arrows', 'קשת שלא מפספס אף פעם.'),
+  panda: sp('panda', 'פנדי', 'earth', 116, 13, 12, 6, 'quake', 'הכי חזק ועמיד. רעידת אדמה!', { starter: true }),
+  rhino: sp('rhino', 'רינו', 'earth', 122, 14, 13, 5, 'smash', 'דוהר קדימה ולא עוצר.'),
+  mole: sp('mole', 'חפרי', 'earth', 100, 14, 11, 9, 'quake', 'חופר מתחת לזירה ומפתיע.'),
+  wolf: sp('wolf', 'וולטי', 'storm', 94, 15, 8, 13, 'zap', 'זאב הברקים. הכי מהיר בלהקה.', { starter: true }),
+  bee: sp('bee', 'זמזום', 'storm', 88, 15, 8, 15, 'zap', 'עוקץ שוב ושוב בלי הפסקה.'),
+  eagle: sp('eagle', 'נשרי', 'storm', 96, 16, 9, 12, 'thunder', 'מלך השמיים. מטיל רעמים.'),
+  raven: sp('raven', 'רייבן', 'shadow', 86, 16, 8, 11, 'shadowClaw', 'מופיע ונעלם. עובר דרך שריון.', { starter: true }),
+  bat: sp('bat', 'עטלפי', 'shadow', 82, 15, 7, 14, 'shadowClaw', 'יוצא רק בלילה.'),
+  snake: sp('snake', 'קוברה', 'shadow', 90, 17, 8, 10, 'bite', 'נשיכה אחת ונגמר.'),
+  boss_gorilla: sp('boss_gorilla', 'קינג קונגי', 'nature', 150, 15, 14, 5, 'smash', 'שומר היער העתיק. בוס.', { scale: 1.3 }),
+  boss_kraken: sp('boss_kraken', 'קרקן', 'water', 145, 16, 12, 8, 'iceBlast', 'מלך המעמקים. בוס.', { scale: 1.3 }),
+  boss_lavadragon: sp('boss_lavadragon', 'מלך הלבה', 'fire', 140, 18, 11, 8, 'fireBreath', 'הדרקון שבתוך הר הגעש. בוס.', { scale: 1.3 }),
+  boss_thunderbird: sp('boss_thunderbird', 'ציפור הרעם', 'storm', 135, 18, 10, 11, 'thunder', 'שולטת בסערה. בוס.', { scale: 1.3 }),
+  boss_shadowking: sp('boss_shadowking', 'מלך הצללים', 'shadow', 150, 19, 11, 9, 'shadowClaw', 'השליט של ממלכת הצללים. הבוס האחרון.', { scale: 1.35 }),
 };
 
-export const STARTERS: SpeciesId[] = ['YellowDragon', 'Penguin', 'Cactus', 'Panda', 'Bee', 'Ghost'];
+export const STARTERS: SpeciesId[] = ['dragon', 'cat', 'penguin', 'frog', 'panda', 'wolf', 'raven'];
+
+/** Ids from the first version of the game (Quaternius sprites), mapped onto the new roster. */
+const LEGACY: Record<string, SpeciesId> = {
+  YellowDragon: 'dragon', Demon: 'fox', Chicken: 'fox', Penguin: 'penguin', Crab: 'shark', Cthulhu: 'boss_kraken', Yeti: 'octopus',
+  Cactus: 'frog', GreenDemon: 'frog', Mushroom: 'bunny', Deer: 'bunny', Tree: 'boss_gorilla', Panda: 'panda', Pig: 'rhino', Cyclops: 'mole',
+  Bee: 'bee', Alien: 'wolf', Alien_Tall: 'eagle', Ghost: 'raven', Bat: 'bat', Skull: 'snake',
+};
+export const normSpecies = (id: string): SpeciesId => (id in SPECIES ? (id as SpeciesId) : (LEGACY[id] ?? 'dragon'));
+
+/** Cosmetic skins: same fighter and stats, a new look. Bought with gems. */
+export type Skin = { id: string; species: SpeciesId; name: string; price: number; rarity: 'epic' | 'legendary' };
+export const SKINS: Skin[] = [
+  { id: 'dragon_gold', species: 'dragon', name: 'דרקו אביר הזהב', price: 80, rarity: 'legendary' },
+  { id: 'dragon_ice', species: 'dragon', name: 'דרקו הקרח', price: 40, rarity: 'epic' },
+  { id: 'cat_ninja', species: 'cat', name: 'בלייז נינג׳ה', price: 40, rarity: 'epic' },
+  { id: 'cat_space', species: 'cat', name: 'בלייז האסטרונאוט', price: 80, rarity: 'legendary' },
+  { id: 'penguin_pirate', species: 'penguin', name: 'פינגו קפטן פיראטים', price: 40, rarity: 'epic' },
+  { id: 'panda_samurai', species: 'panda', name: 'פנדי סמוראי', price: 80, rarity: 'legendary' },
+  { id: 'wolf_neon', species: 'wolf', name: 'וולטי סייבר', price: 80, rarity: 'legendary' },
+  { id: 'frog_king', species: 'frog', name: 'קרואק המלך', price: 40, rarity: 'epic' },
+];
+export const skinDef = (id?: string) => SKINS.find((k) => k.id === id);
 
 export type Rarity = 'common' | 'rare' | 'epic' | 'legendary' | 'mythic';
 
@@ -128,32 +155,32 @@ export type ItemDef = {
   icon: string;
 };
 
-// Icons are rendered from Quaternius' "Ultimate RPG Items" pack (file names kept as ids)
+// Item ids stay from the first version (saves keep working); icons are the new illustrations in assets/sim/items
 export const ITEMS: ItemDef[] = [
-  { id: 'Dagger', name: 'פגיון', slot: 'weapon', rarity: 'common', bonus: { atk: 3, spd: 1 }, move: 'slash', icon: 'Dagger' },
-  { id: 'Axe_Small', name: 'גרזן קטן', slot: 'weapon', rarity: 'common', bonus: { atk: 4 }, move: 'slash', icon: 'Axe_Small' },
-  { id: 'Sword', name: 'חרב', slot: 'weapon', rarity: 'rare', bonus: { atk: 5 }, move: 'slash', icon: 'Sword' },
-  { id: 'Bow_Wooden', name: 'קשת עץ', slot: 'weapon', rarity: 'rare', bonus: { atk: 4, spd: 2 }, move: 'arrows', icon: 'Bow_Wooden' },
-  { id: 'Hammer_Double', name: 'פטיש קרב', slot: 'weapon', rarity: 'epic', bonus: { atk: 7 }, move: 'smash', icon: 'Hammer_Double' },
-  { id: 'Axe_Double', name: 'גרזן כפול', slot: 'weapon', rarity: 'epic', bonus: { atk: 7, def: 1 }, move: 'slash', icon: 'Axe_Double' },
-  { id: 'Sword_Big', name: 'חרב ענק', slot: 'weapon', rarity: 'epic', bonus: { atk: 8 }, move: 'slash', icon: 'Sword_Big' },
-  { id: 'Bow_Golden', name: 'קשת הזהב', slot: 'weapon', rarity: 'legendary', bonus: { atk: 8, spd: 3 }, move: 'arrows', icon: 'Bow_Golden' },
-  { id: 'Hammer_Double_Golden', name: 'פטיש הרעם', slot: 'weapon', rarity: 'legendary', bonus: { atk: 10 }, move: 'thunder', icon: 'Hammer_Double_Golden' },
-  { id: 'Sword_Golden', name: 'חרב הרעם', slot: 'weapon', rarity: 'legendary', bonus: { atk: 10, spd: 1 }, move: 'thunder', icon: 'Sword_Golden' },
-  { id: 'Sword_Big_Golden', name: 'להב האגדה', slot: 'weapon', rarity: 'mythic', bonus: { atk: 13, spd: 2 }, move: 'thunder', icon: 'Sword_Big_Golden' },
-  { id: 'Armor_Leather', name: 'שריון עור', slot: 'armor', rarity: 'common', bonus: { def: 3, hp: 8 }, icon: 'Armor_Leather' },
-  { id: 'Armor_Metal', name: 'שריון ברזל', slot: 'armor', rarity: 'rare', bonus: { def: 5, hp: 12 }, icon: 'Armor_Metal' },
-  { id: 'Armor_Metal2', name: 'שריון אבירים', slot: 'armor', rarity: 'epic', bonus: { def: 7, hp: 18 }, icon: 'Armor_Metal2' },
-  { id: 'Armor_Black', name: 'שריון הצל', slot: 'armor', rarity: 'legendary', bonus: { def: 9, hp: 22, atk: 2 }, icon: 'Armor_Black' },
-  { id: 'Armor_Golden', name: 'שריון הזהב', slot: 'armor', rarity: 'mythic', bonus: { def: 12, hp: 30 }, icon: 'Armor_Golden' },
-  { id: 'Crown2', name: 'כתר נסיכים', slot: 'head', rarity: 'epic', bonus: { hp: 15, atk: 2 }, move: 'rage', icon: 'Crown2' },
-  { id: 'Crown', name: 'כתר המלך', slot: 'head', rarity: 'legendary', bonus: { hp: 25, atk: 3, def: 2 }, move: 'rage', icon: 'Crown' },
-  { id: 'Glove', name: 'כפפת כוח', slot: 'charm', rarity: 'common', bonus: { atk: 2 }, icon: 'Glove' },
-  { id: 'Ring1', name: 'טבעת מהירות', slot: 'charm', rarity: 'rare', bonus: { spd: 3 }, icon: 'Ring1' },
-  { id: 'Necklace1', name: 'שרשרת חיים', slot: 'charm', rarity: 'rare', bonus: { hp: 15 }, move: 'heal', icon: 'Necklace1' },
-  { id: 'Ring3', name: 'טבעת הקרח', slot: 'charm', rarity: 'epic', bonus: { def: 3, spd: 2 }, move: 'shield', icon: 'Ring3' },
-  { id: 'Necklace3', name: 'קמע הדרקון', slot: 'charm', rarity: 'legendary', bonus: { atk: 4, hp: 18 }, move: 'heal', icon: 'Necklace3' },
-  { id: 'Crystal5', name: 'גביש הנצח', slot: 'charm', rarity: 'mythic', bonus: { atk: 5, def: 5, hp: 25, spd: 2 }, move: 'shield', icon: 'Crystal5' },
+  { id: 'Dagger', name: 'פגיון', slot: 'weapon', rarity: 'common', bonus: { atk: 3, spd: 1 }, move: 'slash', icon: 'it_flame_dagger' },
+  { id: 'Axe_Small', name: 'גרזן קטן', slot: 'weapon', rarity: 'common', bonus: { atk: 4 }, move: 'slash', icon: 'it_battle_axe' },
+  { id: 'Sword', name: 'חרב', slot: 'weapon', rarity: 'rare', bonus: { atk: 5 }, move: 'slash', icon: 'it_ice_sword' },
+  { id: 'Bow_Wooden', name: 'קשת עץ', slot: 'weapon', rarity: 'rare', bonus: { atk: 4, spd: 2 }, move: 'arrows', icon: 'it_vine_bow' },
+  { id: 'Hammer_Double', name: 'פטיש קרב', slot: 'weapon', rarity: 'epic', bonus: { atk: 7 }, move: 'smash', icon: 'it_rock_hammer' },
+  { id: 'Axe_Double', name: 'גרזן כפול', slot: 'weapon', rarity: 'epic', bonus: { atk: 7, def: 1 }, move: 'slash', icon: 'it_battle_axe' },
+  { id: 'Sword_Big', name: 'חרב ענק', slot: 'weapon', rarity: 'epic', bonus: { atk: 8 }, move: 'slash', icon: 'it_ice_sword' },
+  { id: 'Bow_Golden', name: 'קשת הזהב', slot: 'weapon', rarity: 'legendary', bonus: { atk: 8, spd: 3 }, move: 'arrows', icon: 'it_vine_bow' },
+  { id: 'Hammer_Double_Golden', name: 'פטיש הרעם', slot: 'weapon', rarity: 'legendary', bonus: { atk: 10 }, move: 'thunder', icon: 'it_thunder_hammer' },
+  { id: 'Sword_Golden', name: 'חרב הרעם', slot: 'weapon', rarity: 'legendary', bonus: { atk: 10, spd: 1 }, move: 'thunder', icon: 'it_flame_sword' },
+  { id: 'Sword_Big_Golden', name: 'להב האגדה', slot: 'weapon', rarity: 'mythic', bonus: { atk: 13, spd: 2 }, move: 'thunder', icon: 'it_shadow_scythe' },
+  { id: 'Armor_Leather', name: 'שריון עור', slot: 'armor', rarity: 'common', bonus: { def: 3, hp: 8 }, icon: 'it_leather_armor' },
+  { id: 'Armor_Metal', name: 'שריון ברזל', slot: 'armor', rarity: 'rare', bonus: { def: 5, hp: 12 }, icon: 'it_iron_armor' },
+  { id: 'Armor_Metal2', name: 'שריון אבירים', slot: 'armor', rarity: 'epic', bonus: { def: 7, hp: 18 }, icon: 'it_knight_armor' },
+  { id: 'Armor_Black', name: 'שריון הצל', slot: 'armor', rarity: 'legendary', bonus: { def: 9, hp: 22, atk: 2 }, icon: 'it_shadow_armor' },
+  { id: 'Armor_Golden', name: 'שריון הזהב', slot: 'armor', rarity: 'mythic', bonus: { def: 12, hp: 30 }, icon: 'it_gold_armor' },
+  { id: 'Crown2', name: 'כתר נסיכים', slot: 'head', rarity: 'epic', bonus: { hp: 15, atk: 2 }, move: 'rage', icon: 'it_prince_crown' },
+  { id: 'Crown', name: 'כתר המלך', slot: 'head', rarity: 'legendary', bonus: { hp: 25, atk: 3, def: 2 }, move: 'rage', icon: 'it_king_crown' },
+  { id: 'Glove', name: 'כפפת כוח', slot: 'charm', rarity: 'common', bonus: { atk: 2 }, icon: 'it_power_glove' },
+  { id: 'Ring1', name: 'טבעת מהירות', slot: 'charm', rarity: 'rare', bonus: { spd: 3 }, icon: 'it_speed_ring' },
+  { id: 'Necklace1', name: 'שרשרת חיים', slot: 'charm', rarity: 'rare', bonus: { hp: 15 }, move: 'heal', icon: 'it_life_necklace' },
+  { id: 'Ring3', name: 'טבעת הקרח', slot: 'charm', rarity: 'epic', bonus: { def: 3, spd: 2 }, move: 'shield', icon: 'it_ice_ring' },
+  { id: 'Necklace3', name: 'קמע הדרקון', slot: 'charm', rarity: 'legendary', bonus: { atk: 4, hp: 18 }, move: 'heal', icon: 'it_dragon_amulet' },
+  { id: 'Crystal5', name: 'גביש הנצח', slot: 'charm', rarity: 'mythic', bonus: { atk: 5, def: 5, hp: 25, spd: 2 }, move: 'shield', icon: 'it_eternal_crystal' },
 ];
 export const itemDef = (id: string) => ITEMS.find((i) => i.id === id);
 
@@ -183,11 +210,11 @@ export function rankOf(trophies: number) {
 
 /** Five worlds of 50 stages; a boss every 10th stage and a world boss at 50. */
 export const WORLDS = [
-  { id: 1, name: 'יער הקסמים', colors: ['#14532D', '#22C55E'] as const, bg: 'world1', enemies: ['GreenDemon', 'Mushroom', 'Deer', 'Cactus', 'Tree'] as SpeciesId[], boss: 'Tree' as SpeciesId },
-  { id: 2, name: 'חוף הסרטנים', colors: ['#0C4A6E', '#38BDF8'] as const, bg: 'world2', enemies: ['Crab', 'Penguin', 'Chicken', 'Pig', 'Bee'] as SpeciesId[], boss: 'Cthulhu' as SpeciesId },
-  { id: 3, name: 'הר הגעש', colors: ['#7C2D12', '#F97316'] as const, bg: 'world3', enemies: ['Demon', 'Chicken', 'YellowDragon', 'Cyclops', 'Pig'] as SpeciesId[], boss: 'Cyclops' as SpeciesId },
-  { id: 4, name: 'הפסגה הקפואה', colors: ['#1E3A8A', '#BAE6FD'] as const, bg: 'world4', enemies: ['Yeti', 'Penguin', 'Panda', 'Crab', 'Ghost'] as SpeciesId[], boss: 'Yeti' as SpeciesId },
-  { id: 5, name: 'ממלכת הצללים', colors: ['#2E1065', '#A855F7'] as const, bg: 'world5', enemies: ['Skull', 'Bat', 'Ghost', 'Alien', 'Alien_Tall'] as SpeciesId[], boss: 'Alien_Tall' as SpeciesId },
+  { id: 1, name: 'יער הקסמים', colors: ['#14532D', '#22C55E'] as const, bg: 'forest', enemies: ['frog', 'bunny', 'owl', 'mole', 'fox'] as SpeciesId[], boss: 'boss_gorilla' as SpeciesId },
+  { id: 2, name: 'איי הכרישים', colors: ['#0C4A6E', '#38BDF8'] as const, bg: 'ocean', enemies: ['shark', 'octopus', 'penguin', 'frog', 'bee'] as SpeciesId[], boss: 'boss_kraken' as SpeciesId },
+  { id: 3, name: 'הר הגעש', colors: ['#7C2D12', '#F97316'] as const, bg: 'volcano', enemies: ['fox', 'cat', 'dragon', 'rhino', 'mole'] as SpeciesId[], boss: 'boss_lavadragon' as SpeciesId },
+  { id: 4, name: 'פסגות הסערה', colors: ['#3B0764', '#FACC15'] as const, bg: 'storm', enemies: ['wolf', 'bee', 'eagle', 'panda', 'rhino'] as SpeciesId[], boss: 'boss_thunderbird' as SpeciesId },
+  { id: 5, name: 'ממלכת הצללים', colors: ['#2E1065', '#A855F7'] as const, bg: 'shadow', enemies: ['raven', 'bat', 'snake', 'wolf', 'octopus'] as SpeciesId[], boss: 'boss_shadowking' as SpeciesId },
 ];
 export const STAGES_PER_WORLD = 50;
 export const TOTAL_STAGES = WORLDS.length * STAGES_PER_WORLD;

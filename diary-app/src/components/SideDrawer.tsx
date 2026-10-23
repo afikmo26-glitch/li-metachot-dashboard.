@@ -116,7 +116,7 @@ export default function SideDrawer({ visible, onClose, account, onOpenSettings, 
               <Ionicons name="flash" size={22} color="#FEF3C7" />
               <View style={{ flex: 1 }}>
                 <T bold size={15} style={{ color: '#fff' }}>
-                  {t('⚔️ קרב החיות')}
+                  {t('🔥 הסים שלך')}
                 </T>
                 <T size={12} style={{ color: '#FEF3C7' }}>
                   {t('שלבים, דרגות וקרבות אונליין')}

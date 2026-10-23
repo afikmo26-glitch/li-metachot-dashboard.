@@ -7,6 +7,8 @@ export type Fighter = {
   species: SpeciesId;
   name: string;
   level: number;
+  /** cosmetic skin id (see SKINS) */
+  skin?: string;
   /** map enemies only: below 1 makes early stages gentler */
   handicap?: number;
   equip: Partial<Record<'weapon' | 'armor' | 'head' | 'charm', OwnedItem>>;

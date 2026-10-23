@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Image, Pressable, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-import { BACKGROUNDS } from '../assets';
+import { WORLD_ART } from '../simArt';
 import { elementBonus, ELEMENTS, SPECIES, STAGES_PER_WORLD, WORLDS } from '../data';
 import { enemyForStage, isBoss, isWorldBoss, stageRewards } from '../progress';
 import Sprite from '../Sprite';
@@ -33,7 +33,7 @@ export default function MapScreen({ onBack, onFight }: { onBack: () => void; onF
 
   return (
     <View style={{ flex: 1, backgroundColor: '#0B0620' }}>
-      <Image source={BACKGROUNDS[w.bg as keyof typeof BACKGROUNDS]} style={{ position: 'absolute', width: '100%', height: '100%' }} resizeMode="cover" />
+      <Image source={WORLD_ART[`map_${w.bg}`]} style={{ position: 'absolute', width: '100%', height: '100%' }} resizeMode="cover" />
       <View style={{ paddingTop: insets.top + 8, paddingHorizontal: 12, paddingBottom: 8, backgroundColor: 'rgba(10,5,25,0.7)' }}>
         <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 8 }}>
           <Pressable onPress={onBack} accessibilityLabel="חזרה" hitSlop={8} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' }}>
@@ -116,7 +116,7 @@ export default function MapScreen({ onBack, onFight }: { onBack: () => void; onF
         {pts.findIndex((_, i) => first + i === cur) >= 0 && s.fighter && (
           <View pointerEvents="none" style={{ position: 'absolute', left: pts[cur - first][0] - 34, top: pts[cur - first][1] - 92 }}>
             <Float amount={6} ms={500}>
-              <Sprite char={s.fighter.species} size={64} fps={12} />
+              <Sprite char={s.fighter.species} skin={s.fighter.skin} size={64} fps={12} />
             </Float>
           </View>
         )}

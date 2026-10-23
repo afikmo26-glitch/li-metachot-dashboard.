@@ -1,56 +1,7 @@
-// Generated from the 3D renders (see assets/game/CREDITS.md). Do not edit by hand.
+// Item icons generated from the 3D renders (see assets/game/CREDITS.md). Do not edit by hand.
 
 export type Anim = 'idle' | 'attack' | 'hit' | 'death' | 'win';
 export type View = 'front' | 'back';
-
-/** Frames in each sheet, per character and animation (every sheet is one row of 224px frames). */
-export const SHEET_FRAMES: Record<string, Partial<Record<Anim, number>>> = {
-  Panda: {"idle": 12, "attack": 10, "hit": 8, "death": 10, "win": 12},
-  Ghost: {"idle": 12, "attack": 10, "hit": 8, "death": 10, "win": 12},
-  Cactus: {"idle": 12, "attack": 10, "hit": 8, "death": 10, "win": 12},
-  Yeti: {"idle": 12, "attack": 10, "hit": 8, "death": 10, "win": 12},
-  Cyclops: {"idle": 12, "attack": 10, "hit": 8, "death": 10, "win": 12},
-  Demon: {"idle": 12, "attack": 10, "hit": 8, "death": 10, "win": 12},
-  GreenDemon: {"idle": 12, "attack": 10, "hit": 8, "death": 10, "win": 12},
-  Alien: {"idle": 12, "attack": 10, "hit": 8, "death": 10, "win": 12},
-  Alien_Tall: {"idle": 12, "attack": 10, "hit": 8, "death": 10, "win": 12},
-  Skull: {"idle": 12, "attack": 10, "hit": 8, "death": 10, "win": 12},
-  Tree: {"idle": 12, "attack": 10, "hit": 8, "death": 10, "win": 12},
-  Deer: {"idle": 12, "attack": 10, "hit": 8, "death": 10, "win": 12},
-  Crab: {"idle": 12, "attack": 10, "hit": 8, "death": 10, "win": 12},
-  YellowDragon: {"idle": 12, "attack": 10, "hit": 8, "death": 10, "win": 12},
-  Bee: {"idle": 12, "attack": 10, "death": 10, "win": 12},
-  Bat: {"idle": 12, "attack": 10, "death": 10, "win": 12},
-  Cthulhu: {"idle": 12, "hit": 8, "win": 12},
-  Penguin: {"idle": 12},
-  Mushroom: {"idle": 12},
-  Pig: {"idle": 12},
-  Chicken: {"idle": 12},
-};
-
-export const SHEETS: Record<string, Partial<Record<View, Partial<Record<Anim, number>>>>> = {
-  Panda: { front: { idle: require('../../assets/game/chars/Panda_front_idle.webp'), attack: require('../../assets/game/chars/Panda_front_attack.webp'), hit: require('../../assets/game/chars/Panda_front_hit.webp'), death: require('../../assets/game/chars/Panda_front_death.webp'), win: require('../../assets/game/chars/Panda_front_win.webp') }, back: { idle: require('../../assets/game/chars/Panda_back_idle.webp'), attack: require('../../assets/game/chars/Panda_back_attack.webp'), hit: require('../../assets/game/chars/Panda_back_hit.webp'), death: require('../../assets/game/chars/Panda_back_death.webp'), win: require('../../assets/game/chars/Panda_back_win.webp') } },
-  Ghost: { front: { idle: require('../../assets/game/chars/Ghost_front_idle.webp'), attack: require('../../assets/game/chars/Ghost_front_attack.webp'), hit: require('../../assets/game/chars/Ghost_front_hit.webp'), death: require('../../assets/game/chars/Ghost_front_death.webp'), win: require('../../assets/game/chars/Ghost_front_win.webp') }, back: { idle: require('../../assets/game/chars/Ghost_back_idle.webp'), attack: require('../../assets/game/chars/Ghost_back_attack.webp'), hit: require('../../assets/game/chars/Ghost_back_hit.webp'), death: require('../../assets/game/chars/Ghost_back_death.webp'), win: require('../../assets/game/chars/Ghost_back_win.webp') } },
-  Cactus: { front: { idle: require('../../assets/game/chars/Cactus_front_idle.webp'), attack: require('../../assets/game/chars/Cactus_front_attack.webp'), hit: require('../../assets/game/chars/Cactus_front_hit.webp'), death: require('../../assets/game/chars/Cactus_front_death.webp'), win: require('../../assets/game/chars/Cactus_front_win.webp') }, back: { idle: require('../../assets/game/chars/Cactus_back_idle.webp'), attack: require('../../assets/game/chars/Cactus_back_attack.webp'), hit: require('../../assets/game/chars/Cactus_back_hit.webp'), death: require('../../assets/game/chars/Cactus_back_death.webp'), win: require('../../assets/game/chars/Cactus_back_win.webp') } },
-  Yeti: { front: { idle: require('../../assets/game/chars/Yeti_front_idle.webp'), attack: require('../../assets/game/chars/Yeti_front_attack.webp'), hit: require('../../assets/game/chars/Yeti_front_hit.webp'), death: require('../../assets/game/chars/Yeti_front_death.webp'), win: require('../../assets/game/chars/Yeti_front_win.webp') } },
-  Cyclops: { front: { idle: require('../../assets/game/chars/Cyclops_front_idle.webp'), attack: require('../../assets/game/chars/Cyclops_front_attack.webp'), hit: require('../../assets/game/chars/Cyclops_front_hit.webp'), death: require('../../assets/game/chars/Cyclops_front_death.webp'), win: require('../../assets/game/chars/Cyclops_front_win.webp') } },
-  Demon: { front: { idle: require('../../assets/game/chars/Demon_front_idle.webp'), attack: require('../../assets/game/chars/Demon_front_attack.webp'), hit: require('../../assets/game/chars/Demon_front_hit.webp'), death: require('../../assets/game/chars/Demon_front_death.webp'), win: require('../../assets/game/chars/Demon_front_win.webp') } },
-  GreenDemon: { front: { idle: require('../../assets/game/chars/GreenDemon_front_idle.webp'), attack: require('../../assets/game/chars/GreenDemon_front_attack.webp'), hit: require('../../assets/game/chars/GreenDemon_front_hit.webp'), death: require('../../assets/game/chars/GreenDemon_front_death.webp'), win: require('../../assets/game/chars/GreenDemon_front_win.webp') } },
-  Alien: { front: { idle: require('../../assets/game/chars/Alien_front_idle.webp'), attack: require('../../assets/game/chars/Alien_front_attack.webp'), hit: require('../../assets/game/chars/Alien_front_hit.webp'), death: require('../../assets/game/chars/Alien_front_death.webp'), win: require('../../assets/game/chars/Alien_front_win.webp') } },
-  Alien_Tall: { front: { idle: require('../../assets/game/chars/Alien_Tall_front_idle.webp'), attack: require('../../assets/game/chars/Alien_Tall_front_attack.webp'), hit: require('../../assets/game/chars/Alien_Tall_front_hit.webp'), death: require('../../assets/game/chars/Alien_Tall_front_death.webp'), win: require('../../assets/game/chars/Alien_Tall_front_win.webp') } },
-  Skull: { front: { idle: require('../../assets/game/chars/Skull_front_idle.webp'), attack: require('../../assets/game/chars/Skull_front_attack.webp'), hit: require('../../assets/game/chars/Skull_front_hit.webp'), death: require('../../assets/game/chars/Skull_front_death.webp'), win: require('../../assets/game/chars/Skull_front_win.webp') } },
-  Tree: { front: { idle: require('../../assets/game/chars/Tree_front_idle.webp'), attack: require('../../assets/game/chars/Tree_front_attack.webp'), hit: require('../../assets/game/chars/Tree_front_hit.webp'), death: require('../../assets/game/chars/Tree_front_death.webp'), win: require('../../assets/game/chars/Tree_front_win.webp') } },
-  Deer: { front: { idle: require('../../assets/game/chars/Deer_front_idle.webp'), attack: require('../../assets/game/chars/Deer_front_attack.webp'), hit: require('../../assets/game/chars/Deer_front_hit.webp'), death: require('../../assets/game/chars/Deer_front_death.webp'), win: require('../../assets/game/chars/Deer_front_win.webp') } },
-  Crab: { front: { idle: require('../../assets/game/chars/Crab_front_idle.webp'), attack: require('../../assets/game/chars/Crab_front_attack.webp'), hit: require('../../assets/game/chars/Crab_front_hit.webp'), death: require('../../assets/game/chars/Crab_front_death.webp'), win: require('../../assets/game/chars/Crab_front_win.webp') } },
-  YellowDragon: { front: { idle: require('../../assets/game/chars/YellowDragon_front_idle.webp'), attack: require('../../assets/game/chars/YellowDragon_front_attack.webp'), hit: require('../../assets/game/chars/YellowDragon_front_hit.webp'), death: require('../../assets/game/chars/YellowDragon_front_death.webp'), win: require('../../assets/game/chars/YellowDragon_front_win.webp') }, back: { idle: require('../../assets/game/chars/YellowDragon_back_idle.webp'), attack: require('../../assets/game/chars/YellowDragon_back_attack.webp'), hit: require('../../assets/game/chars/YellowDragon_back_hit.webp'), death: require('../../assets/game/chars/YellowDragon_back_death.webp'), win: require('../../assets/game/chars/YellowDragon_back_win.webp') } },
-  Bee: { front: { idle: require('../../assets/game/chars/Bee_front_idle.webp'), attack: require('../../assets/game/chars/Bee_front_attack.webp'), death: require('../../assets/game/chars/Bee_front_death.webp'), win: require('../../assets/game/chars/Bee_front_win.webp') }, back: { idle: require('../../assets/game/chars/Bee_back_idle.webp'), attack: require('../../assets/game/chars/Bee_back_attack.webp'), death: require('../../assets/game/chars/Bee_back_death.webp'), win: require('../../assets/game/chars/Bee_back_win.webp') } },
-  Bat: { front: { idle: require('../../assets/game/chars/Bat_front_idle.webp'), attack: require('../../assets/game/chars/Bat_front_attack.webp'), death: require('../../assets/game/chars/Bat_front_death.webp'), win: require('../../assets/game/chars/Bat_front_win.webp') } },
-  Cthulhu: { front: { idle: require('../../assets/game/chars/Cthulhu_front_idle.webp'), hit: require('../../assets/game/chars/Cthulhu_front_hit.webp'), win: require('../../assets/game/chars/Cthulhu_front_win.webp') } },
-  Penguin: { front: { idle: require('../../assets/game/chars/Penguin_front_idle.webp') }, back: { idle: require('../../assets/game/chars/Penguin_back_idle.webp') } },
-  Mushroom: { front: { idle: require('../../assets/game/chars/Mushroom_front_idle.webp') } },
-  Pig: { front: { idle: require('../../assets/game/chars/Pig_front_idle.webp') } },
-  Chicken: { front: { idle: require('../../assets/game/chars/Chicken_front_idle.webp') } },
-};
 
 export const ITEM_ICONS: Record<string, number> = {
   "Armor_Black": require('../../assets/game/items/Armor_Black.webp'),
@@ -166,13 +117,4 @@ export const ITEM_ICONS: Record<string, number> = {
   "rank_legend": require('../../assets/game/items/rank_legend.webp'),
   "rank_master": require('../../assets/game/items/rank_master.webp'),
   "rank_silver": require('../../assets/game/items/rank_silver.webp'),
-};
-
-export const BACKGROUNDS = {
-  arena: require('../../assets/game/arena.webp'),
-  world1: require('../../assets/game/world1.webp'),
-  world2: require('../../assets/game/world2.webp'),
-  world3: require('../../assets/game/world3.webp'),
-  world4: require('../../assets/game/world4.webp'),
-  world5: require('../../assets/game/world5.webp'),
 };

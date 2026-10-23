@@ -1,11 +1,11 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 import { ELEMENTS, SPECIES, SpeciesId } from './data';
 import { findOpponent, publish } from './online';
 import { botOpponent, enemyForStage, Fighter, isBoss, stageSkill, worldOfStage, stageInWorld } from './progress';
 import BattleScreen, { BattleResult } from './screens/BattleScreen';
-import { BagScreen, GuardsScreen, RanksScreen } from './screens/Collection';
+import { BagScreen, GuardsScreen, RanksScreen, SkinsScreen } from './screens/Collection';
 import Hub, { HubGo } from './screens/Hub';
 import MapScreen from './screens/MapScreen';
 import Pick from './screens/Pick';
@@ -14,18 +14,20 @@ import Sprite from './Sprite';
 import { useArena } from './state';
 import { Float, GL, GT, Rays } from './ui';
 
-type Fight = { mode: 'stage'; stage: number; foe: Fighter; foeName: string; skill: number } | { mode: 'ranked'; foe: Fighter; foeName: string; skill: number; trophies: number };
-type Route = 'hub' | 'map' | 'matching' | 'battle' | 'result' | 'bag' | 'chests' | 'ranks' | 'guards';
+type Fight = { mode: 'stage'; stage: number; foe: Fighter; foeName: string; skill: number; bg: string } | { mode: 'ranked'; foe: Fighter; foeName: string; skill: number; trophies: number; bg: string };
 
-/** Pet Arena ("קרב החיות"): the whole game, opened full screen from the diary. */
+/** Ranked fights happen on the arena of your fighter's element. */
+const HOME_ARENA: Record<string, string> = { fire: 'volcano', water: 'ocean', nature: 'forest', earth: 'forest', storm: 'storm', shadow: 'shadow' };
+type Route = 'hub' | 'map' | 'matching' | 'battle' | 'result' | 'bag' | 'chests' | 'ranks' | 'guards' | 'skins';
+
+/** "הסים שלך" (Your Sim): the whole game, opened full screen from the diary. */
 export default function Arena({ onClose }: { onClose: () => void }) {
   const { ready, s, winStage, loseStage, ranked } = useArena();
   const [route, setRoute] = useState<Route>('hub');
   const [fight, setFight] = useState<Fight | null>(null);
   const [result, setResult] = useState<ResultInfo | null>(null);
   const [battleKey, setBattleKey] = useState(0);
-  // the new live 3D arena; falls back to the 2D one if this device can't run it
-  const [use3d, setUse3d] = useState(true);
+  const [intro, setIntro] = useState(true);
 
   // Keep the online card up to date (trophies, level, gear) — quietly, it's fine to be offline
   const last = useRef('');
@@ -39,12 +41,13 @@ export default function Arena({ onClose }: { onClose: () => void }) {
   }, [s]);
 
   if (!ready) return <View style={{ flex: 1, backgroundColor: '#12082A' }} />;
+  if (intro) return <Intro onDone={() => setIntro(false)} />;
   if (!s.fighter) return <Pick onDone={() => setRoute('hub')} />;
   const guards = s.guards.slice(0, 3);
 
   const startStage = (stage: number) => {
     const foe = enemyForStage(stage);
-    setFight({ mode: 'stage', stage, foe, foeName: isBoss(stage) ? `בוס: ${foe.name}` : `${worldOfStage(stage).name} · שלב ${stageInWorld(stage)}`, skill: stageSkill(stage) });
+    setFight({ mode: 'stage', stage, foe, foeName: isBoss(stage) ? `בוס: ${foe.name}` : `${worldOfStage(stage).name} · שלב ${stageInWorld(stage)}`, skill: stageSkill(stage), bg: `arena_${worldOfStage(stage).bg}` });
     setBattleKey((k) => k + 1);
     setRoute('battle');
   };
@@ -56,7 +59,7 @@ export default function Arena({ onClose }: { onClose: () => void }) {
     const opp = real ?? botOpponent(s.trophies, s.fighter!.level);
     // let the "searching" moment breathe a little
     await new Promise((r) => setTimeout(r, Math.max(0, 1600 - (Date.now() - started))));
-    setFight({ mode: 'ranked', foe: opp.fighter, foeName: opp.player, skill: 0.7, trophies: opp.trophies });
+    setFight({ mode: 'ranked', foe: opp.fighter, foeName: opp.player, skill: 0.7, trophies: opp.trophies, bg: `arena_${HOME_ARENA[SPECIES[s.fighter!.species].element]}` });
     setBattleKey((k) => k + 1);
     setRoute('battle');
   };
@@ -87,14 +90,15 @@ export default function Arena({ onClose }: { onClose: () => void }) {
     case 'map':
       return <MapScreen onBack={() => setRoute('hub')} onFight={startStage} />;
     case 'matching':
-      return <Matching species={s.fighter.species} />;
+      return <Matching species={s.fighter.species} skin={s.fighter.skin} />;
     case 'battle':
-      return fight ? <BattleScreen key={battleKey} me={s.fighter} foe={fight.foe} foeName={fight.foeName} skill={fight.skill} guards={guards} onEnd={onBattleEnd} mode3d={use3d} on3dError={() => setUse3d(false)} /> : null;
+      return fight ? <BattleScreen key={battleKey} me={s.fighter} foe={fight.foe} foeName={fight.foeName} skill={fight.skill} guards={guards} onEnd={onBattleEnd} bg={fight.bg} /> : null;
     case 'result':
       return result ? (
         <ResultScreen
           r={result}
           char={s.fighter.species}
+          skin={s.fighter.skin}
           onContinue={() => setRoute(fight?.mode === 'stage' ? 'map' : 'hub')}
           onRetry={fight?.mode === 'stage' && !result.win ? () => startStage(fight.stage) : fight?.mode === 'ranked' ? startRanked : undefined}
         />
@@ -107,19 +111,52 @@ export default function Arena({ onClose }: { onClose: () => void }) {
       return <RanksScreen onBack={() => setRoute('hub')} />;
     case 'guards':
       return <GuardsScreen onBack={() => setRoute('hub')} />;
+    case 'skins':
+      return <SkinsScreen onBack={() => setRoute('hub')} />;
     default:
-      return <Hub go={go} onClose={onClose} use3d={use3d} onToggle3d={() => setUse3d((v) => !v)} />;
+      return <Hub go={go} onClose={onClose} />;
   }
 }
 
+/** The game's own title screen, every time it opens: the logo over the fighters. */
+function Intro({ onDone }: { onDone: () => void }) {
+  useEffect(() => {
+    const id = setTimeout(onDone, 2600);
+    return () => clearTimeout(id);
+  }, [onDone]);
+  return (
+    <Pressable onPress={onDone} accessibilityRole="button" accessibilityLabel="הסים שלך, לחץ להתחלה" style={{ flex: 1 }}>
+      <LinearGradient colors={['#4C1D95', '#2A1052', '#0B0620']} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <Rays size={700} color="rgba(250,204,21,0.08)" />
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginBottom: -10 }}>
+          <Sprite char="cat" anim="win" size={130} />
+          <Sprite char="dragon" anim="win" size={190} style={{ marginHorizontal: -30, zIndex: 1 }} />
+          <Sprite char="wolf" anim="win" size={130} flip />
+        </View>
+        <GT size={52} color="#FDE047" style={{ textShadowColor: '#7C2D12', textShadowRadius: 1, textShadowOffset: { width: 0, height: 5 } }}>
+          הסים שלך
+        </GT>
+        <GL size={15} color="#E9D5FF" style={{ marginTop: 6 }}>
+          בחר. תילחם. תשוויץ בבית ספר.
+        </GL>
+        <Float>
+          <GL size={13} color="#FFFFFF" style={{ marginTop: 40, opacity: 0.8 }}>
+            לחץ להתחלה
+          </GL>
+        </Float>
+      </LinearGradient>
+    </Pressable>
+  );
+}
+
 /** "Looking for an opponent…" between tapping ranked battle and the fight. */
-function Matching({ species }: { species: SpeciesId }) {
+function Matching({ species, skin }: { species: SpeciesId; skin?: string }) {
   const el = ELEMENTS[SPECIES[species].element];
   return (
     <LinearGradient colors={['#1D4ED8', '#2A1052', '#12082A']} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
       <Rays size={520} color="rgba(255,255,255,0.07)" />
       <Float>
-        <Sprite char={species} anim="win" size={200} />
+        <Sprite char={species} skin={skin} anim="win" size={220} />
       </Float>
       <GT size={24} style={{ marginTop: 10 }}>
         מחפש יריב בישראל…

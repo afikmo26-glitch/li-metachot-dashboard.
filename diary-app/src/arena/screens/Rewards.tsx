@@ -39,7 +39,7 @@ function Star({ on, delay }: { on: boolean; delay: number }) {
 }
 
 /** After a battle: victory or defeat, stars, rewards, level-ups, a creature that joined you. */
-export function ResultScreen({ r, char, onContinue, onRetry }: { r: ResultInfo; char: string; onContinue: () => void; onRetry?: () => void }) {
+export function ResultScreen({ r, char, skin, onContinue, onRetry }: { r: ResultInfo; char: string; skin?: string; onContinue: () => void; onRetry?: () => void }) {
   const insets = useSafeAreaInsets();
   return (
     <LinearGradient colors={r.win ? ['#1D4ED8', '#3B0764', '#12082A'] : ['#7F1D1D', '#2A0F1F', '#12082A']} style={{ flex: 1 }}>
@@ -61,7 +61,7 @@ export function ResultScreen({ r, char, onContinue, onRetry }: { r: ResultInfo; 
         )}
         <View style={{ height: 230, alignItems: 'center', justifyContent: 'center' }}>
           {r.win && <Rays size={380} color="rgba(253,224,71,0.1)" />}
-          <Sprite char={char} anim={r.win ? 'win' : 'death'} once={!r.win} size={220} />
+          <Sprite char={char} skin={skin} anim={r.win ? 'win' : 'death'} once={!r.win} size={240} />
         </View>
         <View style={{ flexDirection: 'row-reverse', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
           <Pill icon="Coin" value={`+${r.coins}`} />

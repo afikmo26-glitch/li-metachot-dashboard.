@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { itemDef, MAX_ITEM_LEVEL, Slot, SPECIES, SpeciesId, TOTAL_STAGES } from './data';
+import { itemDef, MAX_ITEM_LEVEL, normSpecies, skinDef, Slot, SPECIES, SpeciesId, TOTAL_STAGES } from './data';
 import { addXp, ChestKind, CHESTS, Fighter, openChest, OwnedItem, stageRewards, trophyDelta, upgradeCost } from './progress';
 
 const KEY = 'diary.arena.v1';
@@ -26,9 +26,11 @@ export type ArenaState = {
   diaryBonusDay?: string;
   /** battles left with double XP */
   boost: number;
+  /** skins bought (ids from SKINS) */
+  skins: string[];
 };
 
-const EMPTY: ArenaState = { v: 1, fighter: null, xp: 0, coins: 150, gems: 10, trophies: 0, best: 0, stage: 1, stars: {}, inventory: [], chests: ['wood'], guards: [], wins: 0, losses: 0, boost: 0 };
+const EMPTY: ArenaState = { v: 1, fighter: null, xp: 0, coins: 150, gems: 10, trophies: 0, best: 0, stage: 1, stars: {}, inventory: [], chests: ['wood'], guards: [], wins: 0, losses: 0, boost: 0, skins: [] };
 
 type Ctx = {
   ready: boolean;
@@ -45,6 +47,8 @@ type Ctx = {
   buyChest: (kind: ChestKind) => boolean;
   claimDiaryBonus: (dayKey: string) => boolean;
   toggleGuard: (sp: SpeciesId) => void;
+  buySkin: (id: string) => boolean;
+  wearSkin: (id: string | undefined) => void;
   reset: () => void;
 };
 
@@ -56,7 +60,7 @@ export function ArenaProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     AsyncStorage.getItem(KEY)
-      .then((raw) => raw && setS({ ...EMPTY, ...JSON.parse(raw) }))
+      .then((raw) => raw && setS(migrate({ ...EMPTY, ...JSON.parse(raw) })))
       .catch(() => {})
       .finally(() => setReady(true));
   }, []);
@@ -190,6 +194,13 @@ export function ArenaProvider({ children }: { children: React.ReactNode }) {
           const idx = p.guards.indexOf(sp);
           return { ...p, guards: idx >= 0 && idx < 3 ? [...rest, sp] : [sp, ...rest] };
         }),
+      buySkin: (id) => {
+        const k = skinDef(id);
+        if (!k || s.skins.includes(id) || s.gems < k.price) return false;
+        update((p) => ({ ...p, gems: p.gems - k.price, skins: [...p.skins, id], fighter: p.fighter && p.fighter.species === k.species ? { ...p.fighter, skin: id } : p.fighter }));
+        return true;
+      },
+      wearSkin: (id) => update((p) => (p.fighter && (!id || (p.skins.includes(id) && skinDef(id)?.species === p.fighter.species)) ? { ...p, fighter: { ...p.fighter, skin: id } } : p)),
       reset: () => update(() => EMPTY),
     }),
     [ready, s, update],
@@ -209,4 +220,14 @@ export function useArena(): Ctx {
   const c = useContext(ArenaCtx);
   if (!c) throw new Error('useArena must be used inside ArenaProvider');
   return c;
+}
+
+/** Saves from the first version used other fighter ids; map them onto the new roster. */
+function migrate(p: ArenaState): ArenaState {
+  return {
+    ...p,
+    skins: p.skins ?? [],
+    fighter: p.fighter ? { ...p.fighter, species: normSpecies(p.fighter.species) } : null,
+    guards: [...new Set((p.guards ?? []).map(normSpecies))],
+  };
 }

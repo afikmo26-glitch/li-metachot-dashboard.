@@ -6,20 +6,20 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { dayKey } from '../../lib/dates';
 import { notify } from '../../components/ui';
 import { useStore } from '../../lib/store';
-import { BACKGROUNDS } from '../assets';
+import { WORLD_ART } from '../simArt';
 import { ELEMENTS, itemDef, rankOf, RARITY, Slot, SLOTS, SPECIES } from '../data';
 import { powerOf, stageInWorld, worldOfStage, xpToNext } from '../progress';
 import Sprite from '../Sprite';
 import { useArena } from '../state';
 import { Bar, Float, GButton, GL, GT, ItemIcon, Pill, Pulse, Rays } from '../ui';
 
-export type HubGo = 'map' | 'ranked' | 'bag' | 'chests' | 'ranks' | 'guards';
+export type HubGo = 'map' | 'ranked' | 'bag' | 'chests' | 'ranks' | 'guards' | 'skins';
 
 const SLOT_ORDER: Slot[] = ['weapon', 'head', 'armor', 'charm'];
 const SLOT_EMPTY: Record<Slot, string> = { weapon: 'Sword', head: 'Crown2', armor: 'Armor_Leather', charm: 'Ring1' };
 
 /** The fighter's home: level, rank, gear, and the way into every part of the game. */
-export default function Hub({ go, onClose, use3d, onToggle3d }: { go: (to: HubGo) => void; onClose: () => void; use3d: boolean; onToggle3d: () => void }) {
+export default function Hub({ go, onClose }: { go: (to: HubGo) => void; onClose: () => void }) {
   const insets = useSafeAreaInsets();
   const { s, claimDiaryBonus } = useArena();
   const { entries } = useStore();
@@ -34,7 +34,7 @@ export default function Hub({ go, onClose, use3d, onToggle3d }: { go: (to: HubGo
 
   return (
     <View style={{ flex: 1, backgroundColor: '#12082A' }}>
-      <Image source={BACKGROUNDS[w.bg as keyof typeof BACKGROUNDS]} style={{ position: 'absolute', width: '100%', height: '100%', opacity: 0.55 }} resizeMode="cover" blurRadius={2} />
+      <Image source={WORLD_ART[`arena_${w.bg}`]} style={{ position: 'absolute', width: '100%', height: '100%', opacity: 0.75 }} resizeMode="cover" />
       <LinearGradient colors={['rgba(18,8,42,0.85)', 'rgba(18,8,42,0.2)', 'rgba(18,8,42,0.9)']} locations={[0, 0.45, 1]} style={{ position: 'absolute', width: '100%', height: '100%' }} />
       <ScrollView contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 24, paddingHorizontal: 14 }}>
         <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6 }}>
@@ -82,7 +82,7 @@ export default function Hub({ go, onClose, use3d, onToggle3d }: { go: (to: HubGo
           <Rays size={380} color="rgba(255,255,255,0.06)" />
           <View style={{ position: 'absolute', bottom: 34, width: 190, height: 40, borderRadius: 95, backgroundColor: 'rgba(0,0,0,0.35)' }} />
           <Float>
-            <Sprite char={f.species} size={250} />
+            <Sprite char={f.species} skin={f.skin} size={270} />
           </Float>
           {SLOT_ORDER.map((slot, i) => {
             const o = f.equip[slot];
@@ -141,6 +141,7 @@ export default function Hub({ go, onClose, use3d, onToggle3d }: { go: (to: HubGo
             [
               ['bag', 'תיק', 'Backpack', s.inventory.length],
               ['chests', 'תיבות', 'Chest_Closed', s.chests.length],
+              ['skins', 'סקינים', 'it_king_crown', 0],
               ['guards', 'שומרים', 'Padlock', s.guards.length],
             ] as const
           ).map(([to, label, icon, n]) => (
@@ -157,9 +158,6 @@ export default function Hub({ go, onClose, use3d, onToggle3d }: { go: (to: HubGo
             </Pressable>
           ))}
         </View>
-        <Pressable onPress={onToggle3d} accessibilityRole="switch" accessibilityState={{ checked: use3d }} style={{ alignSelf: 'center', marginTop: 12, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: use3d ? 'rgba(34,211,238,0.22)' : 'rgba(0,0,0,0.4)', borderWidth: 1.5, borderColor: use3d ? '#22D3EE' : 'rgba(255,255,255,0.2)' }}>
-          <GT size={13}>{use3d ? '⭐ זירת תלת-ממד: פועלת' : 'זירת תלת-ממד: כבויה'}</GT>
-        </Pressable>
         <GL size={11} color="#A78BFA" style={{ marginTop: 10 }}>{`${s.wins} ניצחונות · ${s.losses} הפסדים`}</GL>
       </ScrollView>
     </View>

@@ -13,7 +13,7 @@ import { Bar, Float, GButton, GL, GT, ItemIcon, MOVE_ICON, Rays } from '../ui';
 export default function Pick({ onDone }: { onDone: () => void }) {
   const insets = useSafeAreaInsets();
   const { choose } = useArena();
-  const [sel, setSel] = useState<SpeciesId>('YellowDragon');
+  const [sel, setSel] = useState<SpeciesId>('dragon');
   const [name, setName] = useState('');
   const sp = SPECIES[sel];
   const el = ELEMENTS[sp.element];

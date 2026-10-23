@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { notify } from '../../components/ui';
-import { itemDef, MAX_ITEM_LEVEL, MOVES, RANKS, rankOf, RARITIES, RARITY, Slot, SLOTS, SPECIES, SpeciesId, ELEMENTS } from '../data';
+import { itemDef, MAX_ITEM_LEVEL, MOVES, RANKS, rankOf, RARITIES, RARITY, Slot, SLOTS, SPECIES, SpeciesId, ELEMENTS, SKINS, normSpecies } from '../data';
 import { itemBonus, OwnedItem, upgradeCost } from '../progress';
 import { fetchTop, TopRow } from '../online';
 import Sprite from '../Sprite';
@@ -178,7 +178,7 @@ export function RanksScreen({ onBack }: { onBack: () => void }) {
               <GT size={15} style={{ width: 28 }}>
                 {i + 1}
               </GT>
-              <Sprite char={r.species in SPECIES ? r.species : 'Ghost'} size={40} fps={8} />
+              <Sprite char={normSpecies(r.species)} size={40} fps={8} />
               <View style={{ flex: 1 }}>
                 <GT size={14} style={{ textAlign: 'right' }} numberOfLines={1}>
                   {r.name}
@@ -221,6 +221,63 @@ export function GuardsScreen({ onBack }: { onBack: () => void }) {
                   {active && <GL size={10} color="#FDE68A">שומר פעיל</GL>}
                 </View>
               </Pressable>
+            );
+          })}
+        </View>
+      </ScrollView>
+    </LinearGradient>
+  );
+}
+
+/** Skins: new looks for your fighter, bought with gems. Your own fighter's skins come first. */
+export function SkinsScreen({ onBack }: { onBack: () => void }) {
+  const insets = useSafeAreaInsets();
+  const { s, buySkin, wearSkin } = useArena();
+  const f = s.fighter!;
+  const list = [...SKINS].sort((a, b) => Number(b.species === f.species) - Number(a.species === f.species));
+  return (
+    <LinearGradient colors={['#831843', '#2A1052', '#12082A']} style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={{ paddingTop: insets.top + 10, paddingBottom: insets.bottom + 24, paddingHorizontal: 14 }}>
+        <Header title="סקינים" onBack={onBack} />
+        <View style={{ flexDirection: 'row-reverse', gap: 6, marginTop: 6 }}>
+          <Pill icon="Crystal1" value={s.gems} color="#67E8F9" />
+        </View>
+        <GL style={{ textAlign: 'right', marginTop: 8 }}>מראה חדש ללוחם שלך. אותו כוח, הרבה יותר סטייל.</GL>
+        <View style={{ flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 10, marginTop: 12 }}>
+          {[{ id: undefined as string | undefined, species: f.species, name: `${SPECIES[f.species].name} המקורי`, price: 0, rarity: 'epic' as const }, ...list].map((k) => {
+            const mine = k.species === f.species;
+            const owned = !k.id || s.skins.includes(k.id);
+            const wearing = mine && f.skin === k.id;
+            const color = k.rarity === 'legendary' ? '#F59E0B' : '#A855F7';
+            return (
+              <View key={k.id ?? 'base'} style={{ width: '47.5%', borderRadius: 18, borderWidth: 2.5, borderColor: wearing ? '#FFFFFF' : color, overflow: 'hidden', opacity: mine ? 1 : 0.55 }}>
+                <LinearGradient colors={[k.rarity === 'legendary' ? 'rgba(245,158,11,0.35)' : 'rgba(168,85,247,0.35)', 'rgba(15,8,35,0.9)']} style={{ alignItems: 'center', paddingTop: 6, paddingBottom: 10, paddingHorizontal: 8 }}>
+                  <Sprite char={k.species} skin={k.id} anim={wearing ? 'win' : 'idle'} size={150} />
+                  <GT size={13} style={{ textAlign: 'center' }} numberOfLines={1}>{k.name}</GT>
+                  <GL size={10} color={color}>{k.id ? (k.rarity === 'legendary' ? 'אגדי' : 'אפי') : 'רגיל'}</GL>
+                  {!mine ? (
+                    <GL size={11} style={{ marginTop: 6 }}>{`ל${SPECIES[k.species].name} בלבד`}</GL>
+                  ) : wearing ? (
+                    <GL size={12} color="#86EFAC" style={{ marginTop: 6 }}>✓ בשימוש</GL>
+                  ) : owned ? (
+                    <GButton title="ללבוש" size={14} height={36} tone="blue" style={{ marginTop: 6, alignSelf: 'stretch' }} onPress={() => wearSkin(k.id)} />
+                  ) : (
+                    <GButton
+                      title={`${k.price}`}
+                      size={14}
+                      height={36}
+                      tone="gold"
+                      style={{ marginTop: 6, alignSelf: 'stretch' }}
+                      onPress={() => {
+                        if (buySkin(k.id!)) notify('success');
+                        else notify('error');
+                      }}
+                    >
+                      <ItemIcon icon="Crystal1" size={22} />
+                    </GButton>
+                  )}
+                </LinearGradient>
+              </View>
             );
           })}
         </View>

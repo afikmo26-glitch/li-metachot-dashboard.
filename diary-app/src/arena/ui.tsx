@@ -5,6 +5,7 @@ import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, w
 import { play } from '../lib/sound';
 import { FONTS } from '../lib/theme';
 import { ITEM_ICONS } from './assets';
+import { SIM_ITEMS } from './simArt';
 import { itemDef, MoveId, RARITY } from './data';
 import type { OwnedItem } from './progress';
 
@@ -77,8 +78,11 @@ export function GButton({ title, onPress, tone = 'gold', size = 18, style, disab
   );
 }
 
+// Old icon names still used around the game, pointed at the new illustrations
+const ALIAS: Record<string, string> = { Coin: 'ui_coin', Crystal1: 'ui_gem', Chalice: 'ui_trophy', Chest_Closed: 'ui_chest_wood', Chest_Open: 'ui_chest_gold', Chest_Ingots: 'ui_chest_mythic', Sword_Golden: 'it_flame_sword', Sword: 'it_ice_sword', Hammer_Double: 'it_rock_hammer', Hammer_Double_Golden: 'it_thunder_hammer', Bow_Wooden: 'it_vine_bow', Ring3: 'it_ice_ring', Ring1: 'it_speed_ring', Crown2: 'it_prince_crown', Armor_Leather: 'it_leather_armor' };
+
 export function ItemIcon({ icon, size }: { icon: string; size: number }) {
-  const src = ITEM_ICONS[icon];
+  const src = SIM_ITEMS[ALIAS[icon] ?? icon] ?? ITEM_ICONS[icon];
   return src ? <Image source={src} style={{ width: size, height: size }} resizeMode="contain" fadeDuration={0} /> : <View style={{ width: size, height: size }} />;
 }
 

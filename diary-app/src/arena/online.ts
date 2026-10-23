@@ -3,12 +3,12 @@ import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { randomBytes } from '../lib/crypto';
 import { SERVER } from '../config';
-import { itemDef, SPECIES, SpeciesId } from './data';
+import { itemDef, normSpecies, SPECIES } from './data';
 import { Fighter } from './progress';
 import type { ArenaState } from './state';
 
 /**
- * Pet Arena online: publishes your fighter card and trophies, fetches real players to duel (their saved
+ * "הסים שלך" online: publishes your fighter card and trophies, fetches real players to duel (their saved
  * fighters, played by the AI) and the national leaderboard. Everything fails soft — offline, the game uses bots.
  */
 
@@ -65,10 +65,11 @@ export async function findOpponent(trophies: number): Promise<{ fighter: Fighter
     const { id } = await me();
     const r = await req<{ card: Card | null }>('GET', `/arena/opponent?t=${trophies}&id=${id}`);
     const c = r.card;
-    if (!c || !(c.species in SPECIES)) return null;
+    if (!c) return null;
+    const species = normSpecies(c.species);
     const equip: Fighter['equip'] = {};
     for (const [slot, o] of Object.entries(c.equip)) if (itemDef(o.id)) equip[slot as keyof Fighter['equip']] = { uid: `opp-${slot}`, id: o.id, level: o.level };
-    return { fighter: { species: c.species as SpeciesId, name: SPECIES[c.species as SpeciesId].name, level: c.level, equip }, player: c.name, trophies: c.trophies };
+    return { fighter: { species, name: SPECIES[species].name, level: c.level, equip }, player: c.name, trophies: c.trophies };
   } catch {
     return null;
   }
