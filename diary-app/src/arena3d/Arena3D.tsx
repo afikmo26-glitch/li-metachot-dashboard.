@@ -5,35 +5,11 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { ARENA, HeroId } from './assets';
 import Hero3D, { Pose } from './Hero3D';
 import { Canvas, useFrame, useLoader, useThree } from './r3f';
+import { placeCamera, POS } from './camera';
 import { toonify, toonRamp } from './toon';
 
 export type Fx3D = { id: number; at: 0 | 1; color: string; big?: boolean };
 export type Side3D = { hero: HeroId; pose: Pose; poseId: number; flashId: number; scale?: number };
-
-/** World positions of the two fighters: the player near the camera, the opponent across the field. */
-export const POS: [[number, number, number], [number, number, number]] = [
-  [0, 0, 3.3],
-  [0, 0, -3.1],
-];
-
-/** The arena camera for a given viewport — shared by the scene and by screen-space overlays (HP tags). */
-function placeCamera(cam: THREE.PerspectiveCamera, w: number, h: number) {
-  const portrait = h > w;
-  cam.position.set(0, portrait ? 13 : 8.5, portrait ? 15 : 11.5);
-  cam.fov = portrait ? 42 : 38;
-  cam.aspect = w / h;
-  cam.lookAt(0, 0.6, -0.6);
-  cam.updateProjectionMatrix();
-  cam.updateMatrixWorld();
-}
-
-/** Where a point above a fighter's feet lands on screen, in pixels. */
-export function screenOf(side: 0 | 1, up: number, w: number, h: number) {
-  const cam = new THREE.PerspectiveCamera(42, w / h, 0.5, 120);
-  placeCamera(cam, w, h);
-  const v = new THREE.Vector3(POS[side][0], POS[side][1] + up, POS[side][2]).project(cam);
-  return { x: ((v.x + 1) / 2) * w, y: ((1 - v.y) / 2) * h };
-}
 
 function Ground() {
   const tiles = useLoader(GLTFLoader, [ARENA.tileForest, ARENA.tileBlue, ARENA.tileRed] as unknown as string[]);
@@ -151,31 +127,13 @@ function CameraRig({ shake }: { shake: number }) {
  * The 3D duel: KayKit heroes on a bright toon arena, rendered live (expo-gl on phones, WebGL on the web).
  * The battle logic stays in battle.ts; this only draws it.
  */
-type Arena3DProps = { sides: [Side3D, Side3D]; fx: Fx3D[]; shake: number; onFxDone: (id: number) => void; onPoseDone: (side: 0 | 1, p: Pose) => void; onError?: () => void };
+export type Arena3DProps = { sides: [Side3D, Side3D]; fx: Fx3D[]; shake: number; onFxDone: (id: number) => void; onPoseDone: (side: 0 | 1, p: Pose) => void; onError?: () => void };
 
-/** If the 3D scene can't start on this device (no GL, a model fails to load), tell the battle so it can fall back to 2D. */
-class Guard3D extends React.Component<{ onError?: () => void; children: React.ReactNode }, { failed: boolean }> {
-  state = { failed: false };
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-  componentDidCatch() {
-    this.props.onError?.();
-  }
-  render() {
-    return this.state.failed ? null : this.props.children;
-  }
-}
-
-export default function Arena3D(props: Arena3DProps) {
-  return (
-    <Guard3D onError={props.onError}>
-      <Scene {...props} />
-    </Guard3D>
-  );
-}
-
-function Scene({ sides, fx, shake, onFxDone, onPoseDone }: Arena3DProps) {
+/**
+ * The 3D duel: KayKit heroes on a bright toon arena, rendered live (expo-gl on phones, WebGL on the web).
+ * The battle logic stays in battle.ts; this only draws it. Load it through Safe3D.
+ */
+export default function Scene({ sides, fx, shake, onFxDone, onPoseDone }: Arena3DProps) {
   return (
     <View style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, backgroundColor: '#6EC6F5' }} pointerEvents="none">
       <Canvas shadows camera={{ position: [0, 13, 15], fov: 42, near: 0.5, far: 120 }} gl={{ antialias: true }}>

@@ -12,7 +12,9 @@ import { ELEMENTS, MOVES, MoveId, SPECIES } from '../data';
 import { Fighter } from '../progress';
 import Sprite, { hasAnim } from '../Sprite';
 import { GL, GT, ItemIcon, MOVE_ICON } from '../ui';
-import Arena3D, { Fx3D, screenOf } from '../../arena3d/Arena3D';
+import type { Fx3D } from '../../arena3d/Arena3D';
+import { screenOf } from '../../arena3d/camera';
+import Arena3D from '../../arena3d/Safe3D';
 import { HERO_FOR_ELEMENT, HeroId, SKELETON_FOR_ELEMENT } from '../../arena3d/assets';
 import type { Pose } from '../../arena3d/Hero3D';
 
