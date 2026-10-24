@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { notify } from '../../components/ui';
 import { itemDef, MAX_ITEM_LEVEL, MOVES, RANKS, rankOf, RARITIES, RARITY, Slot, SLOTS, SPECIES, SpeciesId, ELEMENTS, SKINS, normSpecies } from '../data';
-import { itemBonus, OwnedItem, upgradeCost } from '../progress';
+import { deckOf, itemBonus, MAX_UPGRADE, OwnedItem, statsOf, upgradeCost, upgradeFighterCost, xpToNext } from '../progress';
 import { fetchTop, TopRow } from '../online';
 import Sprite from '../Sprite';
 import { fighterPrice, useArena } from '../state';
@@ -353,6 +353,76 @@ export function FightersScreen({ onBack }: { onBack: () => void }) {
             );
           })}
         </View>
+      </ScrollView>
+    </LinearGradient>
+  );
+}
+
+/** "Upgrade your fighter": level, stats with what the next upgrade adds, abilities, and a big upgrade button. */
+export function UpgradeScreen({ onBack }: { onBack: () => void }) {
+  const insets = useSafeAreaInsets();
+  const { s, upgradeFighter } = useArena();
+  const f = s.fighter!;
+  const u = f.upg ?? 0;
+  const now = statsOf(f);
+  const next = statsOf({ ...f, upg: u + 1 });
+  const cost = upgradeFighterCost(u);
+  const maxed = u >= MAX_UPGRADE;
+  const need = xpToNext(f.level);
+  const rows = [
+    { icon: '❤️', label: 'חיים', v: now.hp, d: next.hp - now.hp },
+    { icon: '⚔️', label: 'התקפה', v: now.atk, d: next.atk - now.atk },
+    { icon: '🛡️', label: 'הגנה', v: now.def, d: next.def - now.def },
+    { icon: '👟', label: 'מהירות', v: now.spd, d: 0 },
+  ];
+  return (
+    <LinearGradient colors={['#1E3A8A', '#172554', '#0B1230']} style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={{ paddingTop: insets.top + 10, paddingBottom: insets.bottom + 24, paddingHorizontal: 14 }}>
+        <Header title="שדרג את הדמות שלך" onBack={onBack} />
+        <View style={{ flexDirection: 'row-reverse', gap: 6, marginTop: 6 }}>
+          <Pill icon="Coin" value={s.coins} />
+        </View>
+        <View style={{ flexDirection: 'row-reverse', alignItems: 'stretch', gap: 10, marginTop: 10 }}>
+          <View style={{ flex: 1, borderRadius: 18, borderWidth: 3, borderColor: '#1E40AF', backgroundColor: 'rgba(15,23,42,0.75)', padding: 12, gap: 8 }}>
+            <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' }}>
+              <GT size={20}>{`רמה ${f.level}`}</GT>
+              <GL size={12} color="#FDE68A">{`שדרוג ${u}/${MAX_UPGRADE}`}</GL>
+            </View>
+            <Bar value={s.xp / need} color={['#34D399', '#10B981']} height={14} />
+            <GL size={10} style={{ textAlign: 'right' }}>{`${s.xp.toLocaleString()} / ${need.toLocaleString()} XP`}</GL>
+            {rows.map((r) => (
+              <View key={r.label} style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6, backgroundColor: 'rgba(30,41,59,0.8)', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 6 }}>
+                <GL size={16}>{r.icon}</GL>
+                <GT size={14} style={{ flex: 1, textAlign: 'right' }}>{r.label}</GT>
+                {!maxed && r.d > 0 && <GL size={12} color="#4ADE80">{`+${r.d.toLocaleString()}`}</GL>}
+                <GT size={15}>{r.v.toLocaleString()}</GT>
+              </View>
+            ))}
+          </View>
+          <View style={{ width: 140, alignItems: 'center', justifyContent: 'center' }}>
+            <Sprite char={f.species} skin={f.skin} anim="idle" size={150} live lobby />
+            <GT size={16}>{f.name}</GT>
+            <GL color={ELEMENTS[SPECIES[f.species].element].color}>{`${ELEMENTS[SPECIES[f.species].element].icon} ${ELEMENTS[SPECIES[f.species].element].label}`}</GL>
+          </View>
+        </View>
+        <GT size={16} style={{ textAlign: 'right', marginTop: 14 }}>יכולות</GT>
+        <View style={{ flexDirection: 'row-reverse', gap: 8, marginTop: 6 }}>
+          {deckOf(f).map((m, i) => (
+            <View key={m} style={{ flex: 1, alignItems: 'center', borderRadius: 14, borderWidth: 2.5, borderColor: i === 0 ? '#FACC15' : '#334155', backgroundColor: 'rgba(15,23,42,0.75)', paddingVertical: 6 }}>
+              <ItemIcon icon={`mv_${m}`} size={52} />
+              <GL size={10} color={i === 0 ? '#FDE68A' : '#E2E8F0'}>{MOVES[m].name}</GL>
+              {i === 0 && <GL size={9} color="#FACC15">מיוחד</GL>}
+            </View>
+          ))}
+        </View>
+        <GL size={11} style={{ marginTop: 6 }}>כל שדרוג: +6% חיים והתקפה, +3% הגנה. נשמר ללוחם הזה.</GL>
+        {maxed ? (
+          <GT size={18} color="#86EFAC" style={{ marginTop: 14 }}>שודרג עד הסוף! 👑</GT>
+        ) : (
+          <GButton title={`⬆  שדרג · ${cost.toLocaleString()}`} size={22} height={64} style={{ marginTop: 14 }} disabled={s.coins < cost} onPress={() => (upgradeFighter() ? notify('success') : notify('error'))}>
+            <ItemIcon icon="Coin" size={28} />
+          </GButton>
+        )}
       </ScrollView>
     </LinearGradient>
   );

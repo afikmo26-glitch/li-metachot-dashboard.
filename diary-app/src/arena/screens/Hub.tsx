@@ -15,7 +15,7 @@ import { Bar, Counter, FloatHeart, GL, GT, ItemIcon, OUTLINE, Pulse, StoneButton
 import { play } from '../../lib/sound';
 import * as Haptics from 'expo-haptics';
 
-export type HubGo = 'map' | 'play' | 'ranked' | 'bag' | 'chests' | 'ranks' | 'guards' | 'skins' | 'fighters';
+export type HubGo = 'map' | 'play' | 'ranked' | 'bag' | 'chests' | 'ranks' | 'guards' | 'skins' | 'fighters' | 'upgrade';
 
 const SLOT_ORDER: Slot[] = ['weapon', 'head', 'armor', 'charm'];
 const SLOT_EMPTY: Record<Slot, string> = { weapon: 'Sword', head: 'Crown2', armor: 'Armor_Leather', charm: 'Ring1' };
@@ -121,11 +121,14 @@ export default function Hub({ go, onClose }: { go: (to: HubGo) => void; onClose:
         </Pressable>
         {/* name plate + gear */}
         <View style={{ position: 'absolute', bottom: 0, alignItems: 'center' }}>
-          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6, backgroundColor: 'rgba(8,4,20,0.8)', borderRadius: 10, borderWidth: 2.5, borderColor: OUTLINE, paddingHorizontal: 10, paddingVertical: 2 }}>
+          <Pressable onPress={() => go('upgrade')} accessibilityLabel="שדרג את הדמות שלך" style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6, backgroundColor: 'rgba(8,4,20,0.8)', borderRadius: 10, borderWidth: 2.5, borderColor: OUTLINE, paddingHorizontal: 10, paddingVertical: 2 }}>
             <GT size={16}>{f.name}</GT>
             <GL color={ELEMENTS[sp.element].color}>{ELEMENTS[sp.element].icon}</GL>
             <GL color="#FDE68A">{`⚡ ${powerOf(f).toLocaleString()}`}</GL>
-          </View>
+            <View style={{ backgroundColor: '#22C55E', borderRadius: 6, borderWidth: 2, borderColor: OUTLINE, paddingHorizontal: 6 }}>
+              <GT size={11}>⬆ שדרג</GT>
+            </View>
+          </Pressable>
           <View style={{ flexDirection: 'row-reverse', gap: 6, marginTop: 6 }}>
             {SLOT_ORDER.map((slot) => {
               const o = f.equip[slot];

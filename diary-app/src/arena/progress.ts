@@ -9,6 +9,8 @@ export type Fighter = {
   level: number;
   /** cosmetic skin id (see SKINS) */
   skin?: string;
+  /** coin upgrades bought for this fighter: each one +6% life and attack, +3% defence */
+  upg?: number;
   /** map enemies only: below 1 makes early stages gentler */
   handicap?: number;
   equip: Partial<Record<'weapon' | 'armor' | 'head' | 'charm', OwnedItem>>;
@@ -57,13 +59,18 @@ export function statsOf(f: Fighter): Stats {
     const bonus = itemBonus(o);
     for (const k of Object.keys(pct) as (keyof Stats)[]) pct[k] += bonus[k] ?? 0;
   }
+  const u = f.upg ?? 0;
   return {
-    hp: Math.round(b.hp * g * (1 + pct.hp / 100)),
-    atk: Math.round(b.atk * g * (1 + pct.atk / 100)),
-    def: Math.round(b.def * g * (1 + pct.def / 100)),
+    hp: Math.round(b.hp * g * (1 + pct.hp / 100) * (1 + u * 0.06)),
+    atk: Math.round(b.atk * g * (1 + pct.atk / 100) * (1 + u * 0.06)),
+    def: Math.round(b.def * g * (1 + pct.def / 100) * (1 + u * 0.03)),
     spd: Math.round(b.spd * (1 + (f.level - 1) * 0.002) * (1 + pct.spd / 100)),
   };
 }
+
+export const MAX_UPGRADE = 20;
+/** Coins for a fighter's next upgrade. */
+export const upgradeFighterCost = (upg: number) => Math.round(300 * Math.pow(1.35, upg));
 
 /** A single "power" number for cards and matchmaking. */
 export const powerOf = (f: Fighter) => {

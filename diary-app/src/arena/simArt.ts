@@ -104,4 +104,5 @@ export const WORLD_ART: Record<string, number> = {
   map_storm: require('../../assets/sim/worlds/map_storm.webp'),
   map_volcano: require('../../assets/sim/worlds/map_volcano.webp'),
   victory_cave: require('../../assets/sim/worlds/victory_cave.webp'),
+  world_islands: require('../../assets/sim/worlds/world_islands.webp'),
 };

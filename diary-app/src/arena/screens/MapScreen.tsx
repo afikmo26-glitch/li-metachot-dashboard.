@@ -24,6 +24,7 @@ export default function MapScreen({ onBack, onFight }: { onBack: () => void; onF
   const { s } = useArena();
   const cur = s.stage;
   const [pick, setPick] = useState<number | null>(null);
+  const [islands, setIslands] = useState(true);
   const scroll = useRef<ScrollViewInstance>(null);
   const total = WORLDS.length * STAGES_PER_WORLD;
   const fullH = BOTTOM + total * STEP + WORLDS.length * BANNER + 200;
@@ -32,11 +33,12 @@ export default function MapScreen({ onBack, onFight }: { onBack: () => void; onF
   const yOf = (stage: number) => fullH - fromBottom(stage);
   const xOf = (stage: number) => width * (0.5 + 0.28 * Math.sin(stage * 0.75));
   const tile = width / 0.75; // one map picture, kept at its own proportions
+  const focus = useRef(cur);
   const goTo = (stage: number, animated = true) => scroll.current?.scrollTo({ y: Math.max(0, yOf(stage) - height * 0.55), animated });
 
   return (
     <View style={{ flex: 1, backgroundColor: '#0B0620' }}>
-      <ScrollView ref={scroll} onContentSizeChange={() => goTo(cur, false)} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scroll} onContentSizeChange={() => goTo(focus.current, false)} showsVerticalScrollIndicator={false}>
         <View style={{ height: fullH }}>
           {/* each world's map art, repeated up its stretch of the trail */}
           {WORLDS.map((w, wi) => {
@@ -125,13 +127,96 @@ export default function MapScreen({ onBack, onFight }: { onBack: () => void; onF
           <GT size={17} style={{ textAlign: 'right' }}>מפת השלבים</GT>
           <GL size={11} style={{ textAlign: 'right' }}>גלול למעלה כדי להתקדם ⬆</GL>
         </View>
+        <Pressable onPress={() => setIslands(true)} accessibilityLabel="מפת העולמות" style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#0EA5E9', borderWidth: 2.5, borderColor: OUTLINE, alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name="earth" size={22} color="#fff" />
+        </Pressable>
         <Pill icon="Coin" value={s.coins} />
       </LinearGradient>
       <Pressable onPress={() => goTo(cur)} accessibilityLabel="לשלב הנוכחי" style={{ position: 'absolute', left: 14, bottom: insets.bottom + 16, width: 54, height: 54, borderRadius: 16, backgroundColor: '#FACC15', borderWidth: 3, borderColor: OUTLINE, alignItems: 'center', justifyContent: 'center' }}>
         <Ionicons name="locate" size={26} color="#3B1505" />
       </Pressable>
 
+      {islands && (
+        <WorldIslands
+          onBack={onBack}
+          onPick={(wi) => {
+            const first = wi * STAGES_PER_WORLD + 1;
+            focus.current = cur >= first && cur < first + STAGES_PER_WORLD ? cur : first;
+            setIslands(false);
+            setTimeout(() => goTo(focus.current, false), 50);
+          }}
+        />
+      )}
       {pick !== null && <StageSheet stage={pick} onClose={() => setPick(null)} onFight={() => onFight(pick)} />}
+    </View>
+  );
+}
+
+// Where each world's island is on the islands picture (fractions of its width and height)
+const ISLAND_AT: [number, number][] = [
+  [0.33, 0.3],
+  [0.26, 0.6],
+  [0.6, 0.45],
+  [0.82, 0.32],
+  [0.8, 0.68],
+];
+
+/** The overview: every world as an island in the sea, with the stars you earned there. Tap one to sail in. */
+function WorldIslands({ onBack, onPick }: { onBack: () => void; onPick: (world: number) => void }) {
+  const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
+  const { s } = useArena();
+  const size = Math.min(width, height - insets.top - 140);
+  return (
+    <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: '#1D8FE0' }}>
+      <View style={{ paddingTop: insets.top + 8, paddingHorizontal: 12, flexDirection: 'row-reverse', alignItems: 'center', gap: 8 }}>
+        <Pressable onPress={onBack} accessibilityLabel="חזרה" hitSlop={8} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.35)', borderWidth: 2.5, borderColor: OUTLINE, alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name="chevron-forward" size={22} color="#fff" />
+        </Pressable>
+        <View style={{ flex: 1, alignItems: 'flex-end' }}>
+          <View style={{ backgroundColor: 'rgba(10,20,50,0.75)', borderRadius: 12, borderWidth: 2.5, borderColor: OUTLINE, paddingHorizontal: 12, paddingVertical: 4 }}>
+            <GT size={18}>🗺️ מפת העולמות</GT>
+          </View>
+        </View>
+      </View>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width: size, height: size }}>
+          <Image source={WORLD_ART.world_islands} style={{ width: size, height: size }} resizeMode="cover" />
+          {WORLDS.map((w, wi) => {
+            const first = wi * STAGES_PER_WORLD + 1;
+            const open = s.stage >= first;
+            let stars = 0;
+            for (let k = first; k < first + STAGES_PER_WORLD; k++) stars += s.stars[k] ?? 0;
+            const [fx, fy] = ISLAND_AT[wi];
+            const here = s.stage >= first && s.stage < first + STAGES_PER_WORLD;
+            const badge = (
+              <Pressable onPress={() => open && onPick(wi)} disabled={!open} accessibilityLabel={`עולם ${w.id}, ${w.name}${open ? '' : ', נעול'}`} style={{ alignItems: 'center' }}>
+                <LinearGradient colors={open ? w.colors : ['#64748B', '#334155']} style={{ width: 54, height: 54, borderRadius: 16, borderWidth: 3.5, borderColor: OUTLINE, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '45deg' }] }}>
+                  <View style={{ transform: [{ rotate: '-45deg' }] }}>{open ? <GT size={20}>{w.id}</GT> : <Ionicons name="lock-closed" size={20} color="#fff" />}</View>
+                </LinearGradient>
+                <View style={{ marginTop: 6, backgroundColor: 'rgba(10,20,50,0.8)', borderRadius: 8, paddingHorizontal: 6, borderWidth: 2, borderColor: OUTLINE, flexDirection: 'row-reverse', alignItems: 'center', gap: 2 }}>
+                  <ItemIcon icon="ui_star_ornate" size={14} />
+                  <GT size={11}>{`${stars}/${STAGES_PER_WORLD * 3}`}</GT>
+                </View>
+                <GL size={10} color="#FFFFFF" style={{ marginTop: 2, textShadowColor: '#000', textShadowRadius: 3 }}>{w.name}</GL>
+              </Pressable>
+            );
+            return (
+              <View key={w.id} style={{ position: 'absolute', left: fx * size - 50, top: fy * size - 40, width: 100, alignItems: 'center' }}>
+                {here ? <Pulse>{badge}</Pulse> : badge}
+                {here && s.fighter && (
+                  <View pointerEvents="none" style={{ position: 'absolute', top: -58 }}>
+                    <Float amount={5}>
+                      <Sprite char={s.fighter.species} skin={s.fighter.skin} size={56} />
+                    </Float>
+                  </View>
+                )}
+              </View>
+            );
+          })}
+        </View>
+      </View>
+      <GL size={12} color="#E0F2FE" style={{ paddingBottom: insets.bottom + 16 }}>לחץ על אי כדי לראות את השלבים שלו</GL>
     </View>
   );
 }

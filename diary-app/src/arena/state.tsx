@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { itemDef, MAX_ITEM_LEVEL, normSpecies, skinDef, Slot, SPECIES, SpeciesId, TOTAL_STAGES } from './data';
-import { addXp, ChestKind, CHESTS, Fighter, openChest, OwnedItem, stageRewards, trophyDelta, upgradeCost } from './progress';
+import { addXp, ChestKind, CHESTS, Fighter, MAX_UPGRADE, openChest, OwnedItem, stageRewards, trophyDelta, upgradeCost, upgradeFighterCost } from './progress';
 
 const KEY = 'diary.arena.v1';
 
@@ -32,6 +32,8 @@ export type ArenaState = {
   rankCatchUp?: boolean;
   /** fighters you own and can switch between (your first one is free) */
   roster?: SpeciesId[];
+  /** coin upgrades per fighter */
+  upgrades?: Partial<Record<SpeciesId, number>>;
 };
 
 const EMPTY: ArenaState = { v: 1, fighter: null, xp: 0, coins: 150, gems: 10, trophies: 0, best: 0, stage: 1, stars: {}, inventory: [], chests: ['wood'], guards: [], wins: 0, losses: 0, boost: 0, skins: [] };
@@ -54,6 +56,7 @@ type Ctx = {
   buySkin: (id: string) => boolean;
   buyFighter: (sp: SpeciesId) => boolean;
   switchFighter: (sp: SpeciesId) => void;
+  upgradeFighter: () => boolean;
   wearSkin: (id: string | undefined) => void;
   reset: () => void;
 };
@@ -219,8 +222,19 @@ export function ArenaProvider({ children }: { children: React.ReactNode }) {
       // you keep your level and gear; only who fights changes (and a skin that belongs to someone else comes off)
       switchFighter: (sp) =>
         update((p) =>
-          p.fighter && (p.roster ?? [p.fighter.species]).includes(sp) ? { ...p, fighter: { ...p.fighter, species: sp, name: SPECIES[sp].name, skin: skinDef(p.fighter.skin)?.species === sp ? p.fighter.skin : undefined } } : p,
+          p.fighter && (p.roster ?? [p.fighter.species]).includes(sp)
+            ? { ...p, fighter: { ...p.fighter, species: sp, name: SPECIES[sp].name, upg: p.upgrades?.[sp] ?? 0, skin: skinDef(p.fighter.skin)?.species === sp ? p.fighter.skin : undefined } }
+            : p,
         ),
+      upgradeFighter: () => {
+        const f = s.fighter;
+        if (!f) return false;
+        const u = f.upg ?? 0;
+        const cost = upgradeFighterCost(u);
+        if (u >= MAX_UPGRADE || s.coins < cost) return false;
+        update((p) => (p.fighter ? { ...p, coins: p.coins - cost, fighter: { ...p.fighter, upg: u + 1 }, upgrades: { ...p.upgrades, [p.fighter.species]: u + 1 } } : p));
+        return true;
+      },
       wearSkin: (id) => update((p) => (p.fighter && (!id || (p.skins.includes(id) && skinDef(id)?.species === p.fighter.species)) ? { ...p, fighter: { ...p.fighter, skin: id } } : p)),
       reset: () => update(() => EMPTY),
     }),
