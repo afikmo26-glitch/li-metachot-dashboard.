@@ -5,7 +5,7 @@
  */
 
 export type Team = 0 | 1;
-export type ActorAnim = 'idle' | 'run' | 'attack' | 'special' | 'hit' | 'death' | 'win';
+export type ActorAnim = 'idle' | 'run' | 'attack' | 'special' | 'hit' | 'death' | 'win' | 'jump';
 
 export type Actor = {
   id: number;
@@ -32,12 +32,18 @@ export type Actor = {
   flash: number;
   alive: boolean;
   boss?: boolean;
+  /** height off the ground (only while flying off a jump pad) */
+  y: number;
+  /** a jump pad flight in progress: from, to, and how far along (0..1) */
+  jump?: { fx: number; fz: number; tx: number; tz: number; t: number; dur: number };
 };
 
 export type Shot = { id: number; team: Team; x: number; z: number; vx: number; vz: number; life: number; dmg: number; color: string; big: boolean };
 export type Fx = { id: number; kind: 'spark' | 'ring' | 'nova'; x: number; z: number; color: string; t: number; life: number; size: number };
 
-export type Box = { x: number; z: number; w: number; d: number; kind: 'crate' | 'rock' | 'bush' | 'wall' | 'statue' };
+export type Box = { x: number; z: number; w: number; d: number; kind: 'crate' | 'rock' | 'bush' | 'mound' | 'barrel' };
+/** A jump pad: step on it and you're flung to (tx, tz). */
+export type Pad = { x: number; z: number; tx: number; tz: number };
 
 export type Game = {
   t: number;
@@ -45,6 +51,9 @@ export type Game = {
   hx: number;
   hz: number;
   boxes: Box[];
+  pads: Pad[];
+  /** corner radius of the court's rounded wall */
+  round: number;
   player: Actor;
   enemies: Actor[];
   shots: Shot[];
@@ -70,29 +79,39 @@ const SHOT_RANGE = 9.5;
 const R = 0.6; // body radius
 
 export function createGame(player: Spawn, waves: Spawn[][]): Game {
-  // the temple court: the orb on its pedestal in the middle, crates and ruined walls for cover, tall grass to
-  // hide in. The floor art (assets/sim3d/ground_arena.jpg) is painted for exactly this layout.
+  // the crystal mine: a mound of crystals in the middle ringed by rails, crates and rocks for cover, tall grass
+  // to hide in, and jump pads that fling you across. The floor art (assets/sim3d/ground_arena.jpg) is painted
+  // for exactly this layout; blue (you) starts at the bottom, red at the top.
   const boxes: Box[] = [
-    { x: 0, z: 0, w: 1.6, d: 1.6, kind: 'statue' },
-    { x: -4, z: -4.5, w: 1.8, d: 1.8, kind: 'crate' },
-    { x: 4, z: -4.5, w: 1.8, d: 1.8, kind: 'crate' },
-    { x: -6.3, z: -8.6, w: 1.8, d: 1.1, kind: 'crate' },
-    { x: 6.3, z: -8.6, w: 1.8, d: 1.1, kind: 'crate' },
-    { x: -5, z: 5, w: 1.7, d: 1.7, kind: 'rock' },
-    { x: 5, z: 5, w: 1.7, d: 1.7, kind: 'rock' },
-    { x: 0, z: -7, w: 3.2, d: 0.9, kind: 'wall' },
-    { x: -6.6, z: 1, w: 0.9, d: 2.6, kind: 'wall' },
-    { x: 6.6, z: 1, w: 0.9, d: 2.6, kind: 'wall' },
-    { x: -4.6, z: 0.3, w: 1.4, d: 2.6, kind: 'bush' },
-    { x: 4.6, z: 0.3, w: 1.4, d: 2.6, kind: 'bush' },
-    { x: -4, z: 10.2, w: 2.6, d: 1.4, kind: 'bush' },
-    { x: 4, z: 10.2, w: 2.6, d: 1.4, kind: 'bush' },
+    { x: 0, z: 0, w: 3.2, d: 3.6, kind: 'mound' },
+    { x: -3.4, z: -6.6, w: 2.4, d: 1.1, kind: 'crate' },
+    { x: 3.4, z: -6.6, w: 2.4, d: 1.1, kind: 'crate' },
+    { x: -3.4, z: 6.6, w: 2.4, d: 1.1, kind: 'crate' },
+    { x: 3.4, z: 6.6, w: 2.4, d: 1.1, kind: 'crate' },
+    { x: -5.2, z: 0, w: 1.3, d: 2.2, kind: 'rock' },
+    { x: 5.2, z: 0, w: 1.3, d: 2.2, kind: 'rock' },
+    { x: -1.9, z: -9.0, w: 0.8, d: 0.8, kind: 'barrel' },
+    { x: 1.9, z: 9.0, w: 0.8, d: 0.8, kind: 'barrel' },
+    { x: -6.6, z: 3.2, w: 1.6, d: 2.6, kind: 'bush' },
+    { x: 6.6, z: -3.2, w: 1.6, d: 2.6, kind: 'bush' },
+    { x: -5.6, z: -9.3, w: 2.4, d: 1.4, kind: 'bush' },
+    { x: 5.6, z: 9.3, w: 2.4, d: 1.4, kind: 'bush' },
+    { x: 6.4, z: 5.4, w: 1.4, d: 1.4, kind: 'bush' },
+    { x: -6.4, z: -5.4, w: 1.4, d: 1.4, kind: 'bush' },
+  ];
+  const pads: Pad[] = [
+    { x: -6.3, z: 6.6, tx: -6.2, tz: -2.2 },
+    { x: 6.3, z: -6.6, tx: 6.2, tz: 2.2 },
+    { x: 0, z: 4.9, tx: 0, tz: -3.1 },
+    { x: 0, z: -4.9, tx: 0, tz: 3.1 },
   ];
   const g: Game = {
     t: 0,
     hx: 8.5,
     hz: 12.5,
     boxes,
+    pads,
+    round: 4,
     player: actor(0, player, 0, 9.5),
     enemies: [],
     shots: [],
@@ -132,6 +151,7 @@ function actor(team: Team, s: Spawn, x: number, z: number): Actor {
     flash: 0,
     alive: true,
     boss: s.boss,
+    y: 0,
   };
 }
 
@@ -143,7 +163,10 @@ function setAnim(a: Actor, anim: ActorAnim, busy = 0) {
 }
 
 function blocked(g: Game, x: number, z: number, r = R) {
-  if (Math.abs(x) > g.hx - r || Math.abs(z) > g.hz - r) return true;
+  // the wall is a rounded rectangle
+  const ox = Math.max(0, Math.abs(x) - (g.hx - g.round));
+  const oz = Math.max(0, Math.abs(z) - (g.hz - g.round));
+  if (Math.abs(x) > g.hx - r || Math.abs(z) > g.hz - r || Math.hypot(ox, oz) > g.round - r) return true;
   for (const b of g.boxes) {
     if (b.kind === 'bush') continue; // bushes hide you, they don't block
     if (Math.abs(x - b.x) < b.w / 2 + r && Math.abs(z - b.z) < b.d / 2 + r) return true;
@@ -221,11 +244,33 @@ export function step(g: Game, dt: number, input: Input) {
 
   // player
   for (const a of [p, ...g.enemies]) {
+    if (a.jump) {
+      // flying: an arc from the pad to its landing spot, nothing else happens meanwhile
+      const j = a.jump;
+      j.t = Math.min(1, j.t + dt / j.dur);
+      a.x = j.fx + (j.tx - j.fx) * j.t;
+      a.z = j.fz + (j.tz - j.fz) * j.t;
+      a.y = Math.sin(j.t * Math.PI) * 3.2;
+      if (j.t >= 1) {
+        a.jump = undefined;
+        a.y = 0;
+        g.fx.push({ id: nextId++, kind: 'ring', x: a.x, z: a.z, color: '#FDE68A', t: 0, life: 0.45, size: 1.6 });
+        if (a === p) g.shake = Math.max(g.shake, 0.4);
+      }
+    } else if (a.alive) {
+      const pad = g.pads.find((q) => Math.abs(q.x - a.x) < 0.75 && Math.abs(q.z - a.z) < 0.75);
+      if (pad) {
+        a.jump = { fx: a.x, fz: a.z, tx: pad.tx, tz: pad.tz, t: 0, dur: 0.8 };
+        a.rot = Math.atan2(pad.tx - a.x, pad.tz - a.z);
+        setAnim(a, 'jump', 0.8);
+        g.fx.push({ id: nextId++, kind: 'ring', x: pad.x, z: pad.z, color: '#4ADE80', t: 0, life: 0.5, size: 1.4 });
+      }
+    }
     a.busy = Math.max(0, a.busy - dt);
     a.cooldown = Math.max(0, a.cooldown - dt);
     a.flash = Math.max(0, a.flash - dt * 4);
   }
-  if (p.alive) {
+  if (p.alive && !p.jump) {
     const len = Math.hypot(input.mx, input.mz);
     if (len > 0.15) {
       const k = Math.min(1, len);
@@ -250,7 +295,7 @@ export function step(g: Game, dt: number, input: Input) {
 
   // enemies: close in, then stop and shoot; keep a little apart from each other
   for (const e of g.enemies) {
-    if (!e.alive || !p.alive) continue;
+    if (!e.alive || !p.alive || e.jump) continue;
     const dx = p.x - e.x;
     const dz = p.z - e.z;
     const d = Math.hypot(dx, dz);
@@ -296,7 +341,7 @@ export function step(g: Game, dt: number, input: Input) {
     if (blocked(g, s.x, s.z, 0.1)) s.life = 0;
     const targets = s.team === 0 ? g.enemies : [p];
     for (const a of targets) {
-      if (s.life > 0 && a.alive && Math.hypot(a.x - s.x, a.z - s.z) < R + (s.big ? 0.35 : 0.2)) {
+      if (s.life > 0 && a.alive && !a.jump && Math.hypot(a.x - s.x, a.z - s.z) < R + (s.big ? 0.35 : 0.2)) {
         hit(g, a, s.dmg, s.color);
         s.life = 0;
         if (s.team === 0) g.charge = Math.min(1, g.charge + 0.2);

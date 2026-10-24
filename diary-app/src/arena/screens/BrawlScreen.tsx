@@ -115,7 +115,7 @@ export default function BrawlScreen({ me, onEnd }: { me: Fighter; onEnd: (r: Bra
   const p = game.player;
   const alive = game.enemies.filter((e) => e.alive).length;
   return (
-    <View style={{ flex: 1, backgroundColor: '#14402E' }}>
+    <View style={{ flex: 1, backgroundColor: '#E2A06C' }}>
       {failed ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30 }}>
           <GT size={20}>המצב הזה צריך תלת-ממד</GT>

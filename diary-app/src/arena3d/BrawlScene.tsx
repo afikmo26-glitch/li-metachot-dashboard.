@@ -22,6 +22,7 @@ const CLIP: Record<ActorAnim, string[]> = {
   hit: ['hit_to_body_01'],
   death: ['defeat_02'],
   win: ['victory_celebration'],
+  jump: ['jump'],
 };
 const SPEED: Partial<Record<ActorAnim, number>> = { run: 1.9, attack: 2.4, hit: 1.6 };
 const LOOPS: ActorAnim[] = ['idle', 'run', 'win'];
@@ -50,9 +51,10 @@ function ActorView({ a, element }: { a: Actor; element?: string }) {
   const current = useRef<THREE.AnimationAction | null>(null);
   const bar = useRef<THREE.Group>(null);
   const fill = useRef<THREE.Mesh>(null);
+  const shadow = useRef<THREE.Mesh>(null);
 
   useFrame((_, dt) => {
-    root.position.set(a.x, 0, a.z);
+    root.position.set(a.x, a.y, a.z);
     root.rotation.y += (((a.rot - root.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI) * Math.min(1, dt * 14);
     if (shown.current.anim !== a.anim || shown.current.id !== a.animId) {
       shown.current = { anim: a.anim, id: a.animId };
@@ -72,7 +74,13 @@ function ActorView({ a, element }: { a: Actor; element?: string }) {
     }
     mixer.update(Math.min(dt, 0.05));
     for (const m of mats) m.emissive.setRGB(a.flash, a.flash * 0.9, a.flash * 0.9);
+    if (shadow.current) {
+      shadow.current.position.set(a.x, 0.02, a.z);
+      // the shadow shrinks while flying off a jump pad
+      shadow.current.scale.setScalar(1 / (1 + a.y * 0.25));
+    }
     if (bar.current && fill.current) {
+      bar.current.position.set(a.x, (a.boss ? 3.2 : 2.4) + a.y, a.z);
       bar.current.visible = a.alive;
       bar.current.quaternion.copy(camera.quaternion);
       const r = Math.max(0.001, a.hp / a.maxHp);
@@ -85,11 +93,11 @@ function ActorView({ a, element }: { a: Actor; element?: string }) {
     <group>
       <primitive object={root} />
       {/* soft round shadow */}
-      <mesh position={[a.x, 0.02, a.z]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh ref={shadow} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[a.boss ? 0.95 : 0.6, 20]} />
         <meshBasicMaterial color="#000000" transparent opacity={0.28} depthWrite={false} />
       </mesh>
-      <group ref={bar} position={[a.x, a.boss ? 3.2 : 2.4, a.z]}>
+      <group ref={bar}>
         <mesh>
           <planeGeometry args={[1.32, 0.2]} />
           <meshBasicMaterial color="#120A24" />
@@ -103,19 +111,22 @@ function ActorView({ a, element }: { a: Actor; element?: string }) {
   );
 }
 
-/** The temple court (see arenaField.ts), with its braziers flickering and the orb bobbing. */
+/** The crystal mine (see arenaField.ts): the gem turning over its mound, the jump pads pulsing. */
 function Field({ game }: { game: Game }) {
   const tex = use(loadTexture(GROUND, 1));
   const field = useMemo(() => buildArena(game, tex), [game, tex]);
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
-    for (const f of field.flames) {
-      const k = 1 + Math.sin(t * 11 + f.phase) * 0.08 + Math.sin(t * 17.3 + f.phase * 2) * 0.06;
-      f.mesh.scale.set(1 / k, k, 1 / k);
-    }
-    field.orb.position.y = 1.75 + Math.sin(t * 1.6) * 0.08;
-    field.orb.rotation.y = t * 0.8;
-    field.halo.rotation.z = t * 0.9;
+    field.gem.position.y = 2.2 + Math.sin(t * 1.6) * 0.12;
+    field.gem.rotation.y = t * 0.9;
+    field.glow.scale.setScalar(1 + Math.sin(t * 2.4) * 0.08);
+    field.pads.forEach((pad, i) => {
+      const ring = pad.getObjectByName('pulse');
+      if (!ring) return;
+      const k = (t * 0.9 + i * 0.25) % 1;
+      ring.scale.setScalar(1 + k * 0.5);
+      ((ring as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = 0.8 * (1 - k);
+    });
   });
   return <primitive object={field.group} />;
 }
@@ -227,9 +238,9 @@ export default function BrawlScene({ game, input, element, onTick }: { game: Gam
   return (
     <View style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }}>
       <Canvas gl={{ antialias: true }} camera={{ position: [0, 17, 18.5], fov: 58, near: 0.5, far: 120 }}>
-        <color attach="background" args={['#14402E']} />
-        <fog attach="fog" args={['#14402E', 26, 46]} />
-        <hemisphereLight args={['#FFF6E0', '#4A6B52', 1.55]} />
+        <color attach="background" args={['#E2A06C']} />
+        <fog attach="fog" args={['#E2A06C', 28, 50]} />
+        <hemisphereLight args={['#FFF6E0', '#8A5A48', 1.6]} />
         <directionalLight position={[-6, 12, 5]} intensity={2.2} color="#FFF1D6" />
         <Director game={game} input={input} onTick={onTick} />
         <Suspense fallback={null}>

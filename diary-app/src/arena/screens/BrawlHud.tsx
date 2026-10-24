@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
-import { Image, View } from 'react-native';
+import { Image, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withSequence, withSpring, withTiming } from 'react-native-reanimated';
+import { FONTS } from '../../lib/theme';
 import { CHAR_ART } from '../simArt';
 import { GL, GT, OUTLINE } from '../ui';
 
@@ -74,10 +75,11 @@ export function WaveTracker({ wave, waves, alive }: { wave: number; waves: numbe
       <LinearGradient colors={GOLD} style={{ borderRadius: 14, padding: 2.5, borderWidth: 2, borderColor: OUTLINE }}>
         <View style={{ backgroundColor: '#24113F', borderRadius: 11, paddingHorizontal: 10, paddingTop: 3, paddingBottom: 5, alignItems: 'center', minWidth: 84 }}>
           <GL size={10} color="#FDE68A">גל</GL>
-          <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-            <GT size={22}>{`${Math.max(1, wave)}`}</GT>
-            <GT size={13} color="#C4B5FD">{` / ${waves}`}</GT>
-          </View>
+          {/* one left-to-right run, so "1/3" never comes out mirrored in a right-to-left layout */}
+          <Text style={{ writingDirection: 'ltr', fontFamily: FONTS.black, color: '#FFFFFF', fontSize: 22, textShadowColor: '#0B0618', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 0.5 }}>
+            {Math.max(1, wave)}
+            <Text style={{ fontSize: 14, color: '#C4B5FD' }}>{` / ${waves}`}</Text>
+          </Text>
           <View style={{ flexDirection: 'row-reverse', gap: 5, marginTop: 2 }}>
             {Array.from({ length: waves }, (_, i) => {
               const done = i < wave - 1;
