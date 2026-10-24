@@ -7,7 +7,7 @@ import { itemDef, MAX_ITEM_LEVEL, MOVES, RANKS, rankOf, RARITIES, RARITY, Slot, 
 import { itemBonus, OwnedItem, upgradeCost } from '../progress';
 import { fetchTop, TopRow } from '../online';
 import Sprite from '../Sprite';
-import { useArena } from '../state';
+import { fighterPrice, useArena } from '../state';
 import { Bar, GButton, GL, GT, ItemIcon, ItemTile, MOVE_ICON, Pill } from '../ui';
 import { Header } from './Rewards';
 
@@ -278,6 +278,78 @@ export function SkinsScreen({ onBack }: { onBack: () => void }) {
                   )}
                 </LinearGradient>
               </View>
+            );
+          })}
+        </View>
+      </ScrollView>
+    </LinearGradient>
+  );
+}
+
+/** Fighters: every fighter you can play, its special power, buy with coins and switch who fights. */
+export function FightersScreen({ onBack }: { onBack: () => void }) {
+  const insets = useSafeAreaInsets();
+  const { s, buyFighter, switchFighter } = useArena();
+  const f = s.fighter!;
+  const roster = s.roster ?? [f.species];
+  const all = (Object.keys(SPECIES) as SpeciesId[]).filter((sp) => fighterPrice(sp) > 0 || roster.includes(sp));
+  const [sel, setSel] = useState<SpeciesId>(f.species);
+  const sp = SPECIES[sel];
+  const mv = MOVES[sp.signature];
+  const owned = roster.includes(sel);
+  const price = fighterPrice(sel);
+  return (
+    <LinearGradient colors={['#7C2D12', '#2A1052', '#12082A']} style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={{ paddingTop: insets.top + 10, paddingBottom: insets.bottom + 24, paddingHorizontal: 14 }}>
+        <Header title="לוחמים" onBack={onBack} />
+        <View style={{ flexDirection: 'row-reverse', gap: 6, marginTop: 6 }}>
+          <Pill icon="Coin" value={s.coins} />
+        </View>
+        <View style={{ marginTop: 10, borderRadius: 20, borderWidth: 3, borderColor: ELEMENTS[sp.element].color, backgroundColor: 'rgba(10,5,25,0.6)', padding: 12, flexDirection: 'row-reverse', alignItems: 'center' }}>
+          <Sprite key={sel} char={sel} anim="win" size={150} live />
+          <View style={{ flex: 1, gap: 4 }}>
+            <GT size={22} style={{ textAlign: 'right' }}>{sp.name}</GT>
+            <GL style={{ textAlign: 'right' }} color={ELEMENTS[sp.element].color}>{`${ELEMENTS[sp.element].icon} ${ELEMENTS[sp.element].label}`}</GL>
+            <GL style={{ textAlign: 'right' }}>{sp.desc}</GL>
+            <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 6, marginTop: 4 }}>
+              <ItemIcon icon={`mv_${mv.id}`} size={40} />
+              <View style={{ flex: 1 }}>
+                <GT size={14} color="#FDE68A" style={{ textAlign: 'right' }}>{`כוח מיוחד: ${mv.name}`}</GT>
+                <GL size={11} style={{ textAlign: 'right' }}>{mv.desc}</GL>
+              </View>
+            </View>
+          </View>
+        </View>
+        {f.species === sel ? (
+          <GL size={14} color="#86EFAC" style={{ marginTop: 10 }}>✓ זה הלוחם שלך עכשיו</GL>
+        ) : owned ? (
+          <GButton title={`להילחם עם ${sp.name}`} tone="blue" style={{ marginTop: 10 }} onPress={() => switchFighter(sel)} />
+        ) : (
+          <GButton title={`לקנות ב-${price.toLocaleString()}`} tone="gold" style={{ marginTop: 10 }} disabled={s.coins < price} onPress={() => (buyFighter(sel) ? notify('success') : notify('error'))}>
+            <ItemIcon icon="Coin" size={26} />
+          </GButton>
+        )}
+        <GL size={11} style={{ marginTop: 6 }}>הרמה והציוד שלך עוברים איתך לכל לוחם</GL>
+        <View style={{ flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+          {all.map((id) => {
+            const have = roster.includes(id);
+            const on = id === sel;
+            return (
+              <Pressable key={id} onPress={() => setSel(id)} accessibilityLabel={`${SPECIES[id].name}${have ? '' : ', לקנייה'}`} style={{ width: '31%' }}>
+                <View style={{ height: 124, borderRadius: 16, borderWidth: on ? 3 : 2, borderColor: on ? '#FFFFFF' : ELEMENTS[SPECIES[id].element].color, backgroundColor: 'rgba(0,0,0,0.35)', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 6, overflow: 'hidden' }}>
+                  <View style={{ position: 'absolute', top: 0, opacity: have ? 1 : 0.55 }}>
+                    <Sprite char={id} size={88} />
+                  </View>
+                  <GT size={12}>{SPECIES[id].name}</GT>
+                  {!have && (
+                    <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 2 }}>
+                      <ItemIcon icon="Coin" size={14} />
+                      <GL size={10} color="#FDE68A">{fighterPrice(id).toLocaleString()}</GL>
+                    </View>
+                  )}
+                  {id === f.species && <GL size={10} color="#86EFAC">בשימוש</GL>}
+                </View>
+              </Pressable>
             );
           })}
         </View>

@@ -7,7 +7,7 @@ import { ELEMENTS, SPECIES, SpeciesId } from './data';
 import { findOpponent, publish } from './online';
 import { botOpponent, enemyForStage, Fighter, isBoss, stageSkill, worldOfStage, stageInWorld } from './progress';
 import BattleScreen, { BattleResult } from './screens/BattleScreen';
-import { BagScreen, GuardsScreen, RanksScreen, SkinsScreen } from './screens/Collection';
+import { BagScreen, FightersScreen, GuardsScreen, RanksScreen, SkinsScreen } from './screens/Collection';
 import Hub, { HubGo } from './screens/Hub';
 import MapScreen from './screens/MapScreen';
 import Pick from './screens/Pick';
@@ -21,7 +21,7 @@ type Fight = { mode: 'stage'; stage: number; foe: Fighter; foeName: string; skil
 
 /** Ranked fights happen on the arena of your fighter's element. */
 const HOME_ARENA: Record<string, string> = { fire: 'volcano', water: 'ocean', nature: 'forest', earth: 'forest', storm: 'storm', shadow: 'shadow' };
-type Route = 'hub' | 'map' | 'matching' | 'battle' | 'result' | 'bag' | 'chests' | 'ranks' | 'guards' | 'skins';
+type Route = 'hub' | 'map' | 'matching' | 'battle' | 'result' | 'bag' | 'chests' | 'ranks' | 'guards' | 'skins' | 'fighters';
 
 /** "הסים שלך" (Your Sim): the whole game, opened full screen from the diary. Every touch sparkles. */
 export default function Arena({ onClose }: { onClose: () => void }) {
@@ -126,6 +126,8 @@ function Game({ onClose }: { onClose: () => void }) {
       return <GuardsScreen onBack={() => setRoute('hub')} />;
     case 'skins':
       return <SkinsScreen onBack={() => setRoute('hub')} />;
+    case 'fighters':
+      return <FightersScreen onBack={() => setRoute('hub')} />;
     default:
       return <Hub go={go} onClose={onClose} />;
   }

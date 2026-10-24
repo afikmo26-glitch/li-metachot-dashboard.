@@ -30,6 +30,8 @@ export type ArenaState = {
   skins: string[];
   /** the one-time rank catch-up for stage wins has run */
   rankCatchUp?: boolean;
+  /** fighters you own and can switch between (your first one is free) */
+  roster?: SpeciesId[];
 };
 
 const EMPTY: ArenaState = { v: 1, fighter: null, xp: 0, coins: 150, gems: 10, trophies: 0, best: 0, stage: 1, stars: {}, inventory: [], chests: ['wood'], guards: [], wins: 0, losses: 0, boost: 0, skins: [] };
@@ -50,6 +52,8 @@ type Ctx = {
   claimDiaryBonus: (dayKey: string) => boolean;
   toggleGuard: (sp: SpeciesId) => void;
   buySkin: (id: string) => boolean;
+  buyFighter: (sp: SpeciesId) => boolean;
+  switchFighter: (sp: SpeciesId) => void;
   wearSkin: (id: string | undefined) => void;
   reset: () => void;
 };
@@ -205,6 +209,18 @@ export function ArenaProvider({ children }: { children: React.ReactNode }) {
         update((p) => ({ ...p, gems: p.gems - k.price, skins: [...p.skins, id], fighter: p.fighter && p.fighter.species === k.species ? { ...p.fighter, skin: id } : p.fighter }));
         return true;
       },
+      buyFighter: (sp) => {
+        const price = fighterPrice(sp);
+        const have = s.roster ?? (s.fighter ? [s.fighter.species] : []);
+        if (!price || have.includes(sp) || s.coins < price) return false;
+        update((p) => ({ ...p, coins: p.coins - price, roster: [...(p.roster ?? (p.fighter ? [p.fighter.species] : [])), sp] }));
+        return true;
+      },
+      // you keep your level and gear; only who fights changes (and a skin that belongs to someone else comes off)
+      switchFighter: (sp) =>
+        update((p) =>
+          p.fighter && (p.roster ?? [p.fighter.species]).includes(sp) ? { ...p, fighter: { ...p.fighter, species: sp, name: SPECIES[sp].name, skin: skinDef(p.fighter.skin)?.species === sp ? p.fighter.skin : undefined } } : p,
+        ),
       wearSkin: (id) => update((p) => (p.fighter && (!id || (p.skins.includes(id) && skinDef(id)?.species === p.fighter.species)) ? { ...p, fighter: { ...p.fighter, skin: id } } : p)),
       reset: () => update(() => EMPTY),
     }),
@@ -232,6 +248,9 @@ export function useArena(): Ctx {
   return c;
 }
 
+/** Coins to unlock a fighter (bosses can't be bought). */
+export const fighterPrice = (sp: SpeciesId) => (sp.startsWith('boss_') ? 0 : SPECIES[sp].starter ? 1500 : 3000);
+
 /** Trophies for winning a map stage. */
 export const stageTrophies = (stage: number, first: boolean) => (first ? (stage % 10 === 0 ? 30 : 10) : 3);
 
@@ -244,6 +263,7 @@ function migrate(p: ArenaState): ArenaState {
     trophies: caught,
     best: Math.max(p.best, caught),
     rankCatchUp: true,
+    roster: p.roster ?? (p.fighter ? [normSpecies(p.fighter.species)] : undefined),
     skins: p.skins ?? [],
     fighter: p.fighter ? { ...p.fighter, species: normSpecies(p.fighter.species) } : null,
     guards: [...new Set((p.guards ?? []).map(normSpecies))],

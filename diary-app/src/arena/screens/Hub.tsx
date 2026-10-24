@@ -15,7 +15,7 @@ import { Bar, Counter, FloatHeart, GL, GT, ItemIcon, OUTLINE, Pulse, StoneButton
 import { play } from '../../lib/sound';
 import * as Haptics from 'expo-haptics';
 
-export type HubGo = 'map' | 'play' | 'ranked' | 'bag' | 'chests' | 'ranks' | 'guards' | 'skins';
+export type HubGo = 'map' | 'play' | 'ranked' | 'bag' | 'chests' | 'ranks' | 'guards' | 'skins' | 'fighters';
 
 const SLOT_ORDER: Slot[] = ['weapon', 'head', 'armor', 'charm'];
 const SLOT_EMPTY: Record<Slot, string> = { weapon: 'Sword', head: 'Crown2', armor: 'Armor_Leather', charm: 'Ring1' };
@@ -160,6 +160,7 @@ export default function Hub({ go, onClose }: { go: (to: HubGo) => void; onClose:
           <StoneButton icon="ic3_ranks" label="דרגות" onPress={() => go('ranks')} />
           <StoneButton icon="ic3_guards" label="שומרים" onPress={() => go('guards')} badge={s.guards.length} />
           <StoneButton icon="ic3_events" label="אונליין" onPress={() => go('ranked')} />
+          <StoneButton icon="ic3_badge" label="לוחמים" onPress={() => go('fighters')} />
         </View>
       </View>
 

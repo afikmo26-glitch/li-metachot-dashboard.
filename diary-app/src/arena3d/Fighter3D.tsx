@@ -1,11 +1,11 @@
-import React, { Suspense, useEffect, useMemo, useRef } from 'react';
+import React, { Suspense, use, useEffect, useMemo, useRef } from 'react';
 import { Platform, View } from 'react-native';
 import { reportCrash } from '../lib/cloud';
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import type { Anim } from '../arena/assets';
-import { MODELS3D } from './models';
-import { Canvas, useFrame, useLoader } from './r3f';
+import { loadModel, loadStep } from './loadModel';
+import { Canvas, useFrame } from './r3f';
 import { toonify } from './toon';
 
 export type Pose3 = Anim | 'special' | 'lobby';
@@ -25,13 +25,20 @@ const LOOP: Pose3[] = ['idle', 'lobby', 'win'];
 export const SPECIAL_CLIP: Record<string, string> = { fire: 'fire', water: 'cast_a_spell', nature: 'cast_a_spell', earth: 'chop', storm: 'jump', shadow: 'cast_a_spell' };
 
 let okSent = false;
+let hangSent = false;
+let glReady = false;
 
 type Props = { char: string; pose: Pose3; poseId?: number; special?: string; flip?: boolean; once?: boolean; onDone?: (p: Pose3) => void };
 
 function Model({ char, pose, poseId = 0, special, flip, once, onDone }: Props) {
-  const gltf = useLoader(GLTFLoader, MODELS3D[char] as unknown as string);
+  const { gltf, map } = use(loadModel(char));
   const { scene, mixer, mats } = useMemo(() => {
-    const s = gltf.scene;
+    // a copy per view, so the same fighter can stand on both sides of a battle
+    const s = cloneSkinned(gltf.scene);
+    s.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (m.isMesh) (m.material as THREE.MeshStandardMaterial).map = map;
+    });
     const box = new THREE.Box3().setFromObject(s);
     const h = box.max.y - box.min.y || 1;
     const mats = toonify(s, h * 0.008, false);
@@ -40,7 +47,7 @@ function Model({ char, pose, poseId = 0, special, flip, once, onDone }: Props) {
     s.scale.setScalar(k);
     s.position.set(-((box.min.x + box.max.x) / 2) * k, -box.min.y * k, -((box.min.z + box.max.z) / 2) * k);
     return { scene: s, mixer: new THREE.AnimationMixer(s), mats };
-  }, [gltf]);
+  }, [gltf, map]);
   const current = useRef<THREE.AnimationAction | null>(null);
   // one note per session that 3D worked on this device (helps tell a phone problem from a model problem)
   useEffect(() => {
@@ -97,9 +104,21 @@ function Model({ char, pose, poseId = 0, special, flip, once, onDone }: Props) {
  * playing the shared fight clips. `poseId` replays a pose (two punches in a row).
  */
 export default function Fighter3D(props: Props & { size: number }) {
+  // if 3D hasn't shown up after a while, tell us how far it got (once per session)
+  useEffect(() => {
+    const id = setTimeout(() => {
+      if (okSent || hangSent) return;
+      hangSent = true;
+      reportCrash(`3d-hang@${loadStep.at} gl=${glReady} ${Platform.OS}`).catch(() => {});
+    }, 25000);
+    return () => clearTimeout(id);
+  }, []);
   return (
     <View style={{ width: props.size, height: props.size }} pointerEvents="none">
-      <Canvas gl={{ antialias: true, alpha: true }} camera={{ position: [0, 1.25, 4.4], fov: 30, near: 0.1, far: 50 }} onCreated={({ camera }) => camera.lookAt(0, 0.8, 0)}>
+      <Canvas gl={{ antialias: true, alpha: true }} camera={{ position: [0, 1.25, 4.4], fov: 30, near: 0.1, far: 50 }} onCreated={({ camera }) => {
+          glReady = true;
+          camera.lookAt(0, 0.8, 0);
+        }}>
         <hemisphereLight args={['#FFFFFF', '#8899BB', 1.7]} />
         <directionalLight position={[2, 6, 5]} intensity={2.2} />
         <Suspense fallback={null}>
