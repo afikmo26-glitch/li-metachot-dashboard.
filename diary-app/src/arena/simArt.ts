@@ -35,6 +35,16 @@ export const CHAR_ART: Record<string, number> = {
 };
 
 export const SIM_ITEMS: Record<string, number> = {
+  ic3_badge: require('../../assets/sim/items/ic3_badge.webp'),
+  ic3_bag: require('../../assets/sim/items/ic3_bag.webp'),
+  ic3_chest: require('../../assets/sim/items/ic3_chest.webp'),
+  ic3_events: require('../../assets/sim/items/ic3_events.webp'),
+  ic3_guards: require('../../assets/sim/items/ic3_guards.webp'),
+  ic3_map: require('../../assets/sim/items/ic3_map.webp'),
+  ic3_ranks: require('../../assets/sim/items/ic3_ranks.webp'),
+  ic3_settings: require('../../assets/sim/items/ic3_settings.webp'),
+  ic3_skins: require('../../assets/sim/items/ic3_skins.webp'),
+  ic3_star: require('../../assets/sim/items/ic3_star.webp'),
   it_battle_axe: require('../../assets/sim/items/it_battle_axe.webp'),
   it_dragon_amulet: require('../../assets/sim/items/it_dragon_amulet.webp'),
   it_eternal_crystal: require('../../assets/sim/items/it_eternal_crystal.webp'),
@@ -70,6 +80,9 @@ export const WORLD_ART: Record<string, number> = {
   arena_shadow: require('../../assets/sim/worlds/arena_shadow.webp'),
   arena_storm: require('../../assets/sim/worlds/arena_storm.webp'),
   arena_volcano: require('../../assets/sim/worlds/arena_volcano.webp'),
+  card_holo: require('../../assets/sim/worlds/card_holo.webp'),
+  intro_ruins: require('../../assets/sim/worlds/intro_ruins.webp'),
+  lobby_jungle: require('../../assets/sim/worlds/lobby_jungle.webp'),
   map_forest: require('../../assets/sim/worlds/map_forest.webp'),
   map_ocean: require('../../assets/sim/worlds/map_ocean.webp'),
   map_shadow: require('../../assets/sim/worlds/map_shadow.webp'),

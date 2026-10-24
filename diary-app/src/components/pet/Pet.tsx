@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { Platform, Text, View } from 'react-native';
+import { Image, Platform, Text, View } from 'react-native';
 import { GestureDetector, useCompetingGestures, useLongPressGesture, usePanGesture, useTapGesture } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
@@ -19,6 +19,8 @@ import type { PetState, Stage } from '../../lib/pet';
 import { STAGE_SCALE } from '../../lib/pet';
 import { Arm, Body, Cheeks, Eye, Face, Glasses, Hair, HairBack, HappyEye, Hat, Mouth, Neck, OpenMouth, palette, SleepEye, SpeciesBack, SpeciesFront, Tongue } from './art';
 import { Egg } from './Egg';
+import { CHAR_ART } from '../../arena/simArt';
+import { useArenaMaybe } from '../../arena/state';
 
 /**
  * The living pet. It breathes, blinks, looks around and sticks its tongue out on its own; follows your finger,
@@ -49,7 +51,10 @@ const rand = (a: number, b: number) => a + Math.random() * (b - a);
 
 export default function Pet({ pet, stage, size, sleeping, interactive = true, onTap, onStroke, onHug, onEggTap, ref }: Props) {
   const reduced = useReducedMotion();
-  const S = size * STAGE_SCALE[stage];
+  // once you've picked your fighter in "הסים שלך", that fighter is your pet everywhere in the diary
+  const sim = useArenaMaybe()?.s.fighter;
+  const simArt = sim ? (CHAR_ART[sim.skin ?? sim.species] ?? CHAR_ART[sim.species]) : undefined;
+  const S = size * (simArt ? 1.1 : STAGE_SCALE[stage]);
   const u = S / 200;
   const [uid] = useState(() => `p${Math.random().toString(36).slice(2, 8)}`);
   const p = palette(pet.wear.color, uid);
@@ -307,6 +312,10 @@ export default function Pet({ pet, stage, size, sleeping, interactive = true, on
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'flex-end' }}>
       <View style={{ width: S, height: S }}>
         <Animated.View style={[{ position: 'absolute', left: 0, top: 0, width: S, height: S, transformOrigin: '50% 92%' }, bodyStyle]}>
+          {simArt ? (
+            <Image source={simArt} style={{ width: S, height: S }} resizeMode="contain" />
+          ) : (
+            <>
           <HairBack id={pet.wear.hair} size={S} />
           <SpeciesBack species={pet.species} p={p} size={S} />
           <Body p={p} color={pet.wear.color} uid={uid} size={S} />
@@ -359,6 +368,8 @@ export default function Pet({ pet, stage, size, sleeping, interactive = true, on
           <Animated.View style={[at(152, 124, 18, 28.8), { transformOrigin: 'top' }, rightArm]} pointerEvents="none">
             <Arm size={18 * u} color={p.shade} />
           </Animated.View>
+            </>
+          )}
         </Animated.View>
         {treat > 0 && (
           <Animated.View style={[at(86, 118, 28, 28), treatStyle]} pointerEvents="none">

@@ -11,7 +11,7 @@ import { powerOf, stageInWorld, worldOfStage, xpToNext } from '../progress';
 import { WORLD_ART } from '../simArt';
 import Sprite from '../Sprite';
 import { useArena } from '../state';
-import { Bar, Counter, GL, GT, ItemIcon, OUTLINE, Pulse, Rays, SideButton } from '../ui';
+import { Bar, Counter, GL, GT, ItemIcon, OUTLINE, Pulse, StoneButton } from '../ui';
 
 export type HubGo = 'map' | 'play' | 'ranked' | 'bag' | 'chests' | 'ranks' | 'guards' | 'skins';
 
@@ -38,8 +38,9 @@ export default function Hub({ go, onClose }: { go: (to: HubGo) => void; onClose:
 
   return (
     <View style={{ flex: 1, backgroundColor: '#12082A' }}>
-      <Image source={WORLD_ART[`arena_${w.bg}`]} style={{ position: 'absolute', width: '100%', height: '100%' }} resizeMode="cover" />
-      <LinearGradient colors={['rgba(18,6,40,0.92)', 'rgba(40,10,70,0.35)', 'rgba(40,10,70,0.25)', 'rgba(12,4,28,0.95)']} locations={[0, 0.25, 0.6, 1]} style={{ position: 'absolute', width: '100%', height: '100%' }} />
+      {/* the ruins' stone pedestal (80% down the art) lands where the fighter stands */}
+      <Image source={WORLD_ART.lobby_jungle} style={{ position: 'absolute', left: -(height * 1.25 * 0.75 - width) / 2, top: -height * 0.34, width: height * 1.25 * 0.75, height: height * 1.25 }} resizeMode="cover" />
+      <LinearGradient colors={['rgba(10,6,4,0.75)', 'rgba(10,6,4,0)', 'rgba(10,6,4,0)', 'rgba(10,6,4,0.85)']} locations={[0, 0.2, 0.7, 1]} style={{ position: 'absolute', width: '100%', height: '100%' }} />
 
       {/* top bar: profile on the right, currencies on the left */}
       <View style={{ paddingTop: insets.top + 6, paddingHorizontal: 10, flexDirection: 'row-reverse', alignItems: 'center', gap: 8 }}>
@@ -90,12 +91,8 @@ export default function Hub({ go, onClose }: { go: (to: HubGo) => void; onClose:
 
       {/* middle: your fighter on a glowing stage, menu tiles down both sides on top of it */}
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 8 }}>
-        <Rays size={hero * 1.6} color="rgba(255,240,200,0.07)" />
-        {/* glowing stage */}
-        <View style={{ position: 'absolute', bottom: 66, width: hero * 0.85, height: hero * 0.24, borderRadius: hero, backgroundColor: 'rgba(250,204,21,0.25)', borderWidth: 4, borderColor: 'rgba(253,224,71,0.8)' }} />
-        <View style={{ position: 'absolute', bottom: 74, width: hero * 0.6, height: hero * 0.14, borderRadius: hero, backgroundColor: 'rgba(255,255,255,0.18)' }} />
         {/* feet on the middle of the stage */}
-        <View style={{ marginBottom: 58 + hero * 0.02 }}>
+        <View style={{ marginBottom: 58 + hero * 0.3 }}>
           <Sprite char={f.species} skin={f.skin} size={hero} live lobby />
         </View>
         <Pressable onPress={() => go('skins')} accessibilityLabel="החלף סקין" style={{ position: 'absolute', bottom: 70, right: width / 2 - hero * 0.55, width: 40, height: 40, borderRadius: 10, backgroundColor: 'rgba(8,4,20,0.8)', borderWidth: 2.5, borderColor: OUTLINE, alignItems: 'center', justifyContent: 'center' }}>
@@ -123,14 +120,14 @@ export default function Hub({ go, onClose }: { go: (to: HubGo) => void; onClose:
           </View>
         </View>
         <View style={{ position: 'absolute', top: 6, right: 8, gap: 8 }}>
-          <SideButton icon="Chest_Open" label="תיבות" tone="gold" onPress={() => go('chests')} badge={s.chests.length} />
-          <SideButton icon="it_prince_crown" label="סקינים" tone="purple" onPress={() => go('skins')} ribbon={s.skins.length ? undefined : 'חדש'} />
-          <SideButton icon="Backpack" label="תיק" tone="blue" onPress={() => go('bag')} badge={s.inventory.length} />
+          <StoneButton icon="ic3_chest" label="תיבות" onPress={() => go('chests')} badge={s.chests.length} />
+          <StoneButton icon="ic3_skins" label="סקינים" onPress={() => go('skins')} />
+          <StoneButton icon="ic3_bag" label="תיק" onPress={() => go('bag')} badge={s.inventory.length} />
         </View>
         <View style={{ position: 'absolute', top: 6, left: 8, gap: 8 }}>
-          <SideButton icon={rank.icon} label="דרגות" tone="blue" onPress={() => go('ranks')} />
-          <SideButton icon="it_knight_armor" label="שומרים" tone="green" onPress={() => go('guards')} badge={s.guards.length} />
-          <SideButton icon="ui_trophy" label="אונליין" tone="red" onPress={() => go('ranked')} ribbon="LIVE" />
+          <StoneButton icon="ic3_ranks" label="דרגות" onPress={() => go('ranks')} />
+          <StoneButton icon="ic3_guards" label="שומרים" onPress={() => go('guards')} badge={s.guards.length} />
+          <StoneButton icon="ic3_events" label="אונליין" onPress={() => go('ranked')} />
         </View>
       </View>
 
@@ -138,7 +135,7 @@ export default function Hub({ go, onClose }: { go: (to: HubGo) => void; onClose:
       <View style={{ paddingHorizontal: 12, paddingBottom: insets.bottom + 12, gap: 8 }}>
         <Pressable onPress={() => go('map')} accessibilityLabel="מפת השלבים" style={({ pressed }) => ({ transform: [{ scale: pressed ? 0.97 : 1 }] })}>
           <LinearGradient colors={[w.colors[1], w.colors[0]]} start={{ x: 1, y: 0 }} end={{ x: 0, y: 1 }} style={{ height: 54, borderRadius: 12, borderWidth: 3, borderColor: OUTLINE, flexDirection: 'row-reverse', alignItems: 'center', paddingHorizontal: 10, gap: 10, overflow: 'hidden' }}>
-            <Image source={WORLD_ART[`map_${w.bg}`]} style={{ width: 40, height: 40, borderRadius: 8, borderWidth: 2, borderColor: OUTLINE }} />
+            <ItemIcon icon="ic3_map" size={46} />
             <View style={{ flex: 1 }}>
               <GT size={16} style={{ textAlign: 'right' }}>{w.name}</GT>
               <GL size={11} color="#FEF3C7" style={{ textAlign: 'right' }}>{`שלב ${stageInWorld(s.stage)} · לחץ למפה`}</GL>

@@ -216,6 +216,11 @@ function bossGuard(stage: number, have: SpeciesId[]): SpeciesId | undefined {
   return left.length ? left[(stage * 7) % left.length] : undefined;
 }
 
+/** The game state when it's available (the diary's pet uses it to look like your fighter), else null. */
+export function useArenaMaybe(): Ctx | null {
+  return useContext(ArenaCtx);
+}
+
 export function useArena(): Ctx {
   const c = useContext(ArenaCtx);
   if (!c) throw new Error('useArena must be used inside ArenaProvider');

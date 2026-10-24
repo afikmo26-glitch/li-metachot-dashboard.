@@ -3,6 +3,7 @@ import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-na
 import Modal, { CloseButton } from '../components/AppModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Pet, { PetHandle } from '../components/pet/Pet';
+import { useArenaMaybe } from '../arena/state';
 import { Room } from '../components/pet/art';
 import { Card, Chip, GradientButton, Input, notify, Row, T, tap } from '../components/ui';
 import { Confetti } from '../components/Wow';
@@ -38,6 +39,7 @@ import ArenaCard from '../arena/ArenaCard';
 
 /** "My pet": hatch it, name it, pet it, hug it, feed it, dress it up, and watch it grow with your levels. */
 export default function PetScreen({ initialTab, onOpenArena }: { initialTab?: 'closet' | 'levels' | 'shop' | 'friends'; onOpenArena?: () => void } = {}) {
+  const arena = useArenaMaybe();
   const { pet, updatePet, entries, settings } = useStore();
   const lvl = useLevel();
   const { width } = useWindowDimensions();
@@ -223,6 +225,8 @@ export default function PetScreen({ initialTab, onOpenArena }: { initialTab?: 'c
           const first = !pet.hatched;
           updatePet({ name, species, hatched: true, ...(first ? { bornAt: new Date().toISOString(), loveAt: new Date().toISOString(), love: 80, seenLevel: lvl.level } : {}) });
           if (first) setTimeout(() => ref.current?.celebrate(), 400);
+          // the egg hatches into your fighter: if you haven't picked one yet, the game opens to choose it
+          if (first && !arena?.s.fighter) setTimeout(() => onOpenArena?.(), 1600);
           setLine(first ? t('שלום! אני {name}! 💜 תלטף אותי?', { name }) : t('אני {name} עכשיו! 😍', { name }));
         }}
       />

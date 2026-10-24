@@ -12,7 +12,7 @@ export type Pose3 = Anim | 'special' | 'lobby';
 // Every fighter shares one set of Tripo biped clips (see models.ts); each pose picks one of these.
 const CLIPS: Record<Pose3, string[]> = {
   idle: ['idle'],
-  lobby: ['warm_up', 'swagger', 'idle'],
+  lobby: ['idle'],
   attack: ['box_01', 'box_02', 'front_kick_01'],
   special: ['cast_a_spell'],
   hit: ['hit_to_body_01', 'hit_to_head'],

@@ -239,3 +239,34 @@ export function Counter({ icon, value }: { icon: string; value: number }) {
     </View>
   );
 }
+
+/** A carved-stone menu tile, like the lobby's ruins: the icon sits on a weathered stone slab with a beige label. */
+export function StoneButton({ icon, label, onPress, badge, size = 74 }: { icon: string; label: string; onPress: () => void; badge?: number; size?: number }) {
+  return (
+    <Pressable
+      onPress={() => {
+        play('pop', 0.4);
+        onPress();
+      }}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={({ pressed }) => ({ width: size, transform: [{ scale: pressed ? 0.92 : 1 }] })}
+    >
+      <View style={{ height: size + 6 }}>
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: size, borderRadius: 16, backgroundColor: '#3F3326', borderWidth: 3, borderColor: OUTLINE }} />
+        <LinearGradient colors={['#B9A68A', '#8A7559', '#6B5A44']} style={{ height: size, borderRadius: 16, borderWidth: 3, borderColor: OUTLINE, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 4, overflow: 'hidden' }}>
+          <View pointerEvents="none" style={{ position: 'absolute', top: 3, left: 4, right: 4, height: size * 0.3, borderRadius: 12, backgroundColor: 'rgba(255,245,220,0.22)' }} />
+          <View pointerEvents="none" style={{ position: 'absolute', top: size * 0.06 }}>
+            <ItemIcon icon={icon} size={size * 0.62} />
+          </View>
+          <GT size={Math.round(size * 0.17)} color="#FFF4DD">{label}</GT>
+        </LinearGradient>
+      </View>
+      {!!badge && (
+        <View style={{ position: 'absolute', top: -6, left: -6, minWidth: 24, height: 24, borderRadius: 12, backgroundColor: '#EF4444', borderWidth: 3, borderColor: OUTLINE, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}>
+          <GT size={11}>{badge}</GT>
+        </View>
+      )}
+    </Pressable>
+  );
+}

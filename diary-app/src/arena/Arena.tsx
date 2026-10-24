@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, useWindowDimensions, View } from 'react-native';
-import Animated, { SlideInLeft, SlideInRight, useAnimatedStyle, useSharedValue, withDelay, withSequence, withSpring, withTiming, ZoomIn } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSpring, withTiming, ZoomIn } from 'react-native-reanimated';
 import { WORLD_ART } from './simArt';
 import { ELEMENTS, SPECIES, SpeciesId } from './data';
 import { findOpponent, publish } from './online';
@@ -15,7 +15,7 @@ import { ChestsScreen, ResultInfo, ResultScreen } from './screens/Rewards';
 import Sprite from './Sprite';
 import { useArena } from './state';
 import { TapLayer } from './TapFx';
-import { Float, GL, GT, Rays } from './ui';
+import { Float, GL, GT, ItemIcon, Rays } from './ui';
 
 type Fight = { mode: 'stage'; stage: number; foe: Fighter; foeName: string; skill: number; bg: string } | { mode: 'ranked'; foe: Fighter; foeName: string; skill: number; trophies: number; bg: string };
 
@@ -53,7 +53,7 @@ function Game({ onClose }: { onClose: () => void }) {
   }, [s]);
 
   if (!ready) return <View style={{ flex: 1, backgroundColor: '#12082A' }} />;
-  if (intro) return <Intro onDone={endIntro} />;
+  if (intro) return <Intro onDone={endIntro} char={s.fighter?.species ?? 'dragon'} skin={s.fighter?.skin} />;
   if (!s.fighter) return <Pick onDone={() => setRoute('hub')} />;
   const guards = s.guards.slice(0, 3);
 
@@ -131,49 +131,50 @@ function Game({ onClose }: { onClose: () => void }) {
   }
 }
 
-/** The game's own title screen, every time it opens: lightning, the fighters jump in, the logo slams down. */
-function Intro({ onDone }: { onDone: () => void }) {
-  const { width } = useWindowDimensions();
+/** The game's own title screen: moonlit ruins, your fighter inside a glowing glass orb, the title on the arch. */
+function Intro({ onDone, char, skin }: { onDone: () => void; char: string; skin?: string }) {
+  const { width, height } = useWindowDimensions();
   const flash = useSharedValue(1);
   const logo = useSharedValue(0);
+  const orb = useSharedValue(0);
   useEffect(() => {
-    flash.value = withSequence(withTiming(0, { duration: 500 }), withDelay(700, withTiming(0.85, { duration: 60 })), withTiming(0, { duration: 450 }));
-    logo.value = withDelay(750, withSpring(1, { damping: 7, stiffness: 160 }));
-    const id = setTimeout(onDone, 3000);
+    flash.value = withTiming(0, { duration: 600 });
+    orb.value = withRepeat(withTiming(1, { duration: 2200 }), -1, true);
+    logo.value = withDelay(400, withSpring(1, { damping: 8, stiffness: 150 }));
+    const id = setTimeout(onDone, 3600);
     return () => clearTimeout(id);
-  }, [onDone, flash, logo]);
+  }, [onDone, flash, logo, orb]);
   const flashSt = useAnimatedStyle(() => ({ opacity: flash.value }));
-  const logoSt = useAnimatedStyle(() => ({ opacity: Math.min(1, logo.value * 2), transform: [{ scale: 2.4 - logo.value * 1.4 }, { rotate: `${(1 - logo.value) * -8}deg` }] }));
-  const hero = Math.min(width * 0.5, 230);
+  const logoSt = useAnimatedStyle(() => ({ opacity: Math.min(1, logo.value * 2), transform: [{ scale: 1.8 - logo.value * 0.8 }] }));
+  const glow = useAnimatedStyle(() => ({ opacity: 0.55 + orb.value * 0.35, transform: [{ scale: 1 + orb.value * 0.03 }] }));
+  const R = Math.min(width * 0.78, 330);
+  // the art's rune pedestal sits 62% down; the orb rests on it
+  const cy = height * 0.6;
   return (
-    <Pressable onPress={onDone} accessibilityRole="button" accessibilityLabel="הסים שלך, לחץ להתחלה" style={{ flex: 1, backgroundColor: '#05010D' }}>
-      <Image source={WORLD_ART.arena_shadow} style={{ position: 'absolute', width: '100%', height: '100%', opacity: 0.55 }} resizeMode="cover" />
-      <LinearGradient colors={['rgba(5,1,13,0.9)', 'rgba(60,10,90,0.25)', 'rgba(5,1,13,0.95)']} style={{ position: 'absolute', width: '100%', height: '100%' }} />
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <Rays size={760} color="rgba(168,85,247,0.1)" />
-        <Animated.View style={logoSt}>
-          <GT size={58} color="#FDE047" style={{ textShadowColor: '#7C2D12', textShadowOffset: { width: 0, height: 6 } }}>
-            הסים שלך
-          </GT>
-          <View style={{ alignSelf: 'center', marginTop: 2, backgroundColor: '#DC2626', borderRadius: 6, borderWidth: 3, borderColor: '#120A24', paddingHorizontal: 12, transform: [{ rotate: '-3deg' }] }}>
-            <GT size={14}>ARENA</GT>
-          </View>
-        </Animated.View>
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 20 }}>
-          <Animated.View entering={SlideInRight.delay(250).springify().damping(12)}>
-            <Sprite char="cat" anim="idle" size={hero * 0.7} />
-          </Animated.View>
-          <Animated.View entering={ZoomIn.delay(100).springify().damping(9)} style={{ marginHorizontal: -hero * 0.15, zIndex: 1 }}>
-            <Sprite char="dragon" anim="idle" size={hero} />
-          </Animated.View>
-          <Animated.View entering={SlideInLeft.delay(400).springify().damping(12)}>
-            <Sprite char="wolf" anim="idle" size={hero * 0.7} flip />
-          </Animated.View>
-        </View>
-        <Float>
-          <GT size={15} color="#E9D5FF" style={{ marginTop: 34 }}>
-            ⚡ לחץ להתחלה ⚡
-          </GT>
+    <Pressable onPress={onDone} accessibilityRole="button" accessibilityLabel="הסים שלך, לחץ להתחלה" style={{ flex: 1, backgroundColor: '#0B0618' }}>
+      <Image source={WORLD_ART.intro_ruins} style={{ position: 'absolute', left: -(height * 0.75 - width) / 2, top: 0, width: height * 0.75, height }} resizeMode="cover" />
+      <LinearGradient colors={['rgba(11,6,24,0.1)', 'rgba(11,6,24,0)', 'rgba(11,6,24,0.55)']} style={{ position: 'absolute', width: '100%', height: '100%' }} />
+      <Animated.View style={[{ position: 'absolute', top: height * 0.13, left: 0, right: 0, alignItems: 'center' }, logoSt]}>
+        <GT size={50} color="#FDE68A" style={{ textShadowColor: '#5B2A06', textShadowOffset: { width: 0, height: 5 } }}>
+          הסים שלך
+        </GT>
+        <ItemIcon icon="ic3_badge" size={84} />
+      </Animated.View>
+      {/* glass orb */}
+      <Animated.View style={[{ position: 'absolute', left: width / 2 - R / 2, top: cy - R / 2 - R * 0.1, width: R, height: R, borderRadius: R / 2, borderWidth: 4, borderColor: 'rgba(147,197,253,0.85)', backgroundColor: 'rgba(96,165,250,0.12)' }, glow]} />
+      <View pointerEvents="none" style={{ position: 'absolute', left: width / 2 - R / 2 + 14, top: cy - R / 2 - R * 0.1 + 14, width: R - 28, height: R - 28, borderRadius: R, borderWidth: 2, borderColor: 'rgba(253,230,138,0.5)' }} />
+      <View pointerEvents="none" style={{ position: 'absolute', left: width / 2 - R * 0.28, top: cy - R * 0.52, width: R * 0.22, height: R * 0.1, borderRadius: R, backgroundColor: 'rgba(255,255,255,0.35)', transform: [{ rotate: '-30deg' }] }} />
+      <Animated.View entering={ZoomIn.delay(150).springify().damping(10)} style={{ position: 'absolute', left: width / 2 - R * 0.36, top: cy - R * 0.42, width: R * 0.72, height: R * 0.72 }}>
+        <Sprite char={char} skin={skin} size={R * 0.72} />
+      </Animated.View>
+      {/* rune stone plate */}
+      <View style={{ position: 'absolute', top: cy + R * 0.42, left: 0, right: 0, alignItems: 'center' }}>
+        <Float amount={4}>
+          <LinearGradient colors={['#3B4A5C', '#1F2937']} style={{ paddingHorizontal: 22, paddingVertical: 8, borderRadius: 10, borderWidth: 3, borderColor: '#0E1520', flexDirection: 'row-reverse', alignItems: 'center', gap: 8 }}>
+            <GT size={13} color="#67E8F9">ᚱ ᛟ ᚾ</GT>
+            <GT size={16} color="#E0F2FE">⚡ לחץ להתחלה ⚡</GT>
+            <GT size={13} color="#67E8F9">ᛞ ᛗ ᛉ</GT>
+          </LinearGradient>
         </Float>
       </View>
       <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, backgroundColor: '#FFFFFF' }, flashSt]} />
