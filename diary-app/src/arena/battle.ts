@@ -36,7 +36,7 @@ export type Combatant = {
 };
 
 export type BattleEvent =
-  | { id: number; kind: 'hit'; side: Side; amount: number; crit: boolean; strong: boolean; move?: MoveId; tap?: boolean; combo?: number }
+  | { id: number; kind: 'hit'; side: Side; amount: number; crit: boolean; strong: boolean; move?: MoveId; tap?: boolean; combo?: number; guard?: number }
   | { id: number; kind: 'move'; side: Side; move: MoveId }
   | { id: number; kind: 'heal'; side: Side; amount: number }
   | { id: number; kind: 'blocked'; side: Side }
@@ -118,6 +118,20 @@ function damage(b: Battle, from: Side, power: number, move?: MoveId, tapCombo?: 
 export const TAP_COOLDOWN = 0.2;
 const TAP_POWER = 0.2;
 const COMBO_WINDOW = 0.7;
+
+/** How hard a guard's helping strike hits (on top of the +4% life and attack each guard gives). */
+const GUARD_POWER = 0.45;
+
+/** One of your guards jumps in with a strike of its own. */
+export function assist(b: Battle, guard: number): boolean {
+  if (b.over) return false;
+  const n = b.events.length;
+  damage(b, 0, GUARD_POWER);
+  const e = b.events[n];
+  if (e && e.kind === 'hit') e.guard = guard;
+  check(b);
+  return true;
+}
 
 /** The player taps: a quick hit. Taps in a row build a combo (more damage, more energy). */
 export function tap(b: Battle): boolean {

@@ -7,7 +7,7 @@ import Svg, { Path } from 'react-native-svg';
 import { notify } from '../../components/ui';
 import { play as sfx } from '../../lib/sound';
 import { Anim } from '../assets';
-import { Battle, drain, MAX_ENERGY, newBattle, play, Side, starsOf, tap, tick } from '../battle';
+import { assist, Battle, drain, MAX_ENERGY, newBattle, play, Side, starsOf, tap, tick } from '../battle';
 import { useBursts } from '../TapFx';
 import { ELEMENTS, MOVES, MoveId, SPECIES } from '../data';
 import { WORLD_ART } from '../simArt';
@@ -47,10 +47,11 @@ export default function BattleScreen({ me, foe, foeName, skill, guards = [], onE
   // where each fighter stands on screen: a diagonal, so they face each other across the arena floor
   const pos: [{ x: number; y: number }, { x: number; y: number }] = [
     { x: width * 0.3, y: height * 0.65 },
-    { x: width * 0.7, y: height * 0.47 },
+    { x: width * (guards.length ? 0.6 : 0.7), y: height * 0.47 },
   ];
   const bursts = useBursts();
   const [combo, setCombo] = useState(0);
+  const [guardHit, setGuardHit] = useState<{ i: number; id: number } | null>(null);
   const [tapped, setTapped] = useState(false);
   const lunge = [useSharedValue(0), useSharedValue(0)];
   const flash = [useSharedValue(0), useSharedValue(0)];
@@ -68,15 +69,28 @@ export default function BattleScreen({ me, foe, foeName, skill, guards = [], onE
   useEffect(() => {
     if (count > 0) return;
     const DT = 0.05;
+    const guardAt = guards.slice(0, 3).map((_, i) => 3 + i * 3);
     const id = setInterval(() => {
       tick(b, DT);
+      guardAt.forEach((at, i) => {
+        if (b.t >= at && !b.over) {
+          assist(b, i);
+          guardAt[i] = at + 9;
+        }
+      });
       const events = drain(b);
       for (const e of events) {
         if (e.kind === 'hit') {
           const from = (e.side === 0 ? 1 : 0) as Side;
           lunge[from].value = withSequence(withTiming(1, { duration: 120, easing: Easing.out(Easing.quad) }), withSpring(0, { damping: 9 }));
           flash[e.side].value = withSequence(withTiming(1, { duration: 60 }), withTiming(0, { duration: 220 }));
-          if (e.tap) {
+          if (e.guard !== undefined) {
+            // a guard's strike: its card lights up, sparks in its element's colour fly off the opponent
+            const g = guards[e.guard];
+            setGuardHit({ i: e.guard, id: e.id });
+            bursts.add(pos[1].x, pos[1].y - 40, g ? ELEMENTS[SPECIES[g as keyof typeof SPECIES]?.element ?? 'fire'].color : '#FDE047', true);
+            setAnimFor(1, 'hit');
+          } else if (e.tap) {
             // a tap: quick jab, the target flinches, sparks fly off it
             lunge[0].value = withSequence(withTiming(0.6, { duration: 60 }), withTiming(0, { duration: 140 }));
             setAnimFor(0, 'attack');
@@ -148,11 +162,6 @@ export default function BattleScreen({ me, foe, foeName, skill, guards = [], onE
     <View style={{ flex: 1, backgroundColor: '#0B0620' }}>
       <Animated.View style={[StyleSheet.absoluteFill, shakeStyle]}>
         <Image source={WORLD_ART[bg] ?? WORLD_ART.arena_forest} style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' }} resizeMode="cover" />
-        {guards.slice(0, 3).map((g, i) => (
-          <View key={g} pointerEvents="none" style={{ position: 'absolute', top: height * 0.7, left: [width * 0.08, width * 0.72, width * 0.4][i] }}>
-            <Sprite char={g} size={66} fps={9} />
-          </View>
-        ))}
         {[1, 0].map((sd) => {
           const side = sd as Side;
           const c = b.c[side];
@@ -196,6 +205,23 @@ export default function BattleScreen({ me, foe, foeName, skill, guards = [], onE
         ))}
       </Animated.View>
       <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: '#FEF9C3' }, flashStyle]} />
+      {/* your guards: a column on the right, each with what it adds and a strike every few seconds */}
+      {guards.length > 0 && (
+        <View pointerEvents="none" style={{ position: 'absolute', right: 6, top: insets.top + 92, gap: 8 }}>
+          {guards.slice(0, 3).map((g, i) => {
+            const sp = SPECIES[g as keyof typeof SPECIES];
+            const el = sp ? ELEMENTS[sp.element] : ELEMENTS.fire;
+            const lit = guardHit?.i === i;
+            return (
+              <View key={g} style={{ width: 72, borderRadius: 14, borderWidth: 3, borderColor: lit ? '#FDE047' : el.color, backgroundColor: lit ? 'rgba(253,224,71,0.35)' : 'rgba(10,5,25,0.72)', alignItems: 'center', paddingBottom: 3, overflow: 'hidden' }}>
+                <Sprite key={lit ? guardHit?.id : 'idle'} char={g} anim={lit ? 'attack' : 'idle'} once={lit} size={54} />
+                <GL size={9} color="#FDE68A">⚔️+4%  ❤️+4%</GL>
+              </View>
+            );
+          })}
+          <GL size={9} color="#E9D5FF" style={{ textAlign: 'center' }}>שומרים</GL>
+        </View>
+      )}
       {/* tap anywhere on the arena to hit */}
       <View
         accessibilityLabel="הכה"
@@ -325,7 +351,7 @@ function FighterView(props: {
   const { side, size, x, y, lunge, flash } = props;
   const dir = side === 0 ? 1 : -1; // the player lunges up-right, the opponent down-left
   const st = useAnimatedStyle(() => ({ transform: [{ translateX: lunge.value * 40 * dir }, { translateY: -lunge.value * 30 * dir }] }));
-  const fl = useAnimatedStyle(() => ({ opacity: 1 - flash.value * 0.6 }));
+  const fl = useAnimatedStyle(() => ({ opacity: 1 - flash.value * 0.12 }));
   const once = props.anim !== 'idle' && props.anim !== 'win';
   return (
     <View style={{ position: 'absolute', left: x - size / 2, top: y - size / 2, width: size, alignItems: 'center' }} pointerEvents="none">
