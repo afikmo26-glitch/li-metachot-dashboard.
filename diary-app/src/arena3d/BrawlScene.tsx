@@ -7,7 +7,9 @@ import { step } from './brawlGame';
 import { SPECIAL_CLIP } from './Fighter3D';
 import { loadModel, loadTexture } from './loadModel';
 import { Canvas, useFrame, useThree } from './r3f';
-import { toonify, toonRamp } from './toon';
+import { fitFighter } from './fit';
+import { buildArena } from './arenaField';
+import { toonify } from './toon';
 
 const GROUND = require('../../assets/sim3d/ground_arena.jpg');
 
@@ -15,9 +17,9 @@ const GROUND = require('../../assets/sim3d/ground_arena.jpg');
 const CLIP: Record<ActorAnim, string[]> = {
   idle: ['idle'],
   run: ['swagger'],
-  attack: ['box_01', 'box_02'],
+  attack: ['box_01', 'front_kick_01'],
   special: ['fire'],
-  hit: ['hit_to_body_01', 'hit_to_head'],
+  hit: ['hit_to_body_01'],
   death: ['defeat_02'],
   win: ['victory_celebration'],
 };
@@ -34,16 +36,16 @@ function ActorView({ a, element }: { a: Actor; element?: string }) {
       const m = o as THREE.Mesh;
       if (m.isMesh) (m.material as THREE.MeshStandardMaterial).map = map;
     });
-    const box = new THREE.Box3().setFromObject(s);
-    const h = box.max.y - box.min.y || 1;
+    const { face, h } = fitFighter(s, gltf.animations, a.model, a.boss ? 2.6 : 1.9);
     const mats = toonify(s, h * 0.009, false);
-    const k = (a.boss ? 2.3 : 1.6) / h;
-    s.scale.setScalar(k);
-    s.position.set(-((box.min.x + box.max.x) / 2) * k, -box.min.y * k, -((box.min.z + box.max.z) / 2) * k);
+    // the inner turn squares the model to +z, so the game's facing angle means the same for every fighter
+    const turn = new THREE.Group();
+    turn.rotation.y = face;
+    turn.add(s);
     const root = new THREE.Group();
-    root.add(s);
+    root.add(turn);
     return { root, mixer: new THREE.AnimationMixer(s), mats };
-  }, [gltf, map, a.boss]);
+  }, [gltf, map, a.boss, a.model]);
   const shown = useRef({ anim: '' as ActorAnim | '', id: -1 });
   const current = useRef<THREE.AnimationAction | null>(null);
   const bar = useRef<THREE.Group>(null);
@@ -87,7 +89,7 @@ function ActorView({ a, element }: { a: Actor; element?: string }) {
         <circleGeometry args={[a.boss ? 0.95 : 0.6, 20]} />
         <meshBasicMaterial color="#000000" transparent opacity={0.28} depthWrite={false} />
       </mesh>
-      <group ref={bar} position={[a.x, a.boss ? 2.9 : 2.1, a.z]}>
+      <group ref={bar} position={[a.x, a.boss ? 3.2 : 2.4, a.z]}>
         <mesh>
           <planeGeometry args={[1.32, 0.2]} />
           <meshBasicMaterial color="#120A24" />
@@ -101,59 +103,21 @@ function ActorView({ a, element }: { a: Actor; element?: string }) {
   );
 }
 
-/** The ground, the walls around it and the cover in the middle. */
+/** The temple court (see arenaField.ts), with its braziers flickering and the orb bobbing. */
 function Field({ game }: { game: Game }) {
-  const tex = use(loadTexture(GROUND, 6));
-  const ramp = toonRamp();
-  const size = game.half * 2;
-  const wall = new THREE.Color('#8A7F74');
-  return (
-    <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[size + 8, size + 8]} />
-        <meshToonMaterial map={tex} gradientMap={ramp} />
-      </mesh>
-      {[
-        [0, -game.half - 0.5, size + 2, 1],
-        [0, game.half + 0.5, size + 2, 1],
-        [-game.half - 0.5, 0, 1, size],
-        [game.half + 0.5, 0, 1, size],
-      ].map(([x, z, w, d], i) => (
-        <mesh key={i} position={[x, 0.5, z]}>
-          <boxGeometry args={[w, 1, d]} />
-          <meshToonMaterial color={wall} gradientMap={ramp} />
-        </mesh>
-      ))}
-      {game.boxes.map((b, i) =>
-        b.kind === 'bush' ? (
-          <group key={i} position={[b.x, 0, b.z]}>
-            {[-1, 0, 1].map((k) => (
-              <mesh key={k} position={[0, 0.55, k * (b.d / 3)]}>
-                <icosahedronGeometry args={[0.85, 1]} />
-                <meshToonMaterial color="#2F9E44" gradientMap={ramp} />
-              </mesh>
-            ))}
-          </group>
-        ) : b.kind === 'rock' ? (
-          <mesh key={i} position={[b.x, 0.55, b.z]} scale={[b.w / 1.6, 0.8, b.d / 1.6]}>
-            <dodecahedronGeometry args={[0.9, 0]} />
-            <meshToonMaterial color="#9CA3AF" gradientMap={ramp} />
-          </mesh>
-        ) : (
-          <group key={i} position={[b.x, 0.6, b.z]}>
-            <mesh>
-              <boxGeometry args={[b.w, 1.2, b.d]} />
-              <meshToonMaterial color="#B7793F" gradientMap={ramp} />
-            </mesh>
-            <mesh position={[0, 0.61, 0]}>
-              <boxGeometry args={[b.w * 0.9, 0.04, b.d * 0.9]} />
-              <meshToonMaterial color="#8B5A2B" gradientMap={ramp} />
-            </mesh>
-          </group>
-        ),
-      )}
-    </group>
-  );
+  const tex = use(loadTexture(GROUND, 1));
+  const field = useMemo(() => buildArena(game, tex), [game, tex]);
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime;
+    for (const f of field.flames) {
+      const k = 1 + Math.sin(t * 11 + f.phase) * 0.08 + Math.sin(t * 17.3 + f.phase * 2) * 0.06;
+      f.mesh.scale.set(1 / k, k, 1 / k);
+    }
+    field.orb.position.y = 1.75 + Math.sin(t * 1.6) * 0.08;
+    field.orb.rotation.y = t * 0.8;
+    field.halo.rotation.z = t * 0.9;
+  });
+  return <primitive object={field.group} />;
 }
 
 const SPARK_DIRS = Array.from({ length: 7 }, (_, i) => [Math.cos((i / 7) * Math.PI * 2), Math.sin((i / 7) * Math.PI * 2)] as const);
@@ -245,9 +209,12 @@ function Director({ game, input, onTick }: { game: Game; input: React.RefObject<
     step(game, d, input.current);
     input.current.superFire = false;
     const p = game.player;
-    look.current.lerp(new THREE.Vector3(p.x, 0, p.z), Math.min(1, d * 5));
+    // follow the player, but keep the court framed: the far wall and jungle fill the top, never the sky
+    const tx = THREE.MathUtils.clamp(p.x, -3.2, 3.2);
+    const tz = THREE.MathUtils.clamp(p.z, -8.5, 7);
+    look.current.lerp(new THREE.Vector3(tx, 0, tz), Math.min(1, d * 5));
     const sh = game.shake * 0.35;
-    camera.position.set(look.current.x + (Math.random() - 0.5) * sh, 13.5, look.current.z + 9.5 + (Math.random() - 0.5) * sh);
+    camera.position.set(look.current.x + (Math.random() - 0.5) * sh, 17, look.current.z + 11.5 + (Math.random() - 0.5) * sh);
     camera.lookAt(look.current.x, 0, look.current.z - 0.5);
     onTick();
   });
@@ -259,10 +226,11 @@ export default function BrawlScene({ game, input, element, onTick }: { game: Gam
   const actors = [game.player, ...game.enemies];
   return (
     <View style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }}>
-      <Canvas gl={{ antialias: true }} camera={{ position: [0, 13.5, 17.5], fov: 45, near: 0.5, far: 120 }}>
-        <color attach="background" args={['#5BB0F0']} />
-        <hemisphereLight args={['#FFFFFF', '#7A8CB0', 1.6]} />
-        <directionalLight position={[-5, 12, 6]} intensity={2.1} />
+      <Canvas gl={{ antialias: true }} camera={{ position: [0, 17, 18.5], fov: 58, near: 0.5, far: 120 }}>
+        <color attach="background" args={['#14402E']} />
+        <fog attach="fog" args={['#14402E', 26, 46]} />
+        <hemisphereLight args={['#FFF6E0', '#4A6B52', 1.55]} />
+        <directionalLight position={[-6, 12, 5]} intensity={2.2} color="#FFF1D6" />
         <Director game={game} input={input} onTick={onTick} />
         <Suspense fallback={null}>
           <Field game={game} />

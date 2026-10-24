@@ -37,11 +37,13 @@ export type Actor = {
 export type Shot = { id: number; team: Team; x: number; z: number; vx: number; vz: number; life: number; dmg: number; color: string; big: boolean };
 export type Fx = { id: number; kind: 'spark' | 'ring' | 'nova'; x: number; z: number; color: string; t: number; life: number; size: number };
 
-export type Box = { x: number; z: number; w: number; d: number; kind: 'crate' | 'rock' | 'bush' };
+export type Box = { x: number; z: number; w: number; d: number; kind: 'crate' | 'rock' | 'bush' | 'wall' | 'statue' };
 
 export type Game = {
   t: number;
-  half: number;
+  /** the court's half width (x) and half length (z): tall, to suit a phone held upright */
+  hx: number;
+  hz: number;
   boxes: Box[];
   player: Actor;
   enemies: Actor[];
@@ -68,24 +70,30 @@ const SHOT_RANGE = 9.5;
 const R = 0.6; // body radius
 
 export function createGame(player: Spawn, waves: Spawn[][]): Game {
-  const half = 12;
-  // cover: crates and rocks in a loose symmetric layout, bushes along the sides
+  // the temple court: the orb on its pedestal in the middle, crates and ruined walls for cover, tall grass to
+  // hide in. The floor art (assets/sim3d/ground_arena.jpg) is painted for exactly this layout.
   const boxes: Box[] = [
-    { x: -4, z: -3, w: 2, d: 2, kind: 'crate' },
-    { x: 4, z: -3, w: 2, d: 2, kind: 'crate' },
-    { x: 0, z: 1.5, w: 3, d: 1.2, kind: 'rock' },
-    { x: -6, z: 5, w: 1.6, d: 1.6, kind: 'rock' },
-    { x: 6, z: 5, w: 1.6, d: 1.6, kind: 'rock' },
-    { x: -7.5, z: -7, w: 2, d: 1.2, kind: 'crate' },
-    { x: 7.5, z: -7, w: 2, d: 1.2, kind: 'crate' },
-    { x: -9.5, z: 0, w: 1.4, d: 4, kind: 'bush' },
-    { x: 9.5, z: 0, w: 1.4, d: 4, kind: 'bush' },
+    { x: 0, z: 0, w: 1.6, d: 1.6, kind: 'statue' },
+    { x: -4, z: -4.5, w: 1.8, d: 1.8, kind: 'crate' },
+    { x: 4, z: -4.5, w: 1.8, d: 1.8, kind: 'crate' },
+    { x: -6.3, z: -8.6, w: 1.8, d: 1.1, kind: 'crate' },
+    { x: 6.3, z: -8.6, w: 1.8, d: 1.1, kind: 'crate' },
+    { x: -5, z: 5, w: 1.7, d: 1.7, kind: 'rock' },
+    { x: 5, z: 5, w: 1.7, d: 1.7, kind: 'rock' },
+    { x: 0, z: -7, w: 3.2, d: 0.9, kind: 'wall' },
+    { x: -6.6, z: 1, w: 0.9, d: 2.6, kind: 'wall' },
+    { x: 6.6, z: 1, w: 0.9, d: 2.6, kind: 'wall' },
+    { x: -4.6, z: 0.3, w: 1.4, d: 2.6, kind: 'bush' },
+    { x: 4.6, z: 0.3, w: 1.4, d: 2.6, kind: 'bush' },
+    { x: -4, z: 10.2, w: 2.6, d: 1.4, kind: 'bush' },
+    { x: 4, z: 10.2, w: 2.6, d: 1.4, kind: 'bush' },
   ];
   const g: Game = {
     t: 0,
-    half,
+    hx: 8.5,
+    hz: 12.5,
     boxes,
-    player: actor(0, player, 0, 8),
+    player: actor(0, player, 0, 9.5),
     enemies: [],
     shots: [],
     fx: [],
@@ -135,7 +143,7 @@ function setAnim(a: Actor, anim: ActorAnim, busy = 0) {
 }
 
 function blocked(g: Game, x: number, z: number, r = R) {
-  if (Math.abs(x) > g.half - r || Math.abs(z) > g.half - r) return true;
+  if (Math.abs(x) > g.hx - r || Math.abs(z) > g.hz - r) return true;
   for (const b of g.boxes) {
     if (b.kind === 'bush') continue; // bushes hide you, they don't block
     if (Math.abs(x - b.x) < b.w / 2 + r && Math.abs(z - b.z) < b.d / 2 + r) return true;
@@ -204,7 +212,7 @@ export function step(g: Game, dt: number, input: Input) {
       setAnim(p, 'win', 99);
       return;
     }
-    const spots: [number, number][] = [[-8, -9], [8, -9], [0, -10], [-10, -4], [10, -4]];
+    const spots: [number, number][] = [[0, -10.3], [-5.5, -10.6], [5.5, -10.6], [-7.2, -3], [7.2, -3]];
     g.enemies = plan[g.wave].map((s, i) => actor(1, s, spots[i % spots.length][0], spots[i % spots.length][1]));
     g.wave++;
     g.nextWaveAt = Infinity;

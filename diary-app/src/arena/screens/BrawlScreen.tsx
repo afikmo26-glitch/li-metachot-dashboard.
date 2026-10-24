@@ -7,7 +7,8 @@ import { createGame, Game, Input, Spawn } from '../../arena3d/brawlGame';
 import { MODELS3D } from '../../arena3d/models';
 import { ELEMENTS, HAS_3D, SPECIES, SpeciesId } from '../data';
 import { Fighter, statsOf } from '../progress';
-import { Bar, GL, GT, ItemIcon, OUTLINE } from '../ui';
+import { GL, GT, ItemIcon, OUTLINE } from '../ui';
+import { Banner, PlayerCard, SuperFill, WaveTracker } from './BrawlHud';
 
 const BrawlScene = React.lazy(() => import('../../arena3d/BrawlScene'));
 
@@ -114,7 +115,7 @@ export default function BrawlScreen({ me, onEnd }: { me: Fighter; onEnd: (r: Bra
   const p = game.player;
   const alive = game.enemies.filter((e) => e.alive).length;
   return (
-    <View style={{ flex: 1, backgroundColor: '#5BB0F0' }}>
+    <View style={{ flex: 1, backgroundColor: '#14402E' }}>
       {failed ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30 }}>
           <GT size={20}>המצב הזה צריך תלת-ממד</GT>
@@ -131,25 +132,16 @@ export default function BrawlScreen({ me, onEnd }: { me: Fighter; onEnd: (r: Bra
         </SceneGuard>
       )}
 
-      {/* top: your life, the wave, enemies left */}
-      <View pointerEvents="none" style={{ position: 'absolute', top: insets.top + 8, left: 12, right: 12, flexDirection: 'row-reverse', alignItems: 'center', gap: 8 }}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(10,5,25,0.7)', borderRadius: 12, borderWidth: 2.5, borderColor: OUTLINE, padding: 6 }}>
-          <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between' }}>
-            <GT size={13}>{p.name}</GT>
-            <GL size={11}>{`${Math.ceil(p.hp).toLocaleString()} / ${p.maxHp.toLocaleString()}`}</GL>
-          </View>
-          <Bar value={p.hp / p.maxHp} color={['#22D3EE', '#3B82F6']} height={12} style={{ marginTop: 3 }} />
-        </View>
-        <View style={{ backgroundColor: 'rgba(10,5,25,0.7)', borderRadius: 12, borderWidth: 2.5, borderColor: OUTLINE, paddingHorizontal: 10, paddingVertical: 6, alignItems: 'center' }}>
-          <GT size={14}>{`גל ${Math.max(1, game.wave)}/${game.waves}`}</GT>
-          <GL size={10} color="#FCA5A5">{`${alive} אויבים`}</GL>
-        </View>
+      {/* top: your card, and the wave plaque with the enemies still standing */}
+      <View pointerEvents="none" style={{ position: 'absolute', top: insets.top + 8, left: 10, right: 10, flexDirection: 'row-reverse', alignItems: 'flex-start', gap: 10 }}>
+        <PlayerCard name={p.name} art={me.skin ?? me.species} hp={p.hp} maxHp={p.maxHp} />
+        <WaveTracker wave={game.wave} waves={game.waves} alive={alive} />
       </View>
-      {game.over && (
-        <View pointerEvents="none" style={{ position: 'absolute', top: '38%', left: 0, right: 0, alignItems: 'center' }}>
-          <GT size={44} color={game.won ? '#FDE047' : '#FCA5A5'}>{game.won ? 'ניצחון!' : 'הובסת!'}</GT>
-        </View>
-      )}
+      {game.over ? (
+        <Banner id="end" title={game.won ? 'ניצחון!' : 'הובסת!'} sub={game.won ? `${game.kills} אויבים הובסו` : 'נסה שוב'} tone={game.won ? 'gold' : 'red'} />
+      ) : game.wave > 0 ? (
+        <Banner id={`w${game.wave}`} title={game.wave === game.waves ? 'גל הבוס!' : `גל ${game.wave}`} sub={game.wave === game.waves ? 'מלך הלבה מגיע' : `${alive} אויבים בדרך`} tone="blue" />
+      ) : null}
 
       {/* controls: joystick on the left, attack and super on the right */}
       <View style={{ position: 'absolute', left: 6, bottom: insets.bottom + 10 }}>
@@ -162,14 +154,10 @@ export default function BrawlScreen({ me, onEnd }: { me: Fighter; onEnd: (r: Bra
             if (game.charge >= 1) sfx('whoosh', 0.7);
           }}
           accessibilityLabel="מכת על"
-          style={{ width: 70, height: 70, borderRadius: 35, borderWidth: 4, borderColor: game.charge >= 1 ? '#FDE047' : OUTLINE, backgroundColor: game.charge >= 1 ? ELEMENTS[element].color : 'rgba(15,23,42,0.6)', alignItems: 'center', justifyContent: 'center', opacity: game.charge >= 1 ? 1 : 0.75 }}
+          style={{ width: 70, height: 70, borderRadius: 35, borderWidth: 4, borderColor: game.charge >= 1 ? '#FDE047' : OUTLINE, backgroundColor: 'rgba(15,23,42,0.6)', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}
         >
+          <SuperFill charge={game.charge} color={ELEMENTS[element].color} />
           <ItemIcon icon={`mv_${SPECIES[me.species].signature}`} size={52} />
-          {game.charge < 1 && (
-            <View style={{ position: 'absolute', bottom: -10, backgroundColor: OUTLINE, borderRadius: 8, paddingHorizontal: 6 }}>
-              <GL size={10} color="#FDE68A">{`${Math.round(game.charge * 100)}%`}</GL>
-            </View>
-          )}
         </Pressable>
         <View
           onStartShouldSetResponder={() => true}

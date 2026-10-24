@@ -6,6 +6,7 @@ import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js
 import type { Anim } from '../arena/assets';
 import { loadModel, loadStep } from './loadModel';
 import { Canvas, useFrame } from './r3f';
+import { fitFighter } from './fit';
 import { toonify } from './toon';
 
 export type Pose3 = Anim | 'special' | 'lobby';
@@ -14,9 +15,9 @@ export type Pose3 = Anim | 'special' | 'lobby';
 const CLIPS: Record<Pose3, string[]> = {
   idle: ['idle'],
   lobby: ['idle'],
-  attack: ['box_01', 'box_02', 'front_kick_01'],
+  attack: ['box_01', 'front_kick_01'],
   special: ['cast_a_spell'],
-  hit: ['hit_to_body_01', 'hit_to_head'],
+  hit: ['hit_to_body_01'],
   death: ['defeat_02'],
   win: ['victory_celebration'],
 };
@@ -32,22 +33,18 @@ type Props = { char: string; pose: Pose3; poseId?: number; special?: string; fli
 
 function Model({ char, pose, poseId = 0, special, flip, once, onDone }: Props) {
   const { gltf, map } = use(loadModel(char));
-  const { scene, mixer, mats } = useMemo(() => {
+  const { scene, mixer, mats, face } = useMemo(() => {
     // a copy per view, so the same fighter can stand on both sides of a battle
     const s = cloneSkinned(gltf.scene);
     s.traverse((o) => {
       const m = o as THREE.Mesh;
       if (m.isMesh) (m.material as THREE.MeshStandardMaterial).map = map;
     });
-    const box = new THREE.Box3().setFromObject(s);
-    const h = box.max.y - box.min.y || 1;
+    // feet on the floor, 1.6 units tall, facing the camera, whatever size and turn Tripo exported it at
+    const { face, h } = fitFighter(s, gltf.animations, char, 1.6);
     const mats = toonify(s, h * 0.008, false);
-    // feet on the floor, 1.6 units tall, whatever size Tripo exported it at
-    const k = 1.6 / h;
-    s.scale.setScalar(k);
-    s.position.set(-((box.min.x + box.max.x) / 2) * k, -box.min.y * k, -((box.min.z + box.max.z) / 2) * k);
-    return { scene: s, mixer: new THREE.AnimationMixer(s), mats };
-  }, [gltf, map]);
+    return { scene: s, mixer: new THREE.AnimationMixer(s), mats, face };
+  }, [gltf, map, char]);
   const current = useRef<THREE.AnimationAction | null>(null);
   // one note per session that 3D worked on this device (helps tell a phone problem from a model problem)
   useEffect(() => {
@@ -93,7 +90,8 @@ function Model({ char, pose, poseId = 0, special, flip, once, onDone }: Props) {
   });
 
   return (
-    <group rotation={[0, flip ? 0.55 : -0.55, 0]}>
+    // straight at the camera; in a duel just a touch towards the opponent
+    <group rotation={[0, face + (flip === undefined ? 0 : flip ? -0.18 : 0.18), 0]}>
       <primitive object={scene} />
     </group>
   );
