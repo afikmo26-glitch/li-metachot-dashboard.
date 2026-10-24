@@ -455,7 +455,7 @@ function coverPiece(b: Box, rnd: () => number): { group: THREE.Group; gem?: THRE
     const shine = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), new THREE.MeshBasicMaterial({ color: '#FFFFFF' }));
     shine.position.set(-0.2, 0.32, 0.38);
     gem.add(mid, up, down, shine);
-    const glow = new THREE.Mesh(new THREE.SphereGeometry(1.15, 18, 14), new THREE.MeshBasicMaterial({ color: '#C084FC', transparent: true, opacity: 0.18, depthWrite: false, blending: THREE.AdditiveBlending }));
+    const glow = new THREE.Mesh(new THREE.SphereGeometry(1.15, 18, 14), new THREE.MeshBasicMaterial({ color: '#C084FC', transparent: true, opacity: 0.1, depthWrite: false, blending: THREE.AdditiveBlending }));
     glow.position.y = 2.2;
     grp.add(gem, glow);
     return { group: grp, gem, glow };

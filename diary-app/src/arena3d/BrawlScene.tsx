@@ -28,7 +28,7 @@ const SPEED: Partial<Record<ActorAnim, number>> = { run: 1.9, attack: 2.4, hit: 
 const LOOPS: ActorAnim[] = ['idle', 'run', 'win'];
 
 /** One fighter in the arena: its model, playing whatever pose the game gives it, with a life bar over it. */
-function ActorView({ a, element }: { a: Actor; element?: string }) {
+function ActorView({ a, element, onReady }: { a: Actor; element?: string; onReady?: () => void }) {
   const { gltf, map } = use(loadModel(a.model));
   const { camera } = useThree();
   const { root, mixer, mats } = useMemo(() => {
@@ -53,7 +53,9 @@ function ActorView({ a, element }: { a: Actor; element?: string }) {
   const fill = useRef<THREE.Mesh>(null);
   const shadow = useRef<THREE.Mesh>(null);
 
+  const frames = useRef(0);
   useFrame((_, dt) => {
+    if (++frames.current === 3) onReady?.();
     root.position.set(a.x, a.y, a.z);
     root.rotation.y += (((a.rot - root.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI) * Math.min(1, dt * 14);
     if (shown.current.anim !== a.anim || shown.current.id !== a.animId) {
@@ -212,12 +214,13 @@ function Effects({ game }: { game: Game }) {
 }
 
 /** Runs the game every frame and follows the player from above. */
-function Director({ game, input, onTick }: { game: Game; input: React.RefObject<Input>; onTick: () => void }) {
+function Director({ game, input, onTick, paused }: { game: Game; input: React.RefObject<Input>; onTick: () => void; paused?: boolean }) {
   const { camera } = useThree();
   const look = useRef(new THREE.Vector3(game.player.x, 0, game.player.z));
   useFrame((_, dt) => {
     const d = Math.min(dt, 0.05);
-    step(game, d, input.current);
+    // the fight waits until the fighters are actually on screen
+    if (!paused) step(game, d, input.current);
     input.current.superFire = false;
     const p = game.player;
     // follow the player, but keep the court framed: the far wall and jungle fill the top, never the sky
@@ -233,7 +236,7 @@ function Director({ game, input, onTick }: { game: Game; input: React.RefObject<
 }
 
 /** The arena in 3D. The screen owns the game and the joystick; this draws and runs it. */
-export default function BrawlScene({ game, input, element, onTick }: { game: Game; input: React.RefObject<Input>; element: string; onTick: () => void }) {
+export default function BrawlScene({ game, input, element, onTick, onReady, paused }: { game: Game; input: React.RefObject<Input>; element: string; onTick: () => void; onReady?: () => void; paused?: boolean }) {
   const actors = [game.player, ...game.enemies];
   return (
     <View style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }}>
@@ -242,13 +245,13 @@ export default function BrawlScene({ game, input, element, onTick }: { game: Gam
         <fog attach="fog" args={['#E2A06C', 28, 50]} />
         <hemisphereLight args={['#FFF6E0', '#8A5A48', 1.6]} />
         <directionalLight position={[-6, 12, 5]} intensity={2.2} color="#FFF1D6" />
-        <Director game={game} input={input} onTick={onTick} />
+        <Director game={game} input={input} onTick={onTick} paused={paused} />
         <Suspense fallback={null}>
           <Field game={game} />
         </Suspense>
         {actors.map((a) => (
           <Suspense key={a.id} fallback={null}>
-            <ActorView a={a} element={a.team === 0 ? element : undefined} />
+            <ActorView a={a} element={a.team === 0 ? element : undefined} onReady={a.team === 0 ? onReady : undefined} />
           </Suspense>
         ))}
         <Effects game={game} />

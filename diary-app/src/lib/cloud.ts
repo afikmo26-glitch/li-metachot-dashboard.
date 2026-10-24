@@ -273,7 +273,11 @@ export async function restoreFromCloud(password: string): Promise<BackupData> {
 /** Crash reports (no diary content): message, stack, platform and app version. */
 export async function reportCrash(message: string, stack?: string) {
   try {
-    await api('/crash', { body: { message: message.slice(0, 500), stack: stack?.slice(0, 4000), platform: Platform.OS, version: '1.0.0', at: new Date().toISOString() } });
+    const body = JSON.stringify({ message: message.slice(0, 500), stack: stack?.slice(0, 4000), platform: Platform.OS, version: '1.0.0', at: new Date().toISOString() });
+    // straight to the app's own server: a custom AI server set up in Settings shouldn't swallow the reports
+    if (SERVER.url && SERVER.appKey) {
+      await fetch(`${SERVER.url.replace(/\/$/, '')}/crash`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-app-key': SERVER.appKey }, body });
+    } else await api('/crash', { body: JSON.parse(body) });
   } catch {
     // never let reporting a crash cause another one
   }

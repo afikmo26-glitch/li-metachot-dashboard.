@@ -1,7 +1,8 @@
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { GestureResponderEvent, Pressable, View } from 'react-native';
+import { GestureResponderEvent, Platform, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { notify } from '../../components/ui';
+import { reportCrash } from '../../lib/cloud';
 import { play as sfx } from '../../lib/sound';
 import { createGame, Game, Input, Spawn } from '../../arena3d/brawlGame';
 import { MODELS3D } from '../../arena3d/models';
@@ -82,6 +83,16 @@ export default function BrawlScreen({ me, onEnd }: { me: Fighter; onEnd: (r: Bra
   const ended = useRef(false);
   const element = SPECIES[me.species].element;
   const [failed, setFailed] = useState(false);
+  const [ready, setReady] = useState(false);
+  // if the court hasn't come up in a while, this phone can't run it: say so instead of an empty screen
+  useEffect(() => {
+    if (ready) return;
+    const id = setTimeout(() => {
+      setFailed(true);
+      reportCrash(`brawl-timeout ${Platform.OS}`).catch(() => {});
+    }, 15000);
+    return () => clearTimeout(id);
+  }, [ready]);
   const steer = (mx: number, mz: number) => {
     input.current.mx = mx;
     input.current.mz = mz;
@@ -127,9 +138,16 @@ export default function BrawlScreen({ me, onEnd }: { me: Fighter; onEnd: (r: Bra
       ) : (
         <SceneGuard onError={() => setFailed(true)}>
           <Suspense fallback={<GL style={{ marginTop: 200 }}>טוען את הזירה…</GL>}>
-            <BrawlScene game={game} input={input} element={element} onTick={onTick} />
+            <BrawlScene game={game} input={input} element={element} onTick={onTick} onReady={() => setReady(true)} paused={!ready} />
           </Suspense>
         </SceneGuard>
+      )}
+
+      {!ready && !failed && (
+        <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: '#E2A06C' }}>
+          <GT size={22}>מכרה אבני החן</GT>
+          <GL style={{ marginTop: 6 }} color="#7C2D12">טוען את הזירה…</GL>
+        </View>
       )}
 
       {/* top: your card, and the wave plaque with the enemies still standing */}

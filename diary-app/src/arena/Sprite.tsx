@@ -46,6 +46,7 @@ const ease = Easing.inOut(Easing.quad);
  */
 export default function Sprite(props: Props) {
   const [failed, setFailed] = useState(false);
+  const [ready, setReady] = useState(false);
   const { char, skin, live } = props;
   // a skin with its own 3D model shows in 3D too; other skins fall back to their illustration
   const model = skin ? (MODELS3D[skin] ? skin : undefined) : MODELS3D[char] ? char : undefined;
@@ -53,10 +54,19 @@ export default function Sprite(props: Props) {
     const pose: Pose3 = props.special && props.anim === 'attack' ? 'special' : props.lobby && (props.anim ?? 'idle') === 'idle' ? 'lobby' : (props.anim ?? 'idle');
     return (
       <View style={[{ width: props.size, height: props.size }, props.style]} pointerEvents="none">
+        {/* the illustration holds the spot until the 3D fighter is really drawn, so the spot is never empty */}
+        {!ready && (
+          <View style={{ position: 'absolute', left: 0, top: 0 }}>
+            <Flat {...props} style={undefined} />
+          </View>
+        )}
         <Guard onError={() => setFailed(true)}>
-          <Suspense fallback={<Flat {...props} />}>
-            <Fighter3D char={model} pose={pose} poseId={props.animId} special={props.special} flip={props.flip} once={props.once} size={props.size} onDone={() => props.once && props.onEnd?.()} />
+          {/* kept all but invisible until checked, so the two never show at once */}
+          <View style={{ opacity: ready ? 1 : 0.01 }}>
+          <Suspense fallback={null}>
+            <Fighter3D char={model} pose={pose} poseId={props.animId} special={props.special} flip={props.flip} once={props.once} size={props.size} onDone={() => props.once && props.onEnd?.()} onReady={() => setReady(true)} onFail={() => setFailed(true)} />
           </Suspense>
+          </View>
         </Guard>
       </View>
     );
