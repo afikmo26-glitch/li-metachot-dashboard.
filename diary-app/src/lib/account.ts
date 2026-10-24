@@ -43,10 +43,20 @@ async function verify(account: Account, password: string) {
     : (await legacyHash(password, account.salt)) === account.passwordHash;
 }
 
+const AUTO_LOGIN = 'diary.autologin.v1';
+
 export async function loadAccount(): Promise<Account | null> {
   try {
     const raw = await AsyncStorage.getItem(KEY);
-    return raw ? (JSON.parse(await decryptFromStorage(raw)) as Account) : null;
+    if (!raw) return null;
+    const a = JSON.parse(await decryptFromStorage(raw)) as Account;
+    // One time: accounts made when the lock was on by default now open straight in (it can be turned back on)
+    if (a.lockEnabled && !(await AsyncStorage.getItem(AUTO_LOGIN)) && Platform.OS !== 'web') {
+      a.lockEnabled = false;
+      await saveAccount(a);
+    }
+    await AsyncStorage.setItem(AUTO_LOGIN, '1');
+    return a;
   } catch {
     return null;
   }
@@ -73,7 +83,8 @@ export async function createLocalAccount(displayName: string, username: string, 
     provider: 'local',
     passwordHash: await hash(password, salt),
     salt,
-    lockEnabled: true,
+    // the app opens straight in; the lock can be turned on in settings (secret places keep their own passwords)
+    lockEnabled: false,
     createdAt: new Date().toISOString(),
     kdf: 'pbkdf2',
     ...(recovery ? { recovery } : {}),
