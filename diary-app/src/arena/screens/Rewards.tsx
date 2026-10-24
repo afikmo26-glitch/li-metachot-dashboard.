@@ -1,13 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Image, Pressable, ScrollView, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { play } from '../../lib/sound';
 import { ChestKind, CHESTS, OwnedItem } from '../progress';
 import { itemDef, RARITY, SpeciesId, SPECIES } from '../data';
 import Sprite from '../Sprite';
+import { WORLD_ART } from '../simArt';
 import { useArena } from '../state';
 import { Float, GButton, GL, GT, ItemIcon, ItemTile, Pill, Rays } from '../ui';
 
@@ -30,10 +31,10 @@ function Star({ on, delay }: { on: boolean; delay: number }) {
     v.value = withDelay(delay, withSpring(1, { damping: 7 }));
     if (on) setTimeout(() => play('pop', 0.5), delay);
   }, [v, delay, on]);
-  const st = useAnimatedStyle(() => ({ transform: [{ scale: v.value }, { rotate: `${(1 - v.value) * -90}deg` }], opacity: on ? 1 : 0.25 }));
+  const st = useAnimatedStyle(() => ({ transform: [{ scale: v.value }, { rotate: `${(1 - v.value) * -90}deg` }], opacity: on ? 1 : 0.5 }));
   return (
     <Animated.View style={st}>
-      <ItemIcon icon="Star" size={on ? 74 : 60} />
+      <ItemIcon icon="ui_star_ornate" size={on ? 96 : 76} />
     </Animated.View>
   );
 }
@@ -43,6 +44,9 @@ export function ResultScreen({ r, char, skin, onContinue, onRetry }: { r: Result
   const insets = useSafeAreaInsets();
   return (
     <LinearGradient colors={r.win ? ['#1D4ED8', '#3B0764', '#12082A'] : ['#7F1D1D', '#2A0F1F', '#12082A']} style={{ flex: 1 }}>
+      {/* a win is celebrated in the dragon's treasure cave */}
+      {r.win && <Image source={WORLD_ART.victory_cave} style={{ position: 'absolute', width: '100%', height: '100%' }} resizeMode="cover" />}
+      {r.win && <LinearGradient colors={['rgba(30,15,0,0.35)', 'rgba(30,15,0,0)', 'rgba(30,15,0,0.55)']} style={{ position: 'absolute', width: '100%', height: '100%' }} />}
       <ScrollView contentContainerStyle={{ paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24, paddingHorizontal: 18, alignItems: 'center' }}>
         <GT size={40} color={r.win ? '#FDE68A' : '#FCA5A5'}>
           {r.win ? 'ניצחון!' : 'הפסד'}
@@ -60,7 +64,8 @@ export function ResultScreen({ r, char, skin, onContinue, onRetry }: { r: Result
           </View>
         )}
         <View style={{ height: 230, alignItems: 'center', justifyContent: 'center' }}>
-          {r.win && <Rays size={380} color="rgba(253,224,71,0.1)" />}
+          {r.win && <Rays size={380} color="rgba(255,236,170,0.18)" />}
+          {r.win && <View style={{ position: 'absolute', width: 250, height: 250, borderRadius: 125, borderWidth: 3, borderColor: 'rgba(253,230,138,0.6)', backgroundColor: 'rgba(253,230,138,0.12)' }} />}
           <Sprite char={char} skin={skin} anim={r.win ? 'win' : 'death'} once={!r.win} size={240} live />
         </View>
         <View style={{ flexDirection: 'row-reverse', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -84,7 +89,15 @@ export function ResultScreen({ r, char, skin, onContinue, onRetry }: { r: Result
             <GL size={12}>שומרים מחזקים אותך בקרב (+4% לכל שומר פעיל)</GL>
           </View>
         )}
-        <GButton title={r.win ? 'המשך' : 'חזרה'} size={20} style={{ marginTop: 20, alignSelf: 'stretch' }} onPress={onContinue} />
+        <GButton title={r.win ? '🌿  המשך  🌿' : 'חזרה'} size={22} height={64} style={{ marginTop: 22, alignSelf: 'stretch' }} onPress={onContinue} />
+        {r.win && (
+          <View style={{ alignItems: 'center', marginTop: 18 }}>
+            <Float amount={5}>
+              <ItemIcon icon="ui_chest_gold" size={96} />
+            </Float>
+            <GT size={14} color="#FEF3C7">פרטי שלל</GT>
+          </View>
+        )}
         {onRetry && <GButton title="נסה שוב" tone="purple" size={17} style={{ marginTop: 8, alignSelf: 'stretch' }} onPress={onRetry} />}
       </ScrollView>
     </LinearGradient>

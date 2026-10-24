@@ -8,6 +8,7 @@ export const MODELS3D: Record<string, number> = {
   boss_shadowking: require('../../assets/sim3d/boss_shadowking.glb'),
   boss_thunderbird: require('../../assets/sim3d/boss_thunderbird.glb'),
   dragon: require('../../assets/sim3d/dragon.glb'),
+  dragon_gold: require('../../assets/sim3d/dragon_gold.glb'),
   eagle: require('../../assets/sim3d/eagle.glb'),
   fox: require('../../assets/sim3d/fox.glb'),
   frog: require('../../assets/sim3d/frog.glb'),

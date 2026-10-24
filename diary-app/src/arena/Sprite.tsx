@@ -46,13 +46,15 @@ const ease = Easing.inOut(Easing.quad);
 export default function Sprite(props: Props) {
   const [failed, setFailed] = useState(false);
   const { char, skin, live } = props;
-  if (live && !skin && MODELS3D[char] && !failed) {
+  // a skin with its own 3D model shows in 3D too; other skins fall back to their illustration
+  const model = skin ? (MODELS3D[skin] ? skin : undefined) : MODELS3D[char] ? char : undefined;
+  if (live && model && !failed) {
     const pose: Pose3 = props.special && props.anim === 'attack' ? 'special' : props.lobby && (props.anim ?? 'idle') === 'idle' ? 'lobby' : (props.anim ?? 'idle');
     return (
       <View style={[{ width: props.size, height: props.size }, props.style]} pointerEvents="none">
         <Guard onError={() => setFailed(true)}>
           <Suspense fallback={<Flat {...props} />}>
-            <Fighter3D char={char} pose={pose} poseId={props.animId} special={props.special} flip={props.flip} size={props.size} onDone={() => props.once && props.onEnd?.()} />
+            <Fighter3D char={model} pose={pose} poseId={props.animId} special={props.special} flip={props.flip} size={props.size} onDone={() => props.once && props.onEnd?.()} />
           </Suspense>
         </Guard>
       </View>

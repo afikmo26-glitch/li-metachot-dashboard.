@@ -252,35 +252,42 @@ export default function BattleScreen({ me, foe, foeName, skill, guards = [], onE
                 accessibilityLabel={`${mv.name}, ${mv.cost} אנרגיה`}
                 style={({ pressed }) => ({ flex: 1, transform: [{ scale: pressed && can ? 0.92 : 1 }, { translateY: can ? -4 : 0 }] })}
               >
-                <LinearGradient colors={can ? [mv.color, '#1E1033'] : ['#475569', '#1E293B']} style={{ height: 104, borderRadius: 14, borderWidth: 2.5, borderColor: can ? '#FFFFFF' : '#64748B', alignItems: 'center', justifyContent: 'center', paddingTop: 6 }}>
-                  <View style={{ opacity: can ? 1 : 0.45 }}>
-                    <ItemIcon icon={MOVE_ICON[m]} size={50} />
+                {/* a dark metal card tinted by the move's colour, its medallion in the middle */}
+                <LinearGradient colors={can ? ['#3A3F4B', '#1C1F27'] : ['#2A2D35', '#15171C']} style={{ height: 118, borderRadius: 16, borderWidth: 3, borderColor: can ? mv.color : '#3F4450', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 6, overflow: 'hidden' }}>
+                  <LinearGradient colors={[`${mv.color}55`, 'transparent']} style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 70 }} />
+                  <View style={{ position: 'absolute', top: 6, opacity: can ? 1 : 0.4 }}>
+                    <ItemIcon icon={`mv_${m}`} size={72} />
                   </View>
-                  <GT size={11} numberOfLines={1} style={{ marginTop: 2 }}>
+                  <GT size={12} numberOfLines={1}>
                     {mv.name}
                   </GT>
-                  <View style={{ position: 'absolute', top: -9, right: -6, width: 28, height: 28, borderRadius: 14, backgroundColor: '#C026D3', borderWidth: 2, borderColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
-                    <GT size={13}>{mv.cost}</GT>
-                  </View>
                   {cooling && (
-                    <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' }}>
-                      <GT size={18}>{Math.ceil(me0.healReadyAt - b.t)}</GT>
+                    <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' }}>
+                      <GT size={20}>{Math.ceil(me0.healReadyAt - b.t)}</GT>
                     </View>
                   )}
                 </LinearGradient>
+                <View style={{ position: 'absolute', top: -10, right: -6, width: 30, height: 30, borderRadius: 15, backgroundColor: can ? '#7C3AED' : '#475569', borderWidth: 3, borderColor: '#E9D5FF', alignItems: 'center', justifyContent: 'center' }}>
+                  <GT size={14}>{mv.cost}</GT>
+                </View>
               </Pressable>
             );
           })}
         </View>
-        <View style={{ marginTop: 10, height: 26, borderRadius: 13, backgroundColor: '#2E1065', borderWidth: 2, borderColor: '#E879F9', overflow: 'hidden', justifyContent: 'center' }}>
-          <LinearGradient colors={['#A21CAF', '#E879F9']} start={{ x: 1, y: 0 }} end={{ x: 0, y: 0 }} style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: `${(me0.energy / MAX_ENERGY) * 100}%` }} />
-          <View style={{ flexDirection: 'row-reverse', position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }}>
-            {Array.from({ length: MAX_ENERGY - 1 }, (_, i) => (
-              <View key={i} style={{ flex: 1, borderLeftWidth: 1, borderColor: 'rgba(255,255,255,0.25)' }} />
-            ))}
-            <View style={{ flex: 1 }} />
+        <View style={{ marginTop: 12, flexDirection: 'row-reverse', alignItems: 'center' }}>
+          <View style={{ flex: 1, height: 28, borderRadius: 8, backgroundColor: '#11151C', borderWidth: 3, borderColor: '#4B5563', overflow: 'hidden', justifyContent: 'center', marginLeft: -14 }}>
+            <LinearGradient colors={['#0EA5E9', '#67E8F9']} start={{ x: 1, y: 0 }} end={{ x: 0, y: 0 }} style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: `${(me0.energy / MAX_ENERGY) * 100}%` }} />
+            <View style={{ flexDirection: 'row-reverse', position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }}>
+              {Array.from({ length: MAX_ENERGY - 1 }, (_, i) => (
+                <View key={i} style={{ flex: 1, borderLeftWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }} />
+              ))}
+              <View style={{ flex: 1 }} />
+            </View>
+            <GT size={13}>{`אנרגיה ${Math.floor(me0.energy)}`}</GT>
           </View>
-          <GT size={13}>{`אנרגיה ${Math.floor(me0.energy)}`}</GT>
+          <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#1F2937', borderWidth: 3, borderColor: '#9CA3AF', alignItems: 'center', justifyContent: 'center', zIndex: 1 }}>
+            <GT size={22} color="#67E8F9">⚡</GT>
+          </View>
         </View>
       </LinearGradient>
 

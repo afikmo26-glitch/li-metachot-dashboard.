@@ -1,4 +1,4 @@
-import { elementBonus, ITEMS, itemDef, MAX_ITEM_LEVEL, MAX_LEVEL, MoveId, Rarity, RARITIES, RARITY, SPECIES, SpeciesId, STAGES_PER_WORLD, Stats, WORLDS } from './data';
+import { elementBonus, HAS_3D, ITEMS, itemDef, MAX_ITEM_LEVEL, MAX_LEVEL, MoveId, Rarity, RARITIES, RARITY, SPECIES, SpeciesId, STAGES_PER_WORLD, Stats, WORLDS } from './data';
 
 /** One owned item: which item, its upgrade level, a unique id. */
 export type OwnedItem = { uid: string; id: string; level: number };
@@ -189,7 +189,7 @@ export function trophyDelta(win: boolean, mine: number, theirs: number) {
 
 /** A bot opponent close to the player's trophies and level, for offline ranked play. */
 export function botOpponent(trophies: number, level: number) {
-  const pool = Object.keys(SPECIES) as SpeciesId[];
+  const pool = HAS_3D;
   const sp = pool[Math.floor(Math.random() * pool.length)];
   const lvl = Math.max(1, Math.round(level + (Math.random() * 6 - 3)));
   const stage = Math.max(1, Math.round(lvl / 1.9));

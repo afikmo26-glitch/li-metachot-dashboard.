@@ -209,12 +209,15 @@ export function rankOf(trophies: number) {
 }
 
 /** Five worlds of 50 stages; a boss every 10th stage and a world boss at 50. */
+/** Fighters that have a live 3D model (assets/sim3d): map enemies and ranked bots come from these. */
+export const HAS_3D: SpeciesId[] = ['dragon', 'penguin', 'frog', 'panda', 'wolf', 'raven', 'fox', 'shark', 'rhino', 'eagle'];
+
 export const WORLDS = [
-  { id: 1, name: 'יער הקסמים', colors: ['#14532D', '#22C55E'] as const, bg: 'forest', enemies: ['frog', 'bunny', 'owl', 'mole', 'fox'] as SpeciesId[], boss: 'boss_gorilla' as SpeciesId },
-  { id: 2, name: 'איי הכרישים', colors: ['#0C4A6E', '#38BDF8'] as const, bg: 'ocean', enemies: ['shark', 'octopus', 'penguin', 'frog', 'bee'] as SpeciesId[], boss: 'boss_kraken' as SpeciesId },
-  { id: 3, name: 'הר הגעש', colors: ['#7C2D12', '#F97316'] as const, bg: 'volcano', enemies: ['fox', 'cat', 'dragon', 'rhino', 'mole'] as SpeciesId[], boss: 'boss_lavadragon' as SpeciesId },
-  { id: 4, name: 'פסגות הסערה', colors: ['#3B0764', '#FACC15'] as const, bg: 'storm', enemies: ['wolf', 'bee', 'eagle', 'panda', 'rhino'] as SpeciesId[], boss: 'boss_thunderbird' as SpeciesId },
-  { id: 5, name: 'ממלכת הצללים', colors: ['#2E1065', '#A855F7'] as const, bg: 'shadow', enemies: ['raven', 'bat', 'snake', 'wolf', 'octopus'] as SpeciesId[], boss: 'boss_shadowking' as SpeciesId },
+  { id: 1, name: 'יער הקסמים', colors: ['#14532D', '#22C55E'] as const, bg: 'forest', enemies: ['frog', 'fox', 'panda', 'wolf', 'rhino'] as SpeciesId[], boss: 'boss_gorilla' as SpeciesId },
+  { id: 2, name: 'איי הכרישים', colors: ['#0C4A6E', '#38BDF8'] as const, bg: 'ocean', enemies: ['shark', 'penguin', 'frog', 'eagle', 'raven'] as SpeciesId[], boss: 'boss_kraken' as SpeciesId },
+  { id: 3, name: 'הר הגעש', colors: ['#7C2D12', '#F97316'] as const, bg: 'volcano', enemies: ['fox', 'dragon', 'rhino', 'wolf', 'panda'] as SpeciesId[], boss: 'boss_lavadragon' as SpeciesId },
+  { id: 4, name: 'פסגות הסערה', colors: ['#3B0764', '#FACC15'] as const, bg: 'storm', enemies: ['wolf', 'eagle', 'panda', 'rhino', 'penguin'] as SpeciesId[], boss: 'boss_thunderbird' as SpeciesId },
+  { id: 5, name: 'ממלכת הצללים', colors: ['#2E1065', '#A855F7'] as const, bg: 'shadow', enemies: ['raven', 'wolf', 'shark', 'fox', 'eagle'] as SpeciesId[], boss: 'boss_shadowking' as SpeciesId },
 ];
 export const STAGES_PER_WORLD = 50;
 export const TOTAL_STAGES = WORLDS.length * STAGES_PER_WORLD;

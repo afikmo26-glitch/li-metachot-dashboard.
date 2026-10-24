@@ -1,131 +1,135 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
-import { Image, Pressable, View, useWindowDimensions } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { Image, Pressable, ScrollView, ScrollViewInstance, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path } from 'react-native-svg';
 import { WORLD_ART } from '../simArt';
 import { elementBonus, ELEMENTS, SPECIES, STAGES_PER_WORLD, WORLDS } from '../data';
 import { enemyForStage, isBoss, isWorldBoss, stageRewards } from '../progress';
 import Sprite from '../Sprite';
 import { useArena } from '../state';
-import { Float, GButton, GL, GT, ItemIcon, Pill, Pulse } from '../ui';
+import { Float, GButton, GL, GT, ItemIcon, OUTLINE, Pill, Pulse } from '../ui';
 
-// Where the 10 stages of a chapter sit on screen (x, y as fractions), bottom to top
-const PATH = [
-  [0.5, 0.9], [0.27, 0.82], [0.5, 0.74], [0.75, 0.66], [0.55, 0.58], [0.25, 0.5], [0.42, 0.42], [0.72, 0.35], [0.55, 0.27], [0.5, 0.15],
-];
+const STEP = 92; // vertical distance between two stages
+const BANNER = 150; // space for a world's title banner
+const BOTTOM = 130;
 
-/** The world map: five worlds, each in chapters of ten stages with a boss at the end. */
+/**
+ * The world map: one long trail of every stage, from the first at the bottom to the last world's boss at the
+ * top. Scroll up to go forward, down to go back; it opens on the stage you're up to.
+ */
 export default function MapScreen({ onBack, onFight }: { onBack: () => void; onFight: (stage: number) => void }) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const { s } = useArena();
   const cur = s.stage;
-  const [world, setWorld] = useState(Math.floor((cur - 1) / STAGES_PER_WORLD));
-  const [chapter, setChapter] = useState(Math.floor(((cur - 1) % STAGES_PER_WORLD) / 10));
   const [pick, setPick] = useState<number | null>(null);
-  const w = WORLDS[world];
-  const first = world * STAGES_PER_WORLD + chapter * 10 + 1;
-  const H = height - insets.top - insets.bottom - 150;
-  const pts = PATH.map(([x, y]) => [x * width, y * H] as const);
-  const d = pts.map(([x, y], i) => (i ? `L${x},${y}` : `M${x},${y}`)).join(' ');
+  const scroll = useRef<ScrollViewInstance>(null);
+  const total = WORLDS.length * STAGES_PER_WORLD;
+  const fullH = BOTTOM + total * STEP + WORLDS.length * BANNER + 200;
+  // distance from the bottom of the trail to a stage's node
+  const fromBottom = (stage: number) => BOTTOM + (stage - 1) * STEP + Math.floor((stage - 1) / STAGES_PER_WORLD) * BANNER;
+  const yOf = (stage: number) => fullH - fromBottom(stage);
+  const xOf = (stage: number) => width * (0.5 + 0.28 * Math.sin(stage * 0.75));
+  const tile = width / 0.75; // one map picture, kept at its own proportions
+  const goTo = (stage: number, animated = true) => scroll.current?.scrollTo({ y: Math.max(0, yOf(stage) - height * 0.55), animated });
 
   return (
     <View style={{ flex: 1, backgroundColor: '#0B0620' }}>
-      <Image source={WORLD_ART[`map_${w.bg}`]} style={{ position: 'absolute', width: '100%', height: '100%' }} resizeMode="cover" />
-      <View style={{ paddingTop: insets.top + 8, paddingHorizontal: 12, paddingBottom: 8, backgroundColor: 'rgba(10,5,25,0.7)' }}>
-        <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 8 }}>
-          <Pressable onPress={onBack} accessibilityLabel="חזרה" hitSlop={8} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="chevron-forward" size={22} color="#fff" />
-          </Pressable>
-          <View style={{ flex: 1 }}>
-            <GT size={18} style={{ textAlign: 'right' }}>{`עולם ${w.id} · ${w.name}`}</GT>
-            <GL size={11} style={{ textAlign: 'right' }}>{`שלבים ${first}–${first + 9} · פרק ${chapter + 1} מתוך 5`}</GL>
-          </View>
-          <Pill icon="Coin" value={s.coins} />
-        </View>
-        <View style={{ flexDirection: 'row-reverse', gap: 6, marginTop: 8 }}>
-          {WORLDS.map((ww, i) => {
-            const open = cur > i * STAGES_PER_WORLD;
-            const on = i === world;
+      <ScrollView ref={scroll} onContentSizeChange={() => goTo(cur, false)} showsVerticalScrollIndicator={false}>
+        <View style={{ height: fullH }}>
+          {/* each world's map art, repeated up its stretch of the trail */}
+          {WORLDS.map((w, wi) => {
+            const bottom = fromBottom(wi * STAGES_PER_WORLD + 1) - BOTTOM;
+            const len = STAGES_PER_WORLD * STEP + BANNER;
+            const n = Math.ceil(len / tile) + 1;
             return (
-              <Pressable
-                key={ww.id}
-                disabled={!open}
-                onPress={() => {
-                  setWorld(i);
-                  setChapter(i === Math.floor((cur - 1) / STAGES_PER_WORLD) ? Math.floor(((cur - 1) % STAGES_PER_WORLD) / 10) : 0);
-                }}
-                accessibilityLabel={`עולם ${ww.id}${open ? '' : ' נעול'}`}
-                style={{ flex: 1, height: 34, borderRadius: 10, overflow: 'hidden', opacity: open ? 1 : 0.45, borderWidth: on ? 2 : 0, borderColor: '#fff' }}
-              >
-                <LinearGradient colors={ww.colors} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                  {open ? <GT size={13}>{ww.id}</GT> : <Ionicons name="lock-closed" size={14} color="#fff" />}
-                </LinearGradient>
-              </Pressable>
+              <View key={w.id} style={{ position: 'absolute', left: 0, right: 0, top: fullH - bottom - len - BOTTOM, height: len + (wi === 0 ? BOTTOM : 0), overflow: 'hidden' }}>
+                {Array.from({ length: n }, (_, k) => (
+                  <Image key={k} source={WORLD_ART[`map_${w.bg}`]} style={{ position: 'absolute', left: 0, top: k * tile, width, height: tile, transform: k % 2 ? [{ scaleY: -1 }] : [] }} resizeMode="cover" />
+                ))}
+                <LinearGradient colors={['rgba(11,6,32,0.55)', 'rgba(11,6,32,0)', 'rgba(11,6,32,0)']} locations={[0, 0.06, 1]} style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }} />
+                {/* world banner at the top of its stretch */}
+                <View style={{ position: 'absolute', top: 20, left: 0, right: 0, alignItems: 'center' }}>
+                  <LinearGradient colors={w.colors} style={{ paddingHorizontal: 22, paddingVertical: 8, borderRadius: 14, borderWidth: 3, borderColor: OUTLINE }}>
+                    <GT size={18}>{`עולם ${w.id} · ${w.name}`}</GT>
+                  </LinearGradient>
+                </View>
+              </View>
             );
           })}
-        </View>
-      </View>
-
-      <View style={{ flex: 1 }}>
-        <Svg width={width} height={H} style={{ position: 'absolute' }}>
-          <Path d={d} stroke="rgba(60,30,10,0.55)" strokeWidth={22} fill="none" strokeLinecap="round" strokeLinejoin="round" />
-          <Path d={d} stroke="#FCD34D" strokeWidth={6} fill="none" strokeDasharray="2 14" strokeLinecap="round" />
-        </Svg>
-        {pts.map(([x, y], i) => {
-          const stage = first + i;
-          const boss = isBoss(stage);
-          const done = (s.stars[stage] ?? 0) > 0;
-          const isCur = stage === cur;
-          const locked = stage > cur;
-          const size = boss ? 70 : 52;
-          const node = (
-            <Pressable
-              onPress={() => setPick(stage)}
-              disabled={locked}
-              accessibilityLabel={`שלב ${stage}${boss ? ', בוס' : ''}${locked ? ', נעול' : ''}`}
-              style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: isCur ? '#FFFFFF' : done ? '#DCFCE7' : '#64748B', backgroundColor: locked ? '#334155' : isCur ? '#EAB308' : boss ? '#B91C1C' : '#16A34A' }}
-            >
-              {locked ? <Ionicons name="lock-closed" size={18} color="#CBD5E1" /> : <GT size={boss ? 18 : 16}>{(stage - 1) % STAGES_PER_WORLD + 1}</GT>}
-            </Pressable>
-          );
-          return (
-            <View key={stage} style={{ position: 'absolute', left: x - 40, top: y - 40, width: 80, height: 80, alignItems: 'center', justifyContent: 'center' }}>
-              {done && (
-                <View style={{ position: 'absolute', top: boss ? -6 : 2, flexDirection: 'row', zIndex: 2 }}>
-                  {[1, 2, 3].map((k) => (
-                    <View key={k} style={{ opacity: (s.stars[stage] ?? 0) >= k ? 1 : 0.25, marginTop: k === 2 ? -4 : 0 }}>
-                      <ItemIcon icon="Star" size={18} />
-                    </View>
-                  ))}
-                </View>
-              )}
-              {boss && !locked && (
-                <View style={{ position: 'absolute', top: -58 }} pointerEvents="none">
-                  <Float amount={5}>
-                    <Sprite char={enemyForStage(stage).species} size={70} fps={10} />
-                  </Float>
-                </View>
-              )}
-              {isCur ? <Pulse>{node}</Pulse> : node}
+          {/* the trail: dotted steps between stages */}
+          {Array.from({ length: total - 1 }, (_, i) => {
+            const a1 = i + 1;
+            if (a1 % STAGES_PER_WORLD === 0) return null;
+            return [0.33, 0.66].map((f) => (
+              <View key={`${a1}-${f}`} style={{ position: 'absolute', left: xOf(a1) + (xOf(a1 + 1) - xOf(a1)) * f - 5, top: yOf(a1) + (yOf(a1 + 1) - yOf(a1)) * f - 5, width: 10, height: 10, borderRadius: 5, backgroundColor: a1 < cur ? '#FCD34D' : 'rgba(255,255,255,0.45)', borderWidth: 2, borderColor: OUTLINE }} />
+            ));
+          })}
+          {Array.from({ length: total }, (_, i) => {
+            const stage = i + 1;
+            const boss = isBoss(stage);
+            const stars = s.stars[stage] ?? 0;
+            const isCur = stage === cur;
+            const locked = stage > cur;
+            const size = boss ? 72 : 54;
+            const node = (
+              <Pressable
+                onPress={() => setPick(stage)}
+                disabled={locked}
+                accessibilityLabel={`שלב ${stage}${boss ? ', בוס' : ''}${locked ? ', נעול' : ''}`}
+                style={{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: OUTLINE, backgroundColor: locked ? '#475569' : isCur ? '#FACC15' : boss ? '#DC2626' : '#22C55E' }}
+              >
+                <View style={{ position: 'absolute', top: 3, left: 6, right: 6, height: size * 0.3, borderRadius: size, backgroundColor: 'rgba(255,255,255,0.3)' }} />
+                {locked ? <Ionicons name="lock-closed" size={18} color="#CBD5E1" /> : <GT size={boss ? 18 : 15}>{(stage - 1) % STAGES_PER_WORLD + 1}</GT>}
+              </Pressable>
+            );
+            return (
+              <View key={stage} style={{ position: 'absolute', left: xOf(stage) - 45, top: yOf(stage) - 45, width: 90, height: 90, alignItems: 'center', justifyContent: 'center' }}>
+                {boss && !locked && (
+                  <View style={{ position: 'absolute', top: -60 }} pointerEvents="none">
+                    <Float amount={5}>
+                      <Sprite char={enemyForStage(stage).species} size={72} />
+                    </Float>
+                  </View>
+                )}
+                {isCur ? <Pulse>{node}</Pulse> : node}
+                {stars > 0 && (
+                  <View style={{ position: 'absolute', bottom: 0, flexDirection: 'row' }}>
+                    {[1, 2, 3].map((k) => (
+                      <View key={k} style={{ opacity: stars >= k ? 1 : 0.3, marginTop: k === 2 ? 4 : 0 }}>
+                        <ItemIcon icon="ui_star_ornate" size={18} />
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            );
+          })}
+          {s.fighter && (
+            <View pointerEvents="none" style={{ position: 'absolute', left: xOf(cur) - 40, top: yOf(cur) - 118 }}>
+              <Float amount={6} ms={500}>
+                <Sprite char={s.fighter.species} skin={s.fighter.skin} size={80} />
+              </Float>
             </View>
-          );
-        })}
-        {pts.findIndex((_, i) => first + i === cur) >= 0 && s.fighter && (
-          <View pointerEvents="none" style={{ position: 'absolute', left: pts[cur - first][0] - 34, top: pts[cur - first][1] - 92 }}>
-            <Float amount={6} ms={500}>
-              <Sprite char={s.fighter.species} skin={s.fighter.skin} size={64} fps={12} />
-            </Float>
-          </View>
-        )}
-      </View>
+          )}
+        </View>
+      </ScrollView>
 
-      <View style={{ flexDirection: 'row-reverse', gap: 10, paddingHorizontal: 14, paddingBottom: insets.bottom + 12, paddingTop: 8, backgroundColor: 'rgba(10,5,25,0.7)' }}>
-        <GButton title="פרק קודם" tone="purple" size={14} height={44} style={{ flex: 1 }} disabled={chapter === 0} onPress={() => setChapter((c) => Math.max(0, c - 1))} />
-        <GButton title="פרק הבא" tone="purple" size={14} height={44} style={{ flex: 1 }} disabled={chapter === 4 || first + 10 > cur} onPress={() => setChapter((c) => Math.min(4, c + 1))} />
-      </View>
+      {/* header over the map */}
+      <LinearGradient colors={['rgba(10,5,25,0.9)', 'rgba(10,5,25,0)']} style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: insets.top + 8, paddingHorizontal: 12, paddingBottom: 20, flexDirection: 'row-reverse', alignItems: 'center', gap: 8 }}>
+        <Pressable onPress={onBack} accessibilityLabel="חזרה" hitSlop={8} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.55)', borderWidth: 2.5, borderColor: OUTLINE, alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name="chevron-forward" size={22} color="#fff" />
+        </Pressable>
+        <View style={{ flex: 1 }}>
+          <GT size={17} style={{ textAlign: 'right' }}>מפת השלבים</GT>
+          <GL size={11} style={{ textAlign: 'right' }}>גלול למעלה כדי להתקדם ⬆</GL>
+        </View>
+        <Pill icon="Coin" value={s.coins} />
+      </LinearGradient>
+      <Pressable onPress={() => goTo(cur)} accessibilityLabel="לשלב הנוכחי" style={{ position: 'absolute', left: 14, bottom: insets.bottom + 16, width: 54, height: 54, borderRadius: 16, backgroundColor: '#FACC15', borderWidth: 3, borderColor: OUTLINE, alignItems: 'center', justifyContent: 'center' }}>
+        <Ionicons name="locate" size={26} color="#3B1505" />
+      </Pressable>
 
       {pick !== null && <StageSheet stage={pick} onClose={() => setPick(null)} onFight={() => onFight(pick)} />}
     </View>
