@@ -1,5 +1,6 @@
 import React, { Suspense, useEffect, useMemo, useRef } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
+import { reportCrash } from '../lib/cloud';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { Anim } from '../arena/assets';
@@ -23,9 +24,11 @@ const LOOP: Pose3[] = ['idle', 'lobby', 'win'];
 /** The special move's body language by element: breathing fire, casting, chopping down. */
 export const SPECIAL_CLIP: Record<string, string> = { fire: 'fire', water: 'cast_a_spell', nature: 'cast_a_spell', earth: 'chop', storm: 'jump', shadow: 'cast_a_spell' };
 
-type Props = { char: string; pose: Pose3; poseId?: number; special?: string; flip?: boolean; onDone?: (p: Pose3) => void };
+let okSent = false;
 
-function Model({ char, pose, poseId = 0, special, flip, onDone }: Props) {
+type Props = { char: string; pose: Pose3; poseId?: number; special?: string; flip?: boolean; once?: boolean; onDone?: (p: Pose3) => void };
+
+function Model({ char, pose, poseId = 0, special, flip, once, onDone }: Props) {
   const gltf = useLoader(GLTFLoader, MODELS3D[char] as unknown as string);
   const { scene, mixer, mats } = useMemo(() => {
     const s = gltf.scene;
@@ -39,6 +42,12 @@ function Model({ char, pose, poseId = 0, special, flip, onDone }: Props) {
     return { scene: s, mixer: new THREE.AnimationMixer(s), mats };
   }, [gltf]);
   const current = useRef<THREE.AnimationAction | null>(null);
+  // one note per session that 3D worked on this device (helps tell a phone problem from a model problem)
+  useEffect(() => {
+    if (okSent) return;
+    okSent = true;
+    reportCrash(`3d-ok: ${char} ${Platform.OS}`).catch(() => {});
+  }, [char]);
   const done = useRef(onDone);
   useEffect(() => {
     done.current = onDone;
@@ -51,7 +60,7 @@ function Model({ char, pose, poseId = 0, special, flip, onDone }: Props) {
     const clip = gltf.animations.find((c) => c.name === name) ?? gltf.animations.find((c) => c.name === 'idle');
     if (!clip) return;
     const next = mixer.clipAction(clip);
-    const loop = LOOP.includes(pose);
+    const loop = LOOP.includes(pose) && !once;
     next.reset();
     next.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
     next.clampWhenFinished = !loop;
@@ -66,7 +75,7 @@ function Model({ char, pose, poseId = 0, special, flip, onDone }: Props) {
     };
     mixer.addEventListener('finished', onFinish);
     return () => mixer.removeEventListener('finished', onFinish);
-  }, [pose, poseId, special, gltf, mixer]);
+  }, [pose, poseId, special, once, gltf, mixer]);
 
   useFrame((_, dt) => {
     mixer.update(Math.min(dt, 0.05));

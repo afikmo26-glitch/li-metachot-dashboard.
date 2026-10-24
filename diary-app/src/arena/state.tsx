@@ -28,6 +28,8 @@ export type ArenaState = {
   boost: number;
   /** skins bought (ids from SKINS) */
   skins: string[];
+  /** the one-time rank catch-up for stage wins has run */
+  rankCatchUp?: boolean;
 };
 
 const EMPTY: ArenaState = { v: 1, fighter: null, xp: 0, coins: 150, gems: 10, trophies: 0, best: 0, stage: 1, stars: {}, inventory: [], chests: ['wood'], guards: [], wins: 0, losses: 0, boost: 0, skins: [] };
@@ -40,7 +42,7 @@ type Ctx = {
   unequip: (slot: Slot) => void;
   upgrade: (uid: string) => boolean;
   sell: (uid: string) => number;
-  winStage: (stage: number, stars: number) => ReturnType<typeof stageRewards> & { levelUps: number; newGuard?: SpeciesId };
+  winStage: (stage: number, stars: number) => ReturnType<typeof stageRewards> & { levelUps: number; newGuard?: SpeciesId; trophies: number };
   loseStage: () => void;
   ranked: (win: boolean, theirTrophies: number) => { delta: number; coins: number; xp: number; levelUps: number };
   open: (index: number) => ReturnType<typeof openChest>;
@@ -151,9 +153,12 @@ export function ArenaProvider({ children }: { children: React.ReactNode }) {
             chests: r.chest ? [...p.chests, (stage % 50 === 0 ? 'magic' : 'gold') as ChestKind].slice(-8) : stars === 3 && first && Math.random() < 0.35 ? [...p.chests, 'wood' as ChestKind].slice(-8) : p.chests,
             guards: enemySp ? [...p.guards, enemySp] : p.guards,
             wins: p.wins + 1,
+            // ranks climb with the adventure too, not only online: more for a first clear and for bosses
+            trophies: p.trophies + stageTrophies(stage, first),
+            best: Math.max(p.best, p.trophies + stageTrophies(stage, first)),
           };
         });
-        return { ...r, levelUps, newGuard };
+        return { ...r, levelUps, newGuard, trophies: stageTrophies(stage, first) };
       },
       loseStage: () => update((p) => ({ ...p, losses: p.losses + 1 })),
       ranked: (win, theirs) => {
@@ -227,10 +232,18 @@ export function useArena(): Ctx {
   return c;
 }
 
+/** Trophies for winning a map stage. */
+export const stageTrophies = (stage: number, first: boolean) => (first ? (stage % 10 === 0 ? 30 : 10) : 3);
+
 /** Saves from the first version used other fighter ids; map them onto the new roster. */
 function migrate(p: ArenaState): ArenaState {
+  // Stage wins didn't give trophies before; catch ranks up once with the level you already reached
+  const caught = p.rankCatchUp || !p.fighter ? p.trophies : Math.max(p.trophies, p.fighter.level * 12);
   return {
     ...p,
+    trophies: caught,
+    best: Math.max(p.best, caught),
+    rankCatchUp: true,
     skins: p.skins ?? [],
     fighter: p.fighter ? { ...p.fighter, species: normSpecies(p.fighter.species) } : null,
     guards: [...new Set((p.guards ?? []).map(normSpecies))],

@@ -270,3 +270,20 @@ export function StoneButton({ icon, label, onPress, badge, size = 74 }: { icon: 
     </Pressable>
   );
 }
+
+/** A heart that floats up and fades: what a petted fighter gives back. */
+export function FloatHeart({ x, emoji = '💖', onDone }: { x: number; emoji?: string; onDone: () => void }) {
+  const v = useSharedValue(0);
+  useEffect(() => {
+    v.value = withTiming(1, { duration: 1100, easing: Easing.out(Easing.quad) });
+    const id = setTimeout(onDone, 1150);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const st = useAnimatedStyle(() => ({ opacity: 1 - v.value, transform: [{ translateY: -v.value * 120 }, { translateX: Math.sin(v.value * 6) * 10 }, { scale: 0.6 + v.value * 0.8 }] }));
+  return (
+    <Animated.Text pointerEvents="none" style={[{ position: 'absolute', left: x, top: 0, fontSize: 26 }, st]}>
+      {emoji}
+    </Animated.Text>
+  );
+}

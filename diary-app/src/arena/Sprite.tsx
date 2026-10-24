@@ -3,6 +3,7 @@ import { Image, StyleProp, View, ViewStyle } from 'react-native';
 import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { Anim, View as Facing } from './assets';
 import { CHAR_ART } from './simArt';
+import { reportCrash } from '../lib/cloud';
 import { MODELS3D } from '../arena3d/models';
 import type { Pose3 } from '../arena3d/Fighter3D';
 
@@ -54,7 +55,7 @@ export default function Sprite(props: Props) {
       <View style={[{ width: props.size, height: props.size }, props.style]} pointerEvents="none">
         <Guard onError={() => setFailed(true)}>
           <Suspense fallback={<Flat {...props} />}>
-            <Fighter3D char={model} pose={pose} poseId={props.animId} special={props.special} flip={props.flip} size={props.size} onDone={() => props.once && props.onEnd?.()} />
+            <Fighter3D char={model} pose={pose} poseId={props.animId} special={props.special} flip={props.flip} once={props.once} size={props.size} onDone={() => props.once && props.onEnd?.()} />
           </Suspense>
         </Guard>
       </View>
@@ -63,13 +64,20 @@ export default function Sprite(props: Props) {
   return <Flat {...props} />;
 }
 
+let reported3d = false;
+
 /** If the 3D view can't start on this device, fall back to the illustration. */
 class Guard extends React.Component<{ onError: () => void; children: React.ReactNode }, { failed: boolean }> {
   state = { failed: false };
   static getDerivedStateFromError() {
     return { failed: true };
   }
-  componentDidCatch() {
+  componentDidCatch(e: Error) {
+    // tell us what went wrong on this phone (no personal data), once per session
+    if (!reported3d) {
+      reported3d = true;
+      reportCrash(`3d-fail: ${e?.message ?? e}`, e?.stack).catch(() => {});
+    }
     this.props.onError();
   }
   render() {

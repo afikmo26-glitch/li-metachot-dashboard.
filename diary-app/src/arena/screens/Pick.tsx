@@ -35,7 +35,7 @@ export default function Pick({ onDone }: { onDone: () => void }) {
           <Rays size={420} />
           <View style={{ position: 'absolute', bottom: 18, width: 170, height: 34, borderRadius: 85, backgroundColor: 'rgba(0,0,0,0.3)' }} />
           <Float>
-            <Sprite key={sel} char={sel} anim="win" size={220} />
+            <Sprite key={sel} char={sel} anim="win" size={260} live />
           </Float>
         </View>
 

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React from 'react';
+import React, { useState } from 'react';
 import { Image, Pressable, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { notify } from '../../components/ui';
@@ -11,7 +11,9 @@ import { powerOf, stageInWorld, worldOfStage, xpToNext } from '../progress';
 import { WORLD_ART } from '../simArt';
 import Sprite from '../Sprite';
 import { useArena } from '../state';
-import { Bar, Counter, GL, GT, ItemIcon, OUTLINE, Pulse, StoneButton } from '../ui';
+import { Bar, Counter, FloatHeart, GL, GT, ItemIcon, OUTLINE, Pulse, StoneButton } from '../ui';
+import { play } from '../../lib/sound';
+import * as Haptics from 'expo-haptics';
 
 export type HubGo = 'map' | 'play' | 'ranked' | 'bag' | 'chests' | 'ranks' | 'guards' | 'skins';
 
@@ -35,6 +37,8 @@ export default function Hub({ go, onClose }: { go: (to: HubGo) => void; onClose:
   const today = dayKey(new Date());
   const bonusReady = entries.some((e) => dayKey(e.createdAt) === today) && s.diaryBonusDay !== today;
   const hero = Math.min(width * 0.6, height * 0.33, 290);
+  const [petted, setPetted] = useState(0);
+  const [hearts, setHearts] = useState<{ id: number; x: number; emoji: string }[]>([]);
 
   return (
     <View style={{ flex: 1, backgroundColor: '#12082A' }}>
@@ -92,9 +96,26 @@ export default function Hub({ go, onClose }: { go: (to: HubGo) => void; onClose:
       {/* middle: your fighter on a glowing stage, menu tiles down both sides on top of it */}
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 8 }}>
         {/* feet on the middle of the stage */}
-        <View style={{ marginBottom: 58 + hero * 0.3 }}>
-          <Sprite char={f.species} skin={f.skin} size={hero} live lobby />
-        </View>
+        {/* tap your fighter to pet it: hearts, a happy jump, a sound */}
+        <Pressable
+          onPress={() => {
+            play('pop', 0.5);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+            setPetted((n) => (n % 2 ? n + 2 : n + 1));
+            const id = Date.now();
+            setHearts((h) => [...h.slice(-8), ...[0, 1, 2].map((k) => ({ id: id + k, x: hero * (0.25 + Math.random() * 0.5), emoji: ['💖', '💗', '✨', '💜'][Math.floor(Math.random() * 4)] }))]);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={`ללטף את ${f.name}`}
+          style={{ marginBottom: 58 + hero * 0.3 }}
+        >
+          <Sprite char={f.species} skin={f.skin} size={hero} live lobby anim={petted % 2 ? 'win' : 'idle'} animId={petted} once={petted % 2 === 1} onEnd={() => setPetted((n) => (n % 2 ? n + 1 : n))} />
+          <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: hero * 0.2, width: hero, height: 1 }}>
+            {hearts.map((h) => (
+              <FloatHeart key={h.id} x={h.x} emoji={h.emoji} onDone={() => setHearts((all) => all.filter((x) => x.id !== h.id))} />
+            ))}
+          </View>
+        </Pressable>
         <Pressable onPress={() => go('skins')} accessibilityLabel="החלף סקין" style={{ position: 'absolute', bottom: 70, right: width / 2 - hero * 0.55, width: 40, height: 40, borderRadius: 10, backgroundColor: 'rgba(8,4,20,0.8)', borderWidth: 2.5, borderColor: OUTLINE, alignItems: 'center', justifyContent: 'center' }}>
           <Ionicons name="shirt" size={20} color="#fff" />
         </Pressable>
@@ -123,6 +144,17 @@ export default function Hub({ go, onClose }: { go: (to: HubGo) => void; onClose:
           <StoneButton icon="ic3_chest" label="תיבות" onPress={() => go('chests')} badge={s.chests.length} />
           <StoneButton icon="ic3_skins" label="סקינים" onPress={() => go('skins')} />
           <StoneButton icon="ic3_bag" label="תיק" onPress={() => go('bag')} badge={s.inventory.length} />
+          {s.guards.length > 0 && (
+            <Pressable onPress={() => go('guards')} accessibilityLabel="השומרים שלך" style={{ width: 74, borderRadius: 14, borderWidth: 3, borderColor: OUTLINE, backgroundColor: 'rgba(10,5,25,0.72)', paddingVertical: 4, alignItems: 'center', gap: 2 }}>
+              <GL size={10} color="#FDE68A">שומרים</GL>
+              {s.guards.slice(0, 3).map((g) => (
+                <View key={g} style={{ alignItems: 'center' }}>
+                  <Sprite char={g} size={40} />
+                  <GL size={9} color="#E9D5FF">⚔️+4% ❤️+4%</GL>
+                </View>
+              ))}
+            </Pressable>
+          )}
         </View>
         <View style={{ position: 'absolute', top: 6, left: 8, gap: 8 }}>
           <StoneButton icon="ic3_ranks" label="דרגות" onPress={() => go('ranks')} />

@@ -81,7 +81,7 @@ function Game({ onClose }: { onClose: () => void }) {
     if (fight.mode === 'stage') {
       if (r.win) {
         const got = winStage(fight.stage, r.stars);
-        setResult({ win: true, stars: r.stars, coins: got.coins, xp: got.xp, gems: got.gems, chest: got.chest, levelUps: got.levelUps, newGuard: got.newGuard, title: fight.foeName });
+        setResult({ win: true, stars: r.stars, coins: got.coins, xp: got.xp, gems: got.gems, chest: got.chest, levelUps: got.levelUps, newGuard: got.newGuard, trophies: got.trophies, title: fight.foeName });
       } else {
         loseStage();
         setResult({ win: false, stars: 0, coins: 0, xp: 0, levelUps: 0, title: `${fight.foeName} · שדרג חפצים ונסה שוב!` });
@@ -165,7 +165,7 @@ function Intro({ onDone, char, skin }: { onDone: () => void; char: string; skin?
       <View pointerEvents="none" style={{ position: 'absolute', left: width / 2 - R / 2 + 14, top: cy - R / 2 - R * 0.1 + 14, width: R - 28, height: R - 28, borderRadius: R, borderWidth: 2, borderColor: 'rgba(253,230,138,0.5)' }} />
       <View pointerEvents="none" style={{ position: 'absolute', left: width / 2 - R * 0.28, top: cy - R * 0.52, width: R * 0.22, height: R * 0.1, borderRadius: R, backgroundColor: 'rgba(255,255,255,0.35)', transform: [{ rotate: '-30deg' }] }} />
       <Animated.View entering={ZoomIn.delay(150).springify().damping(10)} style={{ position: 'absolute', left: width / 2 - R * 0.36, top: cy - R * 0.42, width: R * 0.72, height: R * 0.72 }}>
-        <Sprite char={char} skin={skin} size={R * 0.72} />
+        <Sprite char={char} skin={skin} size={R * 0.72} live lobby />
       </Animated.View>
       {/* rune stone plate */}
       <View style={{ position: 'absolute', top: cy + R * 0.42, left: 0, right: 0, alignItems: 'center' }}>
