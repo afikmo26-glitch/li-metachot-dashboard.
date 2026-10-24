@@ -34,6 +34,8 @@ export type ArenaState = {
   roster?: SpeciesId[];
   /** coin upgrades per fighter */
   upgrades?: Partial<Record<SpeciesId, number>>;
+  /** the game mode the PLAY button starts */
+  mode?: 'duel' | 'chaos';
 };
 
 const EMPTY: ArenaState = { v: 1, fighter: null, xp: 0, coins: 150, gems: 10, trophies: 0, best: 0, stage: 1, stars: {}, inventory: [], chests: ['wood'], guards: [], wins: 0, losses: 0, boost: 0, skins: [] };
@@ -57,6 +59,8 @@ type Ctx = {
   buyFighter: (sp: SpeciesId) => boolean;
   switchFighter: (sp: SpeciesId) => void;
   upgradeFighter: () => boolean;
+  setMode: (m: 'duel' | 'chaos') => void;
+  brawlDone: (won: boolean, kills: number) => { coins: number; xp: number; trophies: number; levelUps: number };
   wearSkin: (id: string | undefined) => void;
   reset: () => void;
 };
@@ -226,6 +230,21 @@ export function ArenaProvider({ children }: { children: React.ReactNode }) {
             ? { ...p, fighter: { ...p.fighter, species: sp, name: SPECIES[sp].name, upg: p.upgrades?.[sp] ?? 0, skin: skinDef(p.fighter.skin)?.species === sp ? p.fighter.skin : undefined } }
             : p,
         ),
+      setMode: (m) => update((p) => ({ ...p, mode: m })),
+      brawlDone: (won, kills) => {
+        const coins = won ? 60 + kills * 12 : kills * 6;
+        const xp = 40 + kills * 18 + (won ? 60 : 0);
+        const trophies = won ? 12 : -4;
+        let levelUps = 0;
+        update((p0) => {
+          const g = gainXp(p0, xp);
+          levelUps = g.ups;
+          const p = g.p;
+          const tr = Math.max(0, p.trophies + trophies);
+          return { ...p, coins: p.coins + coins, trophies: tr, best: Math.max(p.best, tr), wins: p.wins + (won ? 1 : 0), losses: p.losses + (won ? 0 : 1) };
+        });
+        return { coins, xp, trophies, levelUps };
+      },
       upgradeFighter: () => {
         const f = s.fighter;
         if (!f) return false;

@@ -12,6 +12,7 @@ import Hub, { HubGo } from './screens/Hub';
 import MapScreen from './screens/MapScreen';
 import Pick from './screens/Pick';
 import { ChestsScreen, ResultInfo, ResultScreen } from './screens/Rewards';
+import BrawlScreen from './screens/BrawlScreen';
 import Sprite from './Sprite';
 import { useArena } from './state';
 import { TapLayer } from './TapFx';
@@ -21,7 +22,7 @@ type Fight = { mode: 'stage'; stage: number; foe: Fighter; foeName: string; skil
 
 /** Ranked fights happen on the arena of your fighter's element. */
 const HOME_ARENA: Record<string, string> = { fire: 'volcano', water: 'ocean', nature: 'forest', earth: 'forest', storm: 'storm', shadow: 'shadow' };
-type Route = 'hub' | 'map' | 'matching' | 'battle' | 'result' | 'bag' | 'chests' | 'ranks' | 'guards' | 'skins' | 'fighters' | 'upgrade';
+type Route = 'hub' | 'map' | 'matching' | 'battle' | 'result' | 'bag' | 'chests' | 'ranks' | 'guards' | 'skins' | 'fighters' | 'upgrade' | 'brawl';
 
 /** "הסים שלך" (Your Sim): the whole game, opened full screen from the diary. Every touch sparkles. */
 export default function Arena({ onClose }: { onClose: () => void }) {
@@ -33,7 +34,7 @@ export default function Arena({ onClose }: { onClose: () => void }) {
 }
 
 function Game({ onClose }: { onClose: () => void }) {
-  const { ready, s, winStage, loseStage, ranked } = useArena();
+  const { ready, s, winStage, loseStage, ranked, brawlDone } = useArena();
   const [route, setRoute] = useState<Route>('hub');
   const [fight, setFight] = useState<Fight | null>(null);
   const [result, setResult] = useState<ResultInfo | null>(null);
@@ -95,7 +96,10 @@ function Game({ onClose }: { onClose: () => void }) {
 
   const go = (to: HubGo) => {
     if (to === 'ranked') startRanked();
-    else if (to === 'play') startStage(s.stage);
+    else if (to === 'play') {
+      if (s.mode === 'chaos') setRoute('brawl');
+      else startStage(s.stage);
+    }
     else setRoute(to);
   };
 
@@ -130,6 +134,19 @@ function Game({ onClose }: { onClose: () => void }) {
       return <FightersScreen onBack={() => setRoute('hub')} />;
     case 'upgrade':
       return <UpgradeScreen onBack={() => setRoute('hub')} />;
+    case 'brawl':
+      return (
+        <BrawlScreen
+          me={s.fighter}
+          onEnd={(r) => {
+            if (!r.waves) return setRoute('hub');
+            const got = brawlDone(r.won, r.kills);
+            setFight(null);
+            setResult({ win: r.won, stars: r.won ? 3 : 0, coins: got.coins, xp: got.xp, levelUps: got.levelUps, trophies: got.trophies, title: `זירת הכאוס · ${r.kills} נוצחו` });
+            setRoute('result');
+          }}
+        />
+      );
     default:
       return <Hub go={go} onClose={onClose} />;
   }

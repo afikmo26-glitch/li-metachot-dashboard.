@@ -57,3 +57,30 @@ export function loadModel(id: string) {
   }
   return p;
 }
+
+const texCache = new Map<number, Promise<THREE.Texture>>();
+
+/** A plain image asset as a texture, on the web or on a phone (expo-gl reads it from its file). */
+export function loadTexture(mod: number, repeat = 1) {
+  let p = texCache.get(mod);
+  if (!p) {
+    p = (async () => {
+      const a = await Asset.fromModule(mod).downloadAsync();
+      const uri = a.localUri ?? a.uri;
+      let tex: THREE.Texture;
+      if (Platform.OS === 'web') tex = await new THREE.TextureLoader().loadAsync(uri);
+      else {
+        tex = new THREE.Texture();
+        tex.image = { data: { localUri: uri }, width: 512, height: 512 };
+        (tex as unknown as { isDataTexture: boolean }).isDataTexture = true;
+      }
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(repeat, repeat);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.needsUpdate = true;
+      return tex;
+    })();
+    texCache.set(mod, p);
+  }
+  return p;
+}

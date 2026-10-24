@@ -27,7 +27,8 @@ const SLOT_EMPTY: Record<Slot, string> = { weapon: 'Sword', head: 'Crown2', armo
 export default function Hub({ go, onClose }: { go: (to: HubGo) => void; onClose: () => void }) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const { s, claimDiaryBonus } = useArena();
+  const { s, claimDiaryBonus, setMode } = useArena();
+  const mode = s.mode ?? 'duel';
   const { entries } = useStore();
   const f = s.fighter!;
   const sp = SPECIES[f.species];
@@ -169,6 +170,22 @@ export default function Hub({ go, onClose }: { go: (to: HubGo) => void; onClose:
 
       {/* bottom: mode (the world map) and PLAY */}
       <View style={{ paddingHorizontal: 12, paddingBottom: insets.bottom + 12, gap: 8 }}>
+        {/* two ways to play: the tap duel, or the free arena brawl */}
+        <View style={{ flexDirection: 'row-reverse', gap: 8 }}>
+          {(
+            [
+              ['duel', '⚔️ דו-קרב', 'הקשות וקלפים'],
+              ['chaos', '🌋 זירת הכאוס', 'ג׳ויסטיק ותלת-ממד'],
+            ] as const
+          ).map(([m, title, sub]) => (
+            <Pressable key={m} onPress={() => setMode(m)} accessibilityRole="button" accessibilityState={{ selected: mode === m }} style={{ flex: 1 }}>
+              <LinearGradient colors={mode === m ? (m === 'chaos' ? ['#F97316', '#B91C1C'] : ['#6366F1', '#4338CA']) : ['rgba(15,10,30,0.8)', 'rgba(15,10,30,0.8)']} style={{ borderRadius: 12, borderWidth: 3, borderColor: mode === m ? '#FDE68A' : OUTLINE, paddingVertical: 6, alignItems: 'center' }}>
+                <GT size={15}>{title}</GT>
+                <GL size={10} color="#FEF3C7">{sub}</GL>
+              </LinearGradient>
+            </Pressable>
+          ))}
+        </View>
         <Pressable onPress={() => go('map')} accessibilityLabel="מפת השלבים" style={({ pressed }) => ({ transform: [{ scale: pressed ? 0.97 : 1 }] })}>
           <LinearGradient colors={[w.colors[1], w.colors[0]]} start={{ x: 1, y: 0 }} end={{ x: 0, y: 1 }} style={{ height: 54, borderRadius: 12, borderWidth: 3, borderColor: OUTLINE, flexDirection: 'row-reverse', alignItems: 'center', paddingHorizontal: 10, gap: 10, overflow: 'hidden' }}>
             <ItemIcon icon="ic3_map" size={46} />
@@ -179,13 +196,13 @@ export default function Hub({ go, onClose }: { go: (to: HubGo) => void; onClose:
             <Ionicons name="map" size={22} color="#fff" />
           </LinearGradient>
         </Pressable>
-        <Pressable onPress={() => go('play')} accessibilityRole="button" accessibilityLabel="קרב!">
+        <Pressable onPress={() => go('play')} accessibilityRole="button" accessibilityLabel={mode === 'chaos' ? 'לזירה!' : 'קרב!'}>
           {({ pressed }) => (
             <View style={{ height: 82 }}>
               <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 74, borderRadius: 16, backgroundColor: '#B45309', borderWidth: 3.5, borderColor: OUTLINE }} />
               <LinearGradient colors={['#FEF08A', '#FACC15', '#F59E0B']} style={{ height: 74, marginTop: pressed ? 8 : 0, borderRadius: 16, borderWidth: 3.5, borderColor: OUTLINE, alignItems: 'center', justifyContent: 'center' }}>
                 <View pointerEvents="none" style={{ position: 'absolute', top: 4, left: 10, right: 10, height: 22, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.4)' }} />
-                <GT size={38}>קרב!</GT>
+                <GT size={38}>{mode === 'chaos' ? 'לזירה!' : 'קרב!'}</GT>
               </LinearGradient>
             </View>
           )}
