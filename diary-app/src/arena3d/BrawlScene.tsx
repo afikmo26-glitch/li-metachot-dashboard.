@@ -16,7 +16,7 @@ const GROUND = require('../../assets/sim3d/ground_arena.jpg');
 // which shared clip plays for each of the arena's poses
 const CLIP: Record<ActorAnim, string[]> = {
   idle: ['idle'],
-  run: ['swagger'],
+  run: ['run'],
   attack: ['box_01', 'front_kick_01'],
   special: ['fire'],
   hit: ['hit_to_body_01'],
@@ -24,7 +24,7 @@ const CLIP: Record<ActorAnim, string[]> = {
   win: ['victory_celebration'],
   jump: ['jump'],
 };
-const SPEED: Partial<Record<ActorAnim, number>> = { run: 1.9, attack: 2.4, hit: 1.6 };
+const SPEED: Partial<Record<ActorAnim, number>> = { run: 1.15, attack: 2.4, hit: 1.6 };
 const LOOPS: ActorAnim[] = ['idle', 'run', 'win'];
 
 /** One fighter in the arena: its model, playing whatever pose the game gives it, with a life bar over it. */
