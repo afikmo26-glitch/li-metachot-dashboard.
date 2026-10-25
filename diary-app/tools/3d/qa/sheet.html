@@ -1,0 +1,44 @@
+<!doctype html><html><head><meta charset="utf-8">
+<script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script>
+<style>body{margin:0}</style></head><body><script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+const TW = 150, TH = 190;
+const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); r.setPixelRatio(1);
+r.outputColorSpace = THREE.SRGBColorSpace; r.setScissorTest(true); document.body.appendChild(r.domElement);
+const posedBox = (root) => { const b = new THREE.Box3(), v = new THREE.Vector3();
+  root.traverse((o) => { if (!o.isMesh) return; const p = o.geometry.attributes.position; const st = Math.max(1, Math.floor(p.count / 4000));
+    for (let i = 0; i < p.count; i += st) { o.getVertexPosition(i, v); b.expandByPoint(v.applyMatrix4(o.matrixWorld)); } }); return b; };
+window.GROUND = true;
+window.sheet = async (name, clips, times, rotY = 0, fix = null) => {
+  const g = await new GLTFLoader().loadAsync(name + '.glb');
+  const tex = await new THREE.TextureLoader().loadAsync(name + '.jpg'); tex.flipY = false; tex.colorSpace = THREE.SRGBColorSpace;
+  const scene = new THREE.Scene(); scene.background = new THREE.Color('#dfe8f5');
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x8899bb, 1.7)); const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(2, 6, 5); scene.add(sun);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), new THREE.MeshLambertMaterial({ color: '#7fb36a' })); floor.rotation.x = -Math.PI / 2; scene.add(floor);
+  const s = g.scene; s.traverse((o) => { if (o.isMesh) { o.material.map = tex; o.material.needsUpdate = true; o.frustumCulled = false; } });
+  const idle = g.animations.find((a) => a.name === 'idle'); const m0 = new THREE.AnimationMixer(s); if (idle) { m0.clipAction(idle).play(); m0.setTime(0); }
+  s.updateMatrixWorld(true);
+  const box = window.GROUND ? posedBox(s) : new THREE.Box3().setFromObject(s); m0.stopAllAction(); const h = box.max.y - box.min.y; const k = 1.6 / h;
+  s.scale.setScalar(k); s.position.set(-((box.min.x + box.max.x) / 2) * k, -box.min.y * k, -((box.min.z + box.max.z) / 2) * k);
+  const bw = (n) => { let b; s.traverse((o) => { if (o.isBone && o.name === n) b = o; }); return b.getWorldPosition(new THREE.Vector3()); };
+  const lat = bw('L_Upperarm').sub(bw('R_Upperarm')).add(bw('L_Thigh').sub(bw('R_Thigh')));
+  const face = Math.atan2(lat.z, lat.x);
+  const grp = new THREE.Group(); grp.add(s); grp.rotation.y = face + rotY; scene.add(grp);
+  const cam = new THREE.PerspectiveCamera(30, TW / TH, 0.1, 50); cam.position.set(0, 1.25, 4.4); cam.lookAt(0, 0.8, 0);
+  const mixer = new THREE.AnimationMixer(s);
+  r.setSize(TW * times.length, TH * clips.length);
+  let row = 0;
+  for (const c of clips) {
+    const clip = g.animations.find((a) => a.name === c) || {duration:1}; mixer.stopAllAction(); if (clip.name) mixer.clipAction(clip).play();
+    times.forEach((t, col) => {
+      mixer.setTime(t * clip.duration * 0.999);
+      if (fix) window.applyFix?.(s, fix);
+      r.setViewport(col * TW, (clips.length - 1 - row) * TH, TW, TH); r.setScissor(col * TW, (clips.length - 1 - row) * TH, TW, TH); r.render(scene, cam);
+    });
+    row++;
+  }
+  return r.domElement.toDataURL('image/png');
+};
+window.ok = true;
+</script></body></html>
