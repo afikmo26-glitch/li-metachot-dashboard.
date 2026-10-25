@@ -6,9 +6,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { notify } from '../../components/ui';
 import { play as sfx } from '../../lib/sound';
+import { startBattleMusic, stopBattleMusic } from '../../lib/music';
 import { Anim } from '../assets';
 import { assist, Battle, drain, MAX_ENERGY, newBattle, play, Side, starsOf, tap, tick } from '../battle';
 import { useBursts } from '../TapFx';
+import ElementFx from '../ElementFx';
 import { ELEMENTS, MOVES, MoveId, SPECIES } from '../data';
 import { WORLD_ART } from '../simArt';
 import { Fighter } from '../progress';
@@ -20,6 +22,7 @@ export type BattleResult = { win: boolean; stars: number; hpLeft: number };
 
 type Floater = { id: number; side: Side; text: string; color: string; big?: boolean; dx: number };
 type Fx = { id: number; move: MoveId; from: Side };
+type ElFx = { id: number; element: string; from: Side; self: boolean };
 
 /**
  * The duel: your fighter stands bottom-left facing right, the opponent top-right facing you, on the world's
@@ -37,6 +40,7 @@ export default function BattleScreen({ me, foe, foeName, skill, guards = [], onE
   const [specials, setSpecials] = useState<[string | undefined, string | undefined]>([undefined, undefined]);
   const [floaters, setFloaters] = useState<Floater[]>([]);
   const [fx, setFx] = useState<Fx[]>([]);
+  const [elFx, setElFx] = useState<ElFx[]>([]);
   const [banner, setBanner] = useState<{ id: number; text: string; color: string } | null>(null);
   const ended = useRef(false);
   const onEndRef = useRef(onEnd);
@@ -57,6 +61,12 @@ export default function BattleScreen({ me, foe, foeName, skill, guards = [], onE
   const flash = [useSharedValue(0), useSharedValue(0)];
   const shake = useSharedValue(0);
   const screenFlash = useSharedValue(0);
+
+  // the fight music starts with the countdown: its big hit lands as the fight begins
+  useEffect(() => {
+    startBattleMusic();
+    return () => stopBattleMusic();
+  }, []);
 
   // 3-2-1 countdown, then the loop runs at 20 fps
   useEffect(() => {
@@ -109,6 +119,9 @@ export default function BattleScreen({ me, foe, foeName, skill, guards = [], onE
         } else if (e.kind === 'move') {
           const m = MOVES[e.move];
           setFx((f) => [...f.slice(-3), { id: e.id, move: e.move, from: e.side }]);
+          // the element's own effect: fire, ice, rings, rocks, lightning or the vortex
+          const el = m.element ?? SPECIES[b.c[e.side].fighter.species].element;
+          setElFx((f) => [...f.slice(-2), { id: e.id, element: el, from: e.side, self: m.power === 0 }]);
           setBanner({ id: e.id, text: m.name, color: m.color });
           setAnimFor(e.side, 'attack', SPECIAL_CLIP[m.element ?? SPECIES[b.c[e.side].fighter.species].element]);
           sfx('whoosh', 0.5);
@@ -124,6 +137,7 @@ export default function BattleScreen({ me, foe, foeName, skill, guards = [], onE
       if (b.over && !ended.current) {
         ended.current = true;
         clearInterval(id);
+        stopBattleMusic();
         const win = b.winner === 0;
         setAnim(win ? ['win', 'death'] : ['death', 'win']);
         if (win) {
@@ -197,6 +211,9 @@ export default function BattleScreen({ me, foe, foeName, skill, guards = [], onE
             />
           );
         })}
+        {elFx.map((f) => (
+          <ElementFx key={`el${f.id}`} element={f.element} from={pos[f.from]} to={pos[f.from === 0 ? 1 : 0]} self={f.self} onDone={() => setElFx((all) => all.filter((x) => x.id !== f.id))} />
+        ))}
         {fx.map((f) => (
           <MoveFx key={f.id} move={f.move} from={pos[f.from]} to={pos[f.from === 0 ? 1 : 0]} self={MOVES[f.move].power === 0} onDone={() => setFx((all) => all.filter((x) => x.id !== f.id))} />
         ))}

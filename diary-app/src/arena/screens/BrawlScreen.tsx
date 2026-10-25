@@ -4,7 +4,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { notify } from '../../components/ui';
 import { reportCrash } from '../../lib/cloud';
 import { play as sfx } from '../../lib/sound';
-import { createGame, Game, Input, Spawn } from '../../arena3d/brawlGame';
+import { startBattleMusic, stopBattleMusic } from '../../lib/music';
+import { createGame, DASH_CD, Game, Input, Spawn, SHIELD_CD } from '../../arena3d/brawlGame';
 import { MODELS3D } from '../../arena3d/models';
 import { ELEMENTS, HAS_3D, SPECIES, SpeciesId } from '../data';
 import { Fighter, statsOf } from '../progress';
@@ -31,6 +32,22 @@ function plan(me: Fighter): { player: Spawn; waves: Spawn[][] } {
     player: { model, name: me.name, color: ELEMENTS[el].color, hp, dmg, element: el },
     waves: [[pickFoe(), pickFoe()], [pickFoe(), pickFoe(), pickFoe()], [boss, pickFoe()]],
   };
+}
+
+/** A small round move button that darkens and counts down while it recharges. */
+function MoveButton({ label, icon, color, wait, full, onPress }: { label: string; icon: string; color: string; wait: number; full: number; onPress: () => void }) {
+  const ready = wait <= 0;
+  return (
+    <Pressable onPress={onPress} accessibilityLabel={label} style={{ width: 58, height: 58, borderRadius: 29, backgroundColor: ready ? color : 'rgba(15,23,42,0.7)', borderWidth: 3, borderColor: OUTLINE, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+      {!ready && <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: `${(1 - wait / full) * 100}%`, backgroundColor: color, opacity: 0.45 }} />}
+      <GT size={24}>{icon}</GT>
+      {!ready && (
+        <GT size={13} style={{ position: 'absolute', bottom: 3 }}>
+          {Math.ceil(wait)}
+        </GT>
+      )}
+    </Pressable>
+  );
 }
 
 /** A thumb joystick: drag from its centre; the knob follows up to its rim. */
@@ -97,6 +114,12 @@ export default function BrawlScreen({ me, onEnd }: { me: Fighter; onEnd: (r: Bra
     }, 15000);
     return () => clearTimeout(id);
   }, [ready]);
+  // drums and brass from the moment the court is up, until the fight ends or the screen goes
+  useEffect(() => {
+    if (!ready) return;
+    startBattleMusic();
+    return () => stopBattleMusic();
+  }, [ready]);
   const steer = (mx: number, mz: number) => {
     input.current.mx = mx;
     input.current.mz = mz;
@@ -106,6 +129,10 @@ export default function BrawlScreen({ me, onEnd }: { me: Fighter; onEnd: (r: Bra
   };
   const superNow = () => {
     input.current.superFire = true;
+  };
+  const press = (k: 'dash' | 'shield' | 'dance', ok: boolean, sound: 'whoosh' | 'pop') => {
+    input.current[k] = true;
+    if (ok) sfx(sound, 0.5);
   };
 
   // the HUD only needs to refresh ten times a second
@@ -119,6 +146,7 @@ export default function BrawlScreen({ me, onEnd }: { me: Fighter; onEnd: (r: Bra
   useEffect(() => {
     if (!game.over || ended.current) return;
     ended.current = true;
+    stopBattleMusic();
     if (game.won) {
       sfx('levelup', 0.6);
       notify('success');
@@ -164,6 +192,13 @@ export default function BrawlScreen({ me, onEnd }: { me: Fighter; onEnd: (r: Bra
       ) : game.wave > 0 ? (
         <Banner id={`w${game.wave}`} title={game.wave === game.waves ? 'גל הבוס!' : `גל ${game.wave}`} sub={game.wave === game.waves ? 'מלך הלבה מגיע' : `${alive} אויבים בדרך`} tone="blue" />
       ) : null}
+
+      {/* moves: dash, shield and a dance, in an arc beside the attack button */}
+      <View style={{ position: 'absolute', right: 124, bottom: insets.bottom + 18, gap: 10, alignItems: 'center' }}>
+        <MoveButton label="ריקוד" icon="💃" color="#F472B6" wait={0} full={1} onPress={() => press('dance', true, 'pop')} />
+        <MoveButton label="מגן" icon="🛡️" color="#22D3EE" wait={game.shieldCd} full={SHIELD_CD} onPress={() => press('shield', game.shieldCd <= 0, 'whoosh')} />
+        <MoveButton label="זינוק" icon="💨" color="#A3E635" wait={game.dashCd} full={DASH_CD} onPress={() => press('dash', game.dashCd <= 0, 'whoosh')} />
+      </View>
 
       {/* controls: joystick on the left, attack and super on the right */}
       <View style={{ position: 'absolute', left: 6, bottom: insets.bottom + 10 }}>

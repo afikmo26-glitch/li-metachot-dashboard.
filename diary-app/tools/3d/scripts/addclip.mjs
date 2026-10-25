@@ -1,11 +1,13 @@
 // addclip.mjs SRC.glb CLIP TARGET.glb : copies one clip from SRC (a retarget.mjs output for this same model) into
-// TARGET by node name, replacing a clip of that name, and leaves TARGET's other clips untouched. For 'run' the hip
-// gets a vertical bob of BOB (default 0.04) of its rest height, low at each foot strike, twice per loop.
+// TARGET by node name, replacing a clip of that name, and leaves TARGET's other clips untouched. For 'run' and
+// 'dance' the hip gets a vertical bob of BOB (default 0.04) of its rest height, BOBS times per loop (default 2:
+// low at each foot strike of the run).
 import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { Matrix4, Quaternion, Vector3 } from 'three';
 const [srcPath, clipName, targetPath] = process.argv.slice(2);
 const BOB = +process.env.BOB || 0.04;
+const BOBS = +process.env.BOBS || 2;
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
 const src = await io.read(srcPath);
 const doc = await io.read(targetPath);
@@ -31,7 +33,7 @@ for (const ch of clip.listChannels()) {
   anim.addSampler(ns).addChannel(doc.createAnimationChannel().setTargetNode(target).setTargetPath(ch.getTargetPath()).setSampler(ns));
 }
 
-if (clipName === 'run' && hip) {
+if ((clipName === 'run' || clipName === 'dance') && hip) {
   // world up (+y) expressed in the hip's parent frame, from the rest pose
   const parents = []; for (let n = hip; ; ) { const p = root.listNodes().find((m) => m.listChildren().includes(n)); if (!p) break; parents.unshift(p); n = p; }
   const pw = new Matrix4(); for (const p of parents) pw.multiply(new Matrix4().compose(new Vector3(...p.getTranslation()), new Quaternion(...p.getRotation()), new Vector3(...p.getScale())));
@@ -39,11 +41,11 @@ if (clipName === 'run' && hip) {
   const height = restLocal.clone().applyMatrix4(pw).y;
   const up = new Vector3(0, 1, 0).applyQuaternion(new Quaternion().setFromRotationMatrix(pw).invert());
   const scale = new Vector3().setFromMatrixScale(pw).y || 1;
-  const n = 16, dur = times[times.length - 1];
+  const n = 8 * BOBS, dur = times[times.length - 1];
   const t = new Float32Array(n + 1), v = new Float32Array((n + 1) * 3);
   for (let i = 0; i <= n; i++) {
     t[i] = (i / n) * dur;
-    const d = (BOB * height * Math.cos((4 * Math.PI * i) / n)) / scale;
+    const d = (BOB * height * Math.cos((2 * Math.PI * BOBS * i) / n)) / scale;
     v.set([restLocal.x + up.x * d, restLocal.y + up.y * d, restLocal.z + up.z * d], i * 3);
   }
   const smp = doc.createAnimationSampler().setInput(doc.createAccessor().setType('SCALAR').setArray(t).setBuffer(buf))

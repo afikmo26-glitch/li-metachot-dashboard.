@@ -21,6 +21,8 @@ export function setSoundsEnabled(on: boolean) {
   enabled = on;
 }
 
+export const soundsEnabled = () => enabled;
+
 export function play(name: SoundName, volume = 0.5) {
   if (!enabled) return;
   try {

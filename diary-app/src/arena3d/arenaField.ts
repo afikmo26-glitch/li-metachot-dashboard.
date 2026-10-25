@@ -47,7 +47,17 @@ function instanced(geo: THREE.BufferGeometry, mat: THREE.Material, items: Item[]
   return mesh;
 }
 
-export type ArenaField = { group: THREE.Group; gem: THREE.Object3D; glow: THREE.Object3D; pads: THREE.Object3D[] };
+export type ArenaField = {
+  group: THREE.Group;
+  gem: THREE.Object3D;
+  glow: THREE.Object3D;
+  pads: THREE.Object3D[];
+  /** torch flames to flicker, flags to wave, the lava to pulse and the fireflies to drift (see Field in BrawlScene) */
+  flames: THREE.Object3D[];
+  flags: THREE.Object3D[];
+  lava: THREE.MeshBasicMaterial;
+  motes: { mesh: THREE.InstancedMesh; base: THREE.Vector3[] };
+};
 
 const MINE_STONE = ['#A9A3BC', '#9C96B0', '#B7B1C8', '#8E88A3', '#C3BED2'];
 const CANYON = ['#D2663C', '#C4552F', '#E07A45', '#B9502E', '#E58B52'];
@@ -55,6 +65,8 @@ const CANYON_TOP = ['#EFA466', '#F2B072', '#E8955A'];
 const LEAF = ['#4FA83A', '#62BA45', '#3F9532', '#76C653'];
 const WOOD = '#8B5A2B';
 const WOOD_DARK = '#5E3A1A';
+const GEMS = ['#F472B6', '#C084FC', '#5EEAD4', '#FCD34D', '#60A5FA'];
+const FLOWERS = ['#FF7EB6', '#FFD84D', '#B98CFF', '#FFFFFF', '#FF9A5A'];
 
 /** Points every `step` along a rounded rectangle (half sizes hx, hz, corner radius rc), with the outward direction. */
 function roundedPath(hx: number, hz: number, rc: number, step: number) {
@@ -219,6 +231,107 @@ export function buildArena(game: Game, groundTex: THREE.Texture): ArenaField {
   ])
     g.add(cart(x, z, r));
 
+  // --- colour: gem clusters on the wall and out on the canyon floor, flowers, team flags, torches at the tunnels,
+  // a lava river beyond the far wall and fireflies drifting over the court
+  const gems: Item[] = [];
+  const flowers: Item[] = [];
+  path.forEach((p, i) => {
+    if (tunnelAt.has(i) || i % 4 !== 1) return;
+    for (let k = 0; k < 3; k++) {
+      const h = 0.35 + rnd() * 0.45;
+      gems.push({ p: [p.x + (rnd() - 0.5) * 0.5, 1.35 + h / 2, p.z + (rnd() - 0.5) * 0.4], rx: (rnd() - 0.5) * 0.8, rz: (rnd() - 0.5) * 0.8, s: [0.16, h, 0.16], c: pick(GEMS) });
+    }
+  });
+  for (let i = 0; i < 26; i++) {
+    const [x, z] = spot(1.2);
+    const c = pick(GEMS);
+    for (let k = 0; k < 5; k++) {
+      const h = 0.5 + rnd() * 1.1;
+      gems.push({ p: [x + (rnd() - 0.5) * 0.9, h / 2, z + (rnd() - 0.5) * 0.9], rx: (rnd() - 0.5) * 0.9, rz: (rnd() - 0.5) * 0.9, s: [0.25, h, 0.25], c });
+    }
+  }
+  g.add(instanced(facet(new THREE.ConeGeometry(1, 1, 5)), toon('#FFFFFF', { emissive: '#3A2A55' }), gems));
+  for (let i = 0; i < 260; i++) {
+    const [x, z] = spot(0.9);
+    flowers.push({ p: [x, 0.12, z], s: [0.14, 0.1, 0.14], c: pick(FLOWERS) });
+  }
+  g.add(instanced(new THREE.SphereGeometry(1, 6, 4), toon('#FFFFFF'), flowers));
+
+  const flags: THREE.Object3D[] = [];
+  const flagGeo = new THREE.PlaneGeometry(0.9, 0.6);
+  path.forEach((p, i) => {
+    if (tunnelAt.has(i) || i % 7 !== 0) return;
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3.2, 6), toon('#4B3A2A'));
+    pole.position.set(p.x + p.nx * 0.2, 1.6, p.z + p.nz * 0.2);
+    g.add(pole);
+    // red banners on the enemies' half, blue on yours, gold trim in between
+    const team = p.z < 0 ? ['#EF4444', '#F97316'] : ['#3B82F6', '#22D3EE'];
+    const flag = new THREE.Group();
+    flag.position.set(pole.position.x, 2.85, pole.position.z);
+    const cloth = new THREE.Mesh(flagGeo, toon(team[i % 2], { side: THREE.DoubleSide }));
+    cloth.position.x = 0.45;
+    const trim = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.08), toon('#FCD34D', { side: THREE.DoubleSide }));
+    trim.position.set(0.45, -0.32, 0.001);
+    flag.add(cloth, trim);
+    flag.rotation.y = Math.atan2(-p.nz, p.nx) + Math.PI;
+    flag.userData.phase = rnd() * 6;
+    g.add(flag);
+    flags.push(flag);
+  });
+
+  const flames: THREE.Object3D[] = [];
+  const flameOuter = new THREE.MeshBasicMaterial({ color: '#FB923C', transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending });
+  const flameInner = new THREE.MeshBasicMaterial({ color: '#FEF08A', transparent: true, opacity: 0.95, depthWrite: false, blending: THREE.AdditiveBlending });
+  path.forEach((p, i) => {
+    if (!tunnelAt.has(i)) return;
+    const tx = -p.nz;
+    const tz = p.nx;
+    for (const sgn of [-1, 1]) {
+      const x = p.x + tx * 0.95 * sgn - p.nx * 0.2;
+      const z = p.z + tz * 0.95 * sgn - p.nz * 0.2;
+      const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.04, 0.5, 6), toon(WOOD_DARK));
+      stick.position.set(x, 2.05, z);
+      g.add(stick);
+      const flame = new THREE.Group();
+      flame.position.set(x, 2.45, z);
+      const outer = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.5, 7), flameOuter);
+      const inner = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.3, 6), flameInner);
+      inner.position.y = -0.05;
+      flame.add(outer, inner);
+      flame.userData.phase = rnd() * 6;
+      g.add(flame);
+      flames.push(flame);
+    }
+  });
+
+  // the lava river: a glowing ribbon winding across the canyon behind the far wall, with dark crust along its banks
+  const lava = new THREE.MeshBasicMaterial({ color: '#FF7A1A', toneMapped: false });
+  const crust: Item[] = [];
+  const pts: THREE.Vector3[] = [];
+  for (let i = 0; i <= 24; i++) {
+    const x = -26 + (i / 24) * 52;
+    pts.push(new THREE.Vector3(x, 0.04, -HZ - 6.5 + Math.sin(i * 0.7) * 2.2));
+  }
+  const curve = new THREE.CatmullRomCurve3(pts);
+  const ribbon = new THREE.Mesh(new THREE.TubeGeometry(curve, 96, 0.9, 6, false), lava);
+  ribbon.scale.y = 0.08;
+  g.add(ribbon);
+  for (let i = 0; i < 60; i++) {
+    const q = curve.getPoint(i / 60);
+    for (const sgn of [-1, 1]) crust.push({ p: [q.x + (rnd() - 0.5) * 0.6, 0.12, q.z + sgn * (1.05 + rnd() * 0.3)], r: rnd() * 6, s: [0.5 + rnd() * 0.5, 0.25, 0.4 + rnd() * 0.3], c: rnd() < 0.5 ? '#3B2A2E' : '#52363A' });
+  }
+  g.add(instanced(facet(new THREE.DodecahedronGeometry(1, 0)), toon('#FFFFFF'), crust));
+
+  // fireflies: little glowing motes of every gem colour, drifting over the court
+  const moteBase: THREE.Vector3[] = [];
+  const motes = new THREE.InstancedMesh(new THREE.SphereGeometry(0.07, 6, 4), new THREE.MeshBasicMaterial({ color: '#FFFFFF', transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending }), 40);
+  for (let i = 0; i < 40; i++) {
+    moteBase.push(new THREE.Vector3((rnd() - 0.5) * HX * 2.2, 1.2 + rnd() * 2.2, (rnd() - 0.5) * HZ * 2.1));
+    motes.setColorAt(i, new THREE.Color(pick(['#FDE68A', '#A7F3D0', '#F5D0FE', '#BAE6FD'])));
+  }
+  if (motes.instanceColor) motes.instanceColor.needsUpdate = true;
+  g.add(motes);
+
   // --- rails ringing the crystal mound
   g.add(railLoop(3.0, 3.4));
 
@@ -236,7 +349,7 @@ export function buildArena(game: Game, groundTex: THREE.Texture): ArenaField {
     g.add(pad);
     return pad;
   });
-  return { group: g, gem, glow, pads };
+  return { group: g, gem, glow, pads, flames, flags, lava, motes: { mesh: motes, base: moteBase } };
 }
 
 /** Two rails on sleepers following an ellipse around the mound. */

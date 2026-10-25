@@ -127,6 +127,12 @@ export const SKINS: Skin[] = [
   { id: 'panda_samurai', species: 'panda', name: 'פנדי סמוראי', price: 80, rarity: 'legendary' },
   { id: 'wolf_neon', species: 'wolf', name: 'וולטי סייבר', price: 80, rarity: 'legendary' },
   { id: 'frog_king', species: 'frog', name: 'קרואק המלך', price: 40, rarity: 'epic' },
+  { id: 'fox_shadow', species: 'fox', name: 'פוקסי הצל', price: 40, rarity: 'epic' },
+  { id: 'shark_lava', species: 'shark', name: 'שארקי הלבה', price: 80, rarity: 'legendary' },
+  { id: 'frog_toxic', species: 'frog', name: 'קרואק הרעיל', price: 40, rarity: 'epic' },
+  { id: 'raven_gold', species: 'raven', name: 'רייבן הזהב', price: 80, rarity: 'legendary' },
+  { id: 'eagle_storm', species: 'eagle', name: 'נשרי הסערה', price: 40, rarity: 'epic' },
+  { id: 'penguin_ember', species: 'penguin', name: 'פינגו הלוהט', price: 40, rarity: 'epic' },
 ];
 export const skinDef = (id?: string) => SKINS.find((k) => k.id === id);
 

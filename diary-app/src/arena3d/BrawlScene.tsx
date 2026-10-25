@@ -22,8 +22,9 @@ const CLIP: Record<ActorAnim, string[]> = {
   special: ['fire'],
   hit: ['hit_to_body_01'],
   death: ['defeat_02'],
-  win: ['victory_celebration'],
+  win: ['dance'],
   jump: ['jump'],
+  dance: ['dance'],
 };
 const SPEED: Partial<Record<ActorAnim, number>> = { run: 1.15, attack: 2.4, hit: 1.6 };
 const LOOPS: ActorAnim[] = ['idle', 'run', 'win'];
@@ -114,12 +115,29 @@ function ActorView({ a, element, onReady }: { a: Actor; element?: string; onRead
   );
 }
 
-/** The crystal mine (see arenaField.ts): the gem turning over its mound, the jump pads pulsing. */
+/** The crystal mine (see arenaField.ts): the gem turning over its mound, the jump pads pulsing, torches flickering,
+ * flags waving, the lava glowing and fireflies drifting. */
 function Field({ game }: { game: Game }) {
   const tex = use(loadTexture(GROUND, 1));
   const field = useMemo(() => buildArena(game, tex), [game, tex]);
+  const tmp = useMemo(() => ({ m: new THREE.Matrix4(), v: new THREE.Vector3() }), []);
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
+    for (const f of field.flames) {
+      const k = f.userData.phase as number;
+      f.scale.set(1 + Math.sin(t * 17 + k) * 0.12, 1 + Math.sin(t * 11 + k * 2) * 0.22, 1 + Math.sin(t * 13 + k) * 0.12);
+    }
+    for (const f of field.flags) f.rotation.z = Math.sin(t * 3 + (f.userData.phase as number)) * 0.12;
+    field.lava.color.setRGB(1, 0.42 + Math.sin(t * 1.7) * 0.08, 0.08);
+    const { mesh, base } = field.motes;
+    base.forEach((b, i) => {
+      tmp.v.set(b.x + Math.sin(t * 0.6 + i) * 0.8, b.y + Math.sin(t * 1.3 + i * 2) * 0.3, b.z + Math.cos(t * 0.5 + i * 3) * 0.8);
+      tmp.m.makeScale(1, 1, 1).setPosition(tmp.v);
+      // each twinkles in and out on its own beat
+      tmp.m.scale(tmp.v.set(1, 1, 1).multiplyScalar(0.6 + 0.5 * Math.max(0, Math.sin(t * 2.2 + i * 1.7))));
+      mesh.setMatrixAt(i, tmp.m);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
     field.gem.position.y = 2.2 + Math.sin(t * 1.6) * 0.12;
     field.gem.rotation.y = t * 0.9;
     field.glow.scale.setScalar(1 + Math.sin(t * 2.4) * 0.08);
@@ -230,6 +248,9 @@ function Director({ game, input, onTick, paused }: { game: Game; input: React.Re
     // the fight waits until the fighters are actually on screen
     if (!paused) step(game, d, input.current);
     input.current.superFire = false;
+    input.current.dash = false;
+    input.current.shield = false;
+    input.current.dance = false;
     const p = game.player;
     // follow the player, but keep the court framed: the far wall and jungle fill the top, never the sky
     const tx = THREE.MathUtils.clamp(p.x, -3.2, 3.2);

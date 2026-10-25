@@ -18,6 +18,14 @@ export const MODELS3D: Record<string, number> = {
   rhino: require('../../assets/sim3d/rhino.glb'),
   shark: require('../../assets/sim3d/shark.glb'),
   wolf: require('../../assets/sim3d/wolf.glb'),
+  // colour-swap skins (tools/3d/scripts/recolor.py): their fighter's model with a recoloured texture
+  dragon_ice: require('../../assets/sim3d/dragon.glb'),
+  fox_shadow: require('../../assets/sim3d/fox.glb'),
+  shark_lava: require('../../assets/sim3d/shark.glb'),
+  frog_toxic: require('../../assets/sim3d/frog.glb'),
+  raven_gold: require('../../assets/sim3d/raven.glb'),
+  eagle_storm: require('../../assets/sim3d/eagle.glb'),
+  penguin_ember: require('../../assets/sim3d/penguin.glb'),
 };
 
 /** Each model's colours, kept as a plain image next to it (phones load these more reliably than textures packed in the .glb). */
@@ -37,4 +45,11 @@ export const TEX3D: Record<string, number> = {
   rhino: require('../../assets/sim3d/rhino.jpg'),
   shark: require('../../assets/sim3d/shark.jpg'),
   wolf: require('../../assets/sim3d/wolf.jpg'),
+  dragon_ice: require('../../assets/sim3d/dragon_ice.jpg'),
+  fox_shadow: require('../../assets/sim3d/fox_shadow.jpg'),
+  shark_lava: require('../../assets/sim3d/shark_lava.jpg'),
+  frog_toxic: require('../../assets/sim3d/frog_toxic.jpg'),
+  raven_gold: require('../../assets/sim3d/raven_gold.jpg'),
+  eagle_storm: require('../../assets/sim3d/eagle_storm.jpg'),
+  penguin_ember: require('../../assets/sim3d/penguin_ember.jpg'),
 };

@@ -306,6 +306,100 @@ function vortex(): Rig {
   };
 }
 
+/** Dash: puffs of dust left behind along the way you shot off, and a few white speed streaks. */
+function dash(): Rig {
+  const root = new THREE.Group();
+  const geo = new THREE.IcosahedronGeometry(0.35, 1);
+  const puffs = Array.from({ length: 8 }, (_, i) => {
+    const m = new THREE.Mesh(geo, glow(i % 2 ? '#E7C9A0' : '#F5E3C8', 0.8, THREE.NormalBlending));
+    root.add(m);
+    return m;
+  });
+  const streakGeo = new THREE.BoxGeometry(0.05, 0.05, 1.6);
+  const streaks = Array.from({ length: 4 }, () => {
+    const m = new THREE.Mesh(streakGeo, glow('#FFFFFF', 0.8));
+    root.add(m);
+    return m;
+  });
+  return {
+    root,
+    update(f) {
+      const k = f.t / f.life;
+      root.position.set(f.x, 0, f.z);
+      root.rotation.y = f.rot;
+      puffs.forEach((m, i) => {
+        // laid out along the dash path (+z ahead), spreading and rising as they fade
+        const along = (i / puffs.length) * 3.2;
+        m.position.set((rnd(i) - 0.5) * 0.6 * (1 + k * 2), 0.3 + k * 0.5, along - k * 0.4);
+        m.scale.setScalar(0.6 + k * 1.3);
+        fade(m, 0.8 * (1 - k));
+      });
+      streaks.forEach((m, i) => {
+        m.position.set((i - 1.5) * 0.35, 0.7 + (i % 2) * 0.35, 1.2 + k * 2);
+        fade(m, 0.8 * (1 - k) * (1 - k));
+      });
+    },
+  };
+}
+
+/** A dance: rainbow sparkles spiral up around the dancer. */
+function notes(): Rig {
+  const root = new THREE.Group();
+  const geo = new THREE.OctahedronGeometry(0.13, 0);
+  const cols = ['#F472B6', '#FDE047', '#4ADE80', '#60A5FA', '#C084FC', '#FB923C'];
+  const bits = Array.from({ length: 18 }, (_, i) => {
+    const m = new THREE.Mesh(geo, glow(cols[i % cols.length]));
+    root.add(m);
+    return m;
+  });
+  return {
+    root,
+    update(f) {
+      root.position.set(f.x, 0, f.z);
+      bits.forEach((m, i) => {
+        const u = ((f.t * 0.7 + i / bits.length) % 1);
+        const a = i * 2.4 + f.t * 3;
+        const r = 0.9 + u * 0.6;
+        m.position.set(Math.cos(a) * r, 0.3 + u * 2.6, Math.sin(a) * r);
+        m.rotation.set(f.t * 5 + i, f.t * 4, 0);
+        m.scale.setScalar(1 + Math.sin(f.t * 10 + i) * 0.3);
+        fade(m, Math.sin(u * Math.PI) * (f.t > f.life - 0.3 ? (f.life - f.t) / 0.3 : 1));
+      });
+    },
+  };
+}
+
+/** The shield: a cyan bubble round the player with a spinning ring at its feet, while it lasts. */
+function shield() {
+  const root = new THREE.Group();
+  const bubble = new THREE.Mesh(new THREE.SphereGeometry(1.1, 20, 14), glow('#67E8F9', 0.25));
+  bubble.position.y = 0.95;
+  bubble.scale.y = 1.15;
+  const rim = new THREE.Mesh(new THREE.SphereGeometry(1.12, 20, 14), new THREE.MeshBasicMaterial({ color: '#CFFAFE', wireframe: true, transparent: true, opacity: 0.25, depthWrite: false }));
+  rim.position.y = 0.95;
+  rim.scale.y = 1.15;
+  const ring = flat(new THREE.Mesh(new THREE.RingGeometry(0.95, 1.15, 6), glow('#22D3EE', 0.8)));
+  ring.position.y = 0.06;
+  root.add(bubble, rim, ring);
+  return {
+    root,
+    update(game: Game) {
+      const left = game.shieldT;
+      root.visible = left > 0 && game.player.alive;
+      if (!root.visible) return;
+      const p = game.player;
+      root.position.set(p.x, p.y, p.z);
+      // flickers as it runs out
+      const k = left < 0.5 && Math.floor(left * 16) % 2 === 0 ? 0.3 : 1;
+      fade(bubble, 0.22 * k + Math.sin(game.t * 6) * 0.04);
+      fade(ring, 0.8 * k);
+      ring.rotation.z = game.t * 2;
+      rim.rotation.y = game.t * 0.8;
+      (rim.material as THREE.MeshBasicMaterial).opacity = 0.25 * k;
+    },
+  };
+}
+
 /** Builds every rig once; `update` lays the game's live big effects onto them each frame. */
 export function buildSuperFx() {
   const group = new THREE.Group();
@@ -318,11 +412,16 @@ export function buildSuperFx() {
     storm: [lightning()],
     shadow: [vortex()],
     rocks: [rocks(9, '#C08457'), rocks(9, '#C08457'), rocks(9, '#C08457'), rocks(9, '#C08457')],
+    dash: [dash(), dash()],
+    notes: [notes()],
   };
   for (const list of Object.values(pools)) for (const r of list) group.add(r.root);
+  const bubble = shield();
+  group.add(bubble.root);
   return {
     group,
     update(game: Game) {
+      bubble.update(game);
       const used: Record<string, number> = {};
       for (const list of Object.values(pools)) for (const r of list) r.root.visible = false;
       for (const f of game.big) {

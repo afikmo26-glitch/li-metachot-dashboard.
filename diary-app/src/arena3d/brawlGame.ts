@@ -5,7 +5,7 @@
  */
 
 export type Team = 0 | 1;
-export type ActorAnim = 'idle' | 'run' | 'attack' | 'special' | 'hit' | 'death' | 'win' | 'jump';
+export type ActorAnim = 'idle' | 'run' | 'attack' | 'special' | 'hit' | 'death' | 'win' | 'jump' | 'dance';
 
 export type Actor = {
   id: number;
@@ -46,7 +46,7 @@ export type Fx = { id: number; kind: 'spark' | 'ring' | 'nova'; x: number; z: nu
  * The big effects (superFx.ts): a super in its element's look, the rune circle under it, and the burst of rocks
  * when someone falls. `rot` aims the fire; `pts` are where the lightning lands.
  */
-export type BigFx = { id: number; kind: 'super' | 'runes' | 'rocks'; element: string; x: number; z: number; rot: number; t: number; life: number; size: number; pts: { x: number; z: number }[] };
+export type BigFx = { id: number; kind: 'super' | 'runes' | 'rocks' | 'dash' | 'notes'; element: string; x: number; z: number; rot: number; t: number; life: number; size: number; pts: { x: number; z: number }[] };
 
 export type Box = { x: number; z: number; w: number; d: number; kind: 'crate' | 'rock' | 'bush' | 'mound' | 'barrel' };
 /** A jump pad: step on it and you're flung to (tx, tz). */
@@ -70,6 +70,12 @@ export type Game = {
   waves: number;
   /** 0..1: fills with hits, the super fires at 1 */
   charge: number;
+  /** seconds until the dash and the shield can be used again, and how long the shield has left */
+  dashCd: number;
+  shieldCd: number;
+  shieldT: number;
+  /** a dash in progress: its direction and the time left */
+  dash?: { dx: number; dz: number; t: number };
   shake: number;
   over: boolean;
   won: boolean;
@@ -77,7 +83,7 @@ export type Game = {
   nextWaveAt: number;
 };
 
-export type Input = { mx: number; mz: number; fire: boolean; superFire: boolean };
+export type Input = { mx: number; mz: number; fire: boolean; superFire: boolean; dash?: boolean; shield?: boolean; dance?: boolean };
 
 export type Spawn = { model: string; name: string; color: string; hp: number; dmg: number; boss?: boolean; element?: string };
 
@@ -128,6 +134,9 @@ export function createGame(player: Spawn, waves: Spawn[][]): Game {
     wave: 0,
     waves: waves.length,
     charge: 0,
+    dashCd: 0,
+    shieldCd: 0,
+    shieldT: 0,
     shake: 0,
     over: false,
     won: false,
@@ -206,8 +215,17 @@ function fire(g: Game, a: Actor, tx: number, tz: number, big = false) {
   setAnim(a, 'attack', 0.32);
 }
 
+export const DASH_CD = 3;
+export const SHIELD_CD = 8;
+const SHIELD_TIME = 2.5;
+
 function hit(g: Game, a: Actor, dmg: number, color: string) {
   if (!a.alive) return;
+  // the shield takes three quarters of every blow
+  if (a === g.player && g.shieldT > 0) {
+    dmg = Math.round(dmg * 0.25);
+    color = '#67E8F9';
+  }
   a.hp = Math.max(0, a.hp - dmg);
   a.flash = 1;
   g.fx.push({ id: nextId++, kind: 'spark', x: a.x, z: a.z, color, t: 0, life: 0.4, size: 1 });
@@ -285,9 +303,34 @@ export function step(g: Game, dt: number, input: Input) {
     a.cooldown = Math.max(0, a.cooldown - dt);
     a.flash = Math.max(0, a.flash - dt * 4);
   }
+  g.dashCd = Math.max(0, g.dashCd - dt);
+  g.shieldCd = Math.max(0, g.shieldCd - dt);
+  g.shieldT = Math.max(0, g.shieldT - dt);
   if (p.alive && !p.jump) {
     const len = Math.hypot(input.mx, input.mz);
-    if (len > 0.15) {
+    // dash: a short burst the way you're steering (or facing), with a puff of dust
+    if (input.dash && g.dashCd <= 0) {
+      const dx = len > 0.15 ? input.mx / len : Math.sin(p.rot);
+      const dz = len > 0.15 ? input.mz / len : Math.cos(p.rot);
+      g.dash = { dx, dz, t: 0.2 };
+      g.dashCd = DASH_CD;
+      p.rot = Math.atan2(dx, dz);
+      bigFx(g, 'dash', p.x, p.z, 0.55, { rot: p.rot });
+    }
+    if (input.shield && g.shieldCd <= 0) {
+      g.shieldT = SHIELD_TIME;
+      g.shieldCd = SHIELD_CD;
+    }
+    if (input.dance && p.busy <= 0) {
+      setAnim(p, 'dance', 2);
+      bigFx(g, 'notes', p.x, p.z, 2);
+    }
+    if (p.anim === 'dance' && len > 0.15) p.busy = 0; // moving ends the dance
+    if (g.dash) {
+      move(g, p, g.dash.dx * 16 * dt, g.dash.dz * 16 * dt);
+      g.dash.t -= dt;
+      if (g.dash.t <= 0) g.dash = undefined;
+    } else if (len > 0.15) {
       const k = Math.min(1, len);
       move(g, p, (input.mx / len) * p.speed * k * dt, (input.mz / len) * p.speed * k * dt);
       if (p.busy <= 0) p.rot = Math.atan2(input.mx, input.mz);

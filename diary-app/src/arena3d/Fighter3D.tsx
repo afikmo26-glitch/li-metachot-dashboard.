@@ -19,7 +19,7 @@ const CLIPS: Record<Pose3, string[]> = {
   special: ['cast_a_spell'],
   hit: ['hit_to_body_01'],
   death: ['defeat_02'],
-  win: ['victory_celebration'],
+  win: ['dance'],
 };
 const LOOP: Pose3[] = ['idle', 'lobby', 'win'];
 /** The special move's body language by element: breathing fire, casting, chopping down. */

@@ -32,6 +32,13 @@ export const CHAR_ART: Record<string, number> = {
   snake: require('../../assets/sim/chars/snake.webp'),
   wolf: require('../../assets/sim/chars/wolf.webp'),
   wolf_neon: require('../../assets/sim/chars/wolf_neon.webp'),
+  // colour-swap skins (tools/3d/scripts/recolor.py)
+  fox_shadow: require('../../assets/sim/chars/fox_shadow.webp'),
+  shark_lava: require('../../assets/sim/chars/shark_lava.webp'),
+  frog_toxic: require('../../assets/sim/chars/frog_toxic.webp'),
+  raven_gold: require('../../assets/sim/chars/raven_gold.webp'),
+  eagle_storm: require('../../assets/sim/chars/eagle_storm.webp'),
+  penguin_ember: require('../../assets/sim/chars/penguin_ember.webp'),
 };
 
 export const SIM_ITEMS: Record<string, number> = {
