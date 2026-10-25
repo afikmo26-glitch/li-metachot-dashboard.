@@ -32,6 +32,8 @@ export type Actor = {
   flash: number;
   alive: boolean;
   boss?: boolean;
+  /** fire, water, nature, earth, storm or shadow: picks the look of the super */
+  element?: string;
   /** height off the ground (only while flying off a jump pad) */
   y: number;
   /** a jump pad flight in progress: from, to, and how far along (0..1) */
@@ -40,6 +42,11 @@ export type Actor = {
 
 export type Shot = { id: number; team: Team; x: number; z: number; vx: number; vz: number; life: number; dmg: number; color: string; big: boolean };
 export type Fx = { id: number; kind: 'spark' | 'ring' | 'nova'; x: number; z: number; color: string; t: number; life: number; size: number };
+/**
+ * The big effects (superFx.ts): a super in its element's look, the rune circle under it, and the burst of rocks
+ * when someone falls. `rot` aims the fire; `pts` are where the lightning lands.
+ */
+export type BigFx = { id: number; kind: 'super' | 'runes' | 'rocks'; element: string; x: number; z: number; rot: number; t: number; life: number; size: number; pts: { x: number; z: number }[] };
 
 export type Box = { x: number; z: number; w: number; d: number; kind: 'crate' | 'rock' | 'bush' | 'mound' | 'barrel' };
 /** A jump pad: step on it and you're flung to (tx, tz). */
@@ -58,6 +65,7 @@ export type Game = {
   enemies: Actor[];
   shots: Shot[];
   fx: Fx[];
+  big: BigFx[];
   wave: number;
   waves: number;
   /** 0..1: fills with hits, the super fires at 1 */
@@ -71,7 +79,7 @@ export type Game = {
 
 export type Input = { mx: number; mz: number; fire: boolean; superFire: boolean };
 
-export type Spawn = { model: string; name: string; color: string; hp: number; dmg: number; boss?: boolean };
+export type Spawn = { model: string; name: string; color: string; hp: number; dmg: number; boss?: boolean; element?: string };
 
 let nextId = 1;
 const SHOT_SPEED = 15;
@@ -116,6 +124,7 @@ export function createGame(player: Spawn, waves: Spawn[][]): Game {
     enemies: [],
     shots: [],
     fx: [],
+    big: [],
     wave: 0,
     waves: waves.length,
     charge: 0,
@@ -151,8 +160,13 @@ function actor(team: Team, s: Spawn, x: number, z: number): Actor {
     flash: 0,
     alive: true,
     boss: s.boss,
+    element: s.element,
     y: 0,
   };
+}
+
+function bigFx(g: Game, kind: BigFx['kind'], x: number, z: number, life: number, more: Partial<BigFx> = {}) {
+  g.big.push({ id: nextId++, kind, element: '', x, z, rot: 0, t: 0, life, size: 1, pts: [], ...more });
 }
 
 function setAnim(a: Actor, anim: ActorAnim, busy = 0) {
@@ -201,6 +215,7 @@ function hit(g: Game, a: Actor, dmg: number, color: string) {
     a.alive = false;
     setAnim(a, 'death', 99);
     g.fx.push({ id: nextId++, kind: 'ring', x: a.x, z: a.z, color, t: 0, life: 0.6, size: 2.2 });
+    bigFx(g, 'rocks', a.x, a.z, 0.9, { size: a.boss ? 1.8 : 1 });
     if (a.team === 1) g.kills++;
   } else if (a.busy <= 0) setAnim(a, 'hit', 0.25);
 }
@@ -287,9 +302,17 @@ export function step(g: Game, dt: number, input: Input) {
     if (input.superFire && g.charge >= 1) {
       g.charge = 0;
       g.shake = 1;
+      // turn to the nearest foe, so the fire pours at someone
+      const { e: aim } = nearest(p, g.enemies);
+      if (aim) p.rot = Math.atan2(aim.x - p.x, aim.z - p.z);
       setAnim(p, 'special', 0.7);
       g.fx.push({ id: nextId++, kind: 'nova', x: p.x, z: p.z, color: p.color, t: 0, life: 0.7, size: 5 });
-      for (const e of g.enemies) if (e.alive && Math.hypot(e.x - p.x, e.z - p.z) < 5) hit(g, e, p.dmg * 3.2, p.color);
+      const inReach = g.enemies.filter((e) => e.alive && Math.hypot(e.x - p.x, e.z - p.z) < 5);
+      // lightning lands on whoever is in reach, or around you when no one is
+      const pts = inReach.length ? inReach.map((e) => ({ x: e.x, z: e.z })) : [0, 1, 2].map((i) => ({ x: p.x + Math.cos(i * 2.1) * 2.5, z: p.z + Math.sin(i * 2.1) * 2.5 }));
+      bigFx(g, 'runes', p.x, p.z, 1.4, { size: 2.6 });
+      bigFx(g, 'super', p.x, p.z, 1.3, { element: p.element ?? 'fire', rot: p.rot, pts });
+      for (const e of inReach) hit(g, e, p.dmg * 3.2, p.color);
     }
   }
 
@@ -353,6 +376,8 @@ export function step(g: Game, dt: number, input: Input) {
   g.shots = g.shots.filter((s) => s.life > 0);
   for (const f of g.fx) f.t += dt;
   g.fx = g.fx.filter((f) => f.t < f.life).slice(-40);
+  for (const f of g.big) f.t += dt;
+  g.big = g.big.filter((f) => f.t < f.life).slice(-10);
 
   if (!p.alive) {
     g.over = true;

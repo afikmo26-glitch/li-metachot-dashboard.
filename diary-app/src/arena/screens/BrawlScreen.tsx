@@ -28,7 +28,7 @@ function plan(me: Fighter): { player: Spawn; waves: Spawn[][] } {
   };
   const boss: Spawn = { model: 'boss_lavadragon', name: 'מלך הלבה', color: '#F97316', hp: Math.round(hp * 1.2), dmg: Math.round(dmg * 0.8), boss: true };
   return {
-    player: { model, name: me.name, color: ELEMENTS[el].color, hp, dmg },
+    player: { model, name: me.name, color: ELEMENTS[el].color, hp, dmg, element: el },
     waves: [[pickFoe(), pickFoe()], [pickFoe(), pickFoe(), pickFoe()], [boss, pickFoe()]],
   };
 }
@@ -77,6 +77,10 @@ export default function BrawlScreen({ me, onEnd }: { me: Fighter; onEnd: (r: Bra
   const setup = useMemo(() => plan(me), [me]);
   // the engine is one mutable object for the whole fight; the HUD re-reads it ten times a second
   const [game] = useState<Game>(() => createGame(setup.player, setup.waves));
+  // web dev builds only: lets the QA scripts (tools/3d/qa) fill the super or switch element mid-fight
+  useEffect(() => {
+    if (__DEV__ && Platform.OS === 'web') (globalThis as { __brawl?: Game }).__brawl = game;
+  }, [game]);
   const input = useRef<Input>({ mx: 0, mz: 0, fire: false, superFire: false });
   const [, setFrame] = useState(0);
   const lastHud = useRef(0);

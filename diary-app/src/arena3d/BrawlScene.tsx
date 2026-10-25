@@ -10,6 +10,7 @@ import { Canvas, useFrame, useThree } from './r3f';
 import { fitFighter } from './fit';
 import { buildArena } from './arenaField';
 import { toonify } from './toon';
+import { buildSuperFx } from './superFx';
 
 const GROUND = require('../../assets/sim3d/ground_arena.jpg');
 
@@ -213,6 +214,13 @@ function Effects({ game }: { game: Game }) {
   );
 }
 
+/** Supers in each element's look, the rune circle and the rock bursts (superFx.ts). */
+function BigEffects({ game }: { game: Game }) {
+  const fx = useMemo(() => buildSuperFx(), []);
+  useFrame(() => fx.update(game));
+  return <primitive object={fx.group} />;
+}
+
 /** Runs the game every frame and follows the player from above. */
 function Director({ game, input, onTick, paused }: { game: Game; input: React.RefObject<Input>; onTick: () => void; paused?: boolean }) {
   const { camera } = useThree();
@@ -255,6 +263,7 @@ export default function BrawlScene({ game, input, element, onTick, onReady, paus
           </Suspense>
         ))}
         <Effects game={game} />
+        <BigEffects game={game} />
       </Canvas>
     </View>
   );
